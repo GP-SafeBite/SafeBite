@@ -52,6 +52,19 @@ dev_dependencies:
 # The following section is specific to Flutter packages.
 flutter:
 
+
+  assets:
+    - Assets/
+
+  fonts:
+    - family: PlusJakartaSans
+      fonts:
+        - asset: Assets/fonts/PlusJakartaSans-Regular.ttf
+        - asset: Assets/fonts/PlusJakartaSans-Medium.ttf
+          weight: 500
+        - asset: Assets/fonts/PlusJakartaSans-Bold.ttf
+          weight: 700
+
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.
