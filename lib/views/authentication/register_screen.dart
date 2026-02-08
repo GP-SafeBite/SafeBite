@@ -1,5 +1,8 @@
+//dfghjkkjhg
 import 'package:flutter/material.dart';
-import '../../widgets/auth_input_field.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:safebite/views/authentication/login_screen.dart';
+import '../../widgets/custom_text_field.dart';
 
 class RegisterScreen extends StatelessWidget {
   const RegisterScreen({super.key});
@@ -25,10 +28,10 @@ class RegisterScreen extends StatelessWidget {
               children: [
                 const SizedBox(height: 48),
 
-                const Text(
+                Text(
                   'إنشاء حساب جديد',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: GoogleFonts.tajawal(
                     fontSize: 26,
                     fontWeight: FontWeight.w700,
                     color: Colors.black,
@@ -37,17 +40,17 @@ class RegisterScreen extends StatelessWidget {
 
                 const SizedBox(height: 32),
 
-                const Text(
+                Text(
                   'الاسم الكامل',
                   textAlign: TextAlign.right,
-                  style: TextStyle(
+                  style: GoogleFonts.tajawal(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                     color: kGrey900,
                   ),
                 ),
                 const SizedBox(height: 8),
-                const AuthInputField(
+                const CustomTextField(
                   hint: 'أحمد',
                   fieldBg: kFieldBg,
                   grey900: kGrey900,
@@ -56,17 +59,17 @@ class RegisterScreen extends StatelessWidget {
 
                 const SizedBox(height: 20),
 
-                const Text(
+                Text(
                   'البريد الإلكتروني',
                   textAlign: TextAlign.right,
-                  style: TextStyle(
+                  style: GoogleFonts.tajawal(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                     color: kGrey900,
                   ),
                 ),
                 const SizedBox(height: 8),
-                const AuthInputField(
+                const CustomTextField(
                   hint: 'aaronramsdale@gmail.com',
                   fieldBg: kFieldBg,
                   grey900: kGrey900,
@@ -75,17 +78,17 @@ class RegisterScreen extends StatelessWidget {
 
                 const SizedBox(height: 20),
 
-                const Text(
+                Text(
                   'كلمة المرور',
                   textAlign: TextAlign.right,
-                  style: TextStyle(
+                  style: GoogleFonts.tajawal(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                     color: kGrey900,
                   ),
                 ),
                 const SizedBox(height: 8),
-                const AuthInputField(
+                const CustomTextField(
                   hint: '************',
                   isPassword: true,
                   fieldBg: kFieldBg,
@@ -106,9 +109,9 @@ class RegisterScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(14),
                       ),
                     ),
-                    child: const Text(
+                    child: Text(
                       'إنشاء حساب',
-                      style: TextStyle(
+                      style: GoogleFonts.tajawal(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                         color: Colors.white,
@@ -119,30 +122,36 @@ class RegisterScreen extends StatelessWidget {
 
                 const SizedBox(height: 18),
 
-                // ✅ يرجع للّوقن
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: TextButton.styleFrom(padding: EdgeInsets.zero),
-                  child: const Text.rich(
-                    TextSpan(
-                      style: TextStyle(
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'لديك حساب بالفعل؟ ',
+                      style: GoogleFonts.tajawal(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                         color: kGrey400,
                       ),
-                      children: [
-                        TextSpan(text: 'لديك حساب بالفعل؟ '),
-                        TextSpan(
-                          text: 'سجّل دخولك',
-                          style: TextStyle(
-                            color: kPrimary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
                     ),
-                    textAlign: TextAlign.center,
-                  ),
+                    InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const LoginScreen(),
+                          ),
+                        );
+                      },
+                      child: Text(
+                        'سجل دخولك',
+                        style: GoogleFonts.tajawal(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: kPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
