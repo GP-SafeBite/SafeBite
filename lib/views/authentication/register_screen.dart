@@ -1,18 +1,55 @@
-//dfghjkkjhg
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:safebite/views/authentication/login_screen.dart';
-import '../../widgets/custom_text_field.dart';
 
-class RegisterScreen extends StatelessWidget {
+import '../../widgets/custom_text_field.dart';
+import 'login_screen.dart';
+import 'verification_screen.dart';
+
+class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
+  @override
+  State<RegisterScreen> createState() => _RegisterScreenState();
+}
+
+class _RegisterScreenState extends State<RegisterScreen> {
+  // Controllers
+  final TextEditingController _fullNameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
+  // Colors
   static const Color kPrimary = Color(0xFFA0C878);
   static const Color kBackground = Color(0xFFFFFDF6);
   static const Color kFieldBg = Color(0xFFFAF6E9);
   static const Color kGrey900 = Color(0xFF818898);
   static const Color kGrey400 = Color(0xFFB3B3B3);
   static const Color kGrey300 = Color(0xFFD1D1D1);
+
+  @override
+  void dispose() {
+    _fullNameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  void _goToVerification() {
+    final email = _emailController.text.trim();
+
+    if (email.isEmpty || !email.contains('@')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('فضلاً أدخل بريد إلكتروني صحيح')),
+      );
+      return;
+    }
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => VerificationScreen(email: email),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,8 +87,9 @@ class RegisterScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                const CustomTextField(
+                CustomTextField(
                   hint: 'أحمد',
+                  controller: _fullNameController,
                   fieldBg: kFieldBg,
                   grey900: kGrey900,
                   grey300: kGrey300,
@@ -69,8 +107,9 @@ class RegisterScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                const CustomTextField(
+                CustomTextField(
                   hint: 'aaronramsdale@gmail.com',
+                  controller: _emailController,
                   fieldBg: kFieldBg,
                   grey900: kGrey900,
                   grey300: kGrey300,
@@ -88,8 +127,9 @@ class RegisterScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                const CustomTextField(
+                CustomTextField(
                   hint: '************',
+                  controller: _passwordController,
                   isPassword: true,
                   fieldBg: kFieldBg,
                   grey900: kGrey900,
@@ -101,7 +141,7 @@ class RegisterScreen extends StatelessWidget {
                 SizedBox(
                   height: 56,
                   child: ElevatedButton(
-                    onPressed: () {},
+                    onPressed: _goToVerification, // ✅ الربط هنا
                     style: ElevatedButton.styleFrom(
                       backgroundColor: kPrimary,
                       elevation: 0,
@@ -137,9 +177,7 @@ class RegisterScreen extends StatelessWidget {
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(
-                            builder: (_) => const LoginScreen(),
-                          ),
+                          MaterialPageRoute(builder: (_) => const LoginScreen()),
                         );
                       },
                       child: Text(

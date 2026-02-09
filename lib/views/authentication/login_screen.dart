@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:safebite/views/authentication/register_screen.dart';
-import '../../widgets/custom_text_field.dart';
 
-class LoginScreen extends StatelessWidget {
+import '../../widgets/custom_text_field.dart';
+import 'register_screen.dart';
+import 'verification_screen.dart';
+
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
   static const Color kPrimary = Color(0xFFA0C878); // A0C878
@@ -14,11 +16,59 @@ class LoginScreen extends StatelessWidget {
   static const Color kGrey300 = Color(0xFFD1D1D1); // D1D1D1
 
   @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  void _goToRegister() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const RegisterScreen()),
+    );
+  }
+
+  void _goToVerification() {
+    final email = _emailController.text.trim();
+
+    if (email.isEmpty || !email.contains('@')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('فضلاً أدخل بريد إلكتروني صحيح')),
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => VerificationScreen(email: email),
+      ),
+    );
+  }
+
+  void _login() {
+    // TODO: هنا تربطين تسجيل الدخول الحقيقي (Supabase/Backend)
+    // حالياً مجرد مكان.
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('تم الضغط على تسجيل الدخول')),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: kBg,
+        backgroundColor: LoginScreen.kBg,
         body: SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -45,15 +95,16 @@ class LoginScreen extends StatelessWidget {
                   style: GoogleFonts.tajawal(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
-                    color: kGrey900,
+                    color: LoginScreen.kGrey900,
                   ),
                 ),
                 const SizedBox(height: 8),
-                const CustomTextField(
+                CustomTextField(
                   hint: 'أدخل بريدك الإلكتروني',
-                  fieldBg: kField,
-                  grey900: kGrey900,
-                  grey300: kGrey300,
+                  controller: _emailController,
+                  fieldBg: LoginScreen.kField,
+                  grey900: LoginScreen.kGrey900,
+                  grey300: LoginScreen.kGrey300,
                 ),
 
                 const SizedBox(height: 20),
@@ -64,26 +115,45 @@ class LoginScreen extends StatelessWidget {
                   style: GoogleFonts.tajawal(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
-                    color: kGrey900,
+                    color: LoginScreen.kGrey900,
                   ),
                 ),
                 const SizedBox(height: 8),
-                const CustomTextField(
+                CustomTextField(
                   hint: 'أدخل كلمة المرور',
+                  controller: _passwordController,
                   isPassword: true,
-                  fieldBg: kField,
-                  grey900: kGrey900,
-                  grey300: kGrey300,
+                  fieldBg: LoginScreen.kField,
+                  grey900: LoginScreen.kGrey900,
+                  grey300: LoginScreen.kGrey300,
                 ),
 
-                const SizedBox(height: 28),
+                const SizedBox(height: 14),
+
+                // ✅ ربط Login → Verification (OTP)
+                Align(
+                  alignment: Alignment.center,
+                  child: TextButton(
+                    onPressed: _goToVerification,
+                    child: Text(
+                      'تسجيل الدخول برمز تحقق',
+                      style: GoogleFonts.tajawal(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: LoginScreen.kPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 10),
 
                 SizedBox(
                   height: 56,
                   child: ElevatedButton(
-                    onPressed: () {},
+                    onPressed: _login,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: kPrimary,
+                      backgroundColor: LoginScreen.kPrimary,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
@@ -110,24 +180,17 @@ class LoginScreen extends StatelessWidget {
                       style: GoogleFonts.tajawal(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
-                        color: kGrey400,
+                        color: LoginScreen.kGrey400,
                       ),
                     ),
                     InkWell(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const RegisterScreen(),
-                          ),
-                        );
-                      },
+                      onTap: _goToRegister,
                       child: Text(
                         'سجل الآن',
                         style: GoogleFonts.tajawal(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color: kPrimary,
+                          color: LoginScreen.kPrimary,
                         ),
                       ),
                     ),

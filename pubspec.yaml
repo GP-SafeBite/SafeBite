@@ -39,8 +39,9 @@ dependencies:
   cupertino_icons: ^1.0.8
   get_x: ^5.0.0
   flutter_svg: ^2.0.9
-  google_fonts: ^6.1.0  # ← أضف هذا السطر
-  
+  google_fonts: ^6.1.0  
+  pin_code_fields: ^8.0.1 
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
