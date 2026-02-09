@@ -1,28 +1,20 @@
 import 'package:flutter/material.dart';
-import 'views/authentication/login_screen.dart';
-import 'views/authentication/register_screen.dart';
+import 'package:get_x/get.dart';
+import 'views/onboarding/splash_screen.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(const SafeBiteApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class SafeBiteApp extends StatelessWidget {
+  const SafeBiteApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return GetMaterialApp(  
       title: 'SafeBite',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        fontFamily: 'PlusJakartaSans',
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFA0C878)),
-      ),
-      initialRoute: '/login', // ✅ يبدأ على اللوقن
-      routes: {
-        '/login': (context) => const LoginScreen(),
-        '/register': (context) => const RegisterScreen(),
-      },
+      home: const SplashScreen(), 
     );
   }
 }
