@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:safebite/views/onboarding/splash_screen.dart';
+import 'package:get_x/get.dart';
+import 'views/onboarding/splash_screen.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(const SafeBiteApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class SafeBiteApp extends StatelessWidget {
+  const SafeBiteApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return GetMaterialApp(  
+      title: 'SafeBite',
       debugShowCheckedModeBanner: false,
-      home: SplashScreen(),
+      home: const SplashScreen(), 
     );
   }
 }
