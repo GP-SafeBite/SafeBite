@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get_x/get.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'views/onboarding/splash_screen.dart';
 
 void main() {
@@ -11,10 +12,13 @@ class SafeBiteApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GetMaterialApp(  
+    return GetMaterialApp(
       title: 'SafeBite',
       debugShowCheckedModeBanner: false,
-      home: const SplashScreen(), 
+      theme: ThemeData(
+        textTheme: GoogleFonts.tajawalTextTheme(),
+      ),
+      home: const SplashScreen(),
     );
   }
 }
