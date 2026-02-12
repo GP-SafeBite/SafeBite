@@ -4,7 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:safebite/views/authentication/login_screen.dart';
 import 'package:safebite/views/authentication/register_screen.dart';
-import 'package:safebite/widgets/custom_button.dart';
+import '../../widgets/custom_button.dart';
 
 class GetStartedScreen extends StatelessWidget {
   const GetStartedScreen({super.key});
@@ -19,7 +19,11 @@ class GetStartedScreen extends StatelessWidget {
           children: [
             const Spacer(),
 
-            SvgPicture.asset('assets/Logo/Logo_LightMode.svg', width: 180),
+            // 🖼️ الشعار
+            SvgPicture.asset(
+              'assets/logo/logo_lightmode.svg',
+              width: 180,
+            ),
 
             const SizedBox(height: 24),
 
@@ -29,7 +33,7 @@ class GetStartedScreen extends StatelessWidget {
                 'لقمة آمنة جاهز لحمايتك — ابدأ الآن أو سجل دخولك',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.tajawal(
-                  fontSize: 16,  // ✅ كبّرت من 14 لـ 16
+                  fontSize: 16,
                   color: const Color(0xFF9E9E9E),
                 ),
               ),
@@ -37,7 +41,6 @@ class GetStartedScreen extends StatelessWidget {
 
             const SizedBox(height: 40),
 
-            /// 🔐 Login
             CustomButton(
               text: 'تسجيل الدخول',
               onTap: () => Get.to(() => const LoginScreen()),
@@ -45,7 +48,6 @@ class GetStartedScreen extends StatelessWidget {
 
             const SizedBox(height: 16),
 
-            /// 📝 Register
             CustomButton(
               text: 'إنشاء حساب',
               onTap: () => Get.to(() => const RegisterScreen()),

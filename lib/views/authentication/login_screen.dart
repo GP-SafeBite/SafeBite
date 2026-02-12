@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:get_x/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../widgets/custom_text_field.dart';
+import '../onboarding/profile_setup_screen.dart';
 import 'register_screen.dart';
 import 'verification_screen.dart';
 
@@ -42,7 +44,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (email.isEmpty || !email.contains('@')) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('فضلاً أدخل بريد إلكتروني صحيح')),
+        SnackBar(
+          content: Text(
+            'فضلاً أدخل بريد إلكتروني صحيح',
+            style: GoogleFonts.tajawal(),
+          ),
+        ),
       );
       return;
     }
@@ -56,11 +63,43 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _login() {
-    // TODO: هنا تربطين تسجيل الدخول الحقيقي (Supabase/Backend)
-    // حالياً مجرد مكان.
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('تم الضغط على تسجيل الدخول')),
-    );
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    // ✅ تحقق من الحقول
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'الرجاء ملء جميع الحقول',
+            style: GoogleFonts.tajawal(),
+          ),
+        ),
+      );
+      return;
+    }
+
+    // TODO: هنا تضيف كود التحقق من البيانات مع الباك اند
+    // مثلاً: Supabase login, Firebase Auth, etc.
+    
+    // ✅ مؤقتاً: نفترض المستخدم جديد (لأول مرة)
+    bool isFirstTimeLogin = true; // TODO: غيّر هذا حسب الباك اند
+    
+    if (isFirstTimeLogin) {
+      // روح لصفحة إعداد الحساسيات
+      Get.off(() => const ProfileSetupScreen());
+    } else {
+      // روح للصفحة الرئيسية
+      // TODO: Get.off(() => const HomeScreen());
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'تم تسجيل الدخول بنجاح!',
+            style: GoogleFonts.tajawal(),
+          ),
+        ),
+      );
+    }
   }
 
   @override
