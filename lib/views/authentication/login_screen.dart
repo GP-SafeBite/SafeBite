@@ -50,6 +50,7 @@ class _LoginScreenState extends State<LoginScreen> {
             style: GoogleFonts.tajawal(),
           ),
         ),
+        const SnackBar(content: Text('فضلاً أدخل بريد إلكتروني صحيح')),
       );
       return;
     }
