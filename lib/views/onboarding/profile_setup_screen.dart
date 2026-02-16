@@ -1,6 +1,8 @@
 // lib/views/onboarding/profile_setup_screen.dart
 import 'package:flutter/material.dart';
+import 'package:get_x/get.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:safebite/views/home/home_screen.dart';
 import '../../widgets/custom_button.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
@@ -171,8 +173,13 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               child: CustomButton(
                 text: 'متابعة',
                 onTap: () {
-                  // TODO: هنا تنتقل للصفحة التالية
+                  // ✅ حفظ الحساسيات المختارة
                   debugPrint('Selected allergies: $_selectedAllergies');
+                  
+                  // TODO: هنا تحفظ الحساسيات في الداتابيس
+                  
+                  // ✅ الانتقال لصفحة الهوم
+                  Get.offAll(() => const HomeScreen());
                 },
               ),
             ),
