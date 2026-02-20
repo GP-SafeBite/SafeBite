@@ -6,6 +6,11 @@ import '../../widgets/product_card.dart';
 import '../history/history_screen.dart';
 import '../educational/articles_list_screen.dart';
 import '../profile/profile_screen.dart';
+import '../scanning/scan_barcode_screen.dart';
+import '../scanning/scan_ingredients_screen.dart';
+
+
+
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -68,21 +73,7 @@ class HomeScreen extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
                   children: [
-                    // مسح المكونات (يمين)
-                    Expanded(
-                      child: AspectRatio(
-                        aspectRatio: 1,
-                        child: _buildScanButton(
-                          title: 'مسح المكونات',
-                          subtitle: 'صورة قائمة المكونات',
-                          onTap: () {
-                            // TODO: navigate to ingredients scanner
-                          },
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    // مسح الباركود (يسار)
+                    // مسح الباركود (يمين في RTL)
                     Expanded(
                       child: AspectRatio(
                         aspectRatio: 1,
@@ -90,7 +81,21 @@ class HomeScreen extends StatelessWidget {
                           title: 'مسح الباركود',
                           subtitle: 'تحقق سريع من المنتج',
                           onTap: () {
-                            // TODO: navigate to barcode scanner
+                            Get.to(() => const ScanBarcodeScreen());
+                          },
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // مسح المكونات (يسار في RTL)
+                    Expanded(
+                      child: AspectRatio(
+                        aspectRatio: 1,
+                        child: _buildScanButton(
+                          title: 'مسح المكونات',
+                          subtitle: 'صورة قائمة المكونات',
+                          onTap: () {
+                            Get.to(() => const ScanIngredientsScreen());
                           },
                         ),
                       ),
@@ -225,14 +230,7 @@ class HomeScreen extends StatelessWidget {
               // ========== كارد المنتج ==========
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: ProductCard(
-                  productName: 'حليب السعودية بالشوكولاتة',
-                  imageUrl: '',
-                  isSafe: false,
-                  onTap: () {
-                    debugPrint('Product card tapped!');
-                  },
-                ),
+                child: _buildLastScanSection(),
               ),
 
               const Spacer(),
@@ -269,6 +267,37 @@ class HomeScreen extends StatelessWidget {
   }
 
   // ========== WIDGETS ==========
+
+  // يمكن تمرير lastProduct من controller لاحقاً
+  // حالياً: null = لا توجد فحوصات، وإلا يعرض الكارد
+  static const _lastProductName = 'حليب السعودية بالشوكولاتة';
+  static const bool? _lastProductSafe = false; // null = لا توجد فحوصات بعد
+
+  Widget _buildLastScanSection() {
+    if (_lastProductSafe == null) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Center(
+          child: Text(
+            'لا توجد فحوصات بعد!',
+            style: GoogleFonts.tajawal(
+              fontSize: 14,
+              color: kGrey900,
+            ),
+          ),
+        ),
+      );
+    }
+    return ProductCard(
+      productName: _lastProductName,
+      imageUrl: '',
+      isSafe: _lastProductSafe!,
+      onTap: () {
+        debugPrint('Product card tapped!');
+      },
+    );
+  }
 
   Widget _buildScanButton({
     required String title,

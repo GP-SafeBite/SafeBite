@@ -50,7 +50,6 @@ class _LoginScreenState extends State<LoginScreen> {
             style: GoogleFonts.tajawal(),
           ),
         ),
-        const SnackBar(content: Text('فضلاً أدخل بريد إلكتروني صحيح')),
       );
       return;
     }
@@ -82,10 +81,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
     // TODO: هنا تضيف كود التحقق من البيانات مع الباك اند
     // مثلاً: Supabase login, Firebase Auth, etc.
-    
+
     // ✅ مؤقتاً: نفترض المستخدم جديد (لأول مرة)
     bool isFirstTimeLogin = true; // TODO: غيّر هذا حسب الباك اند
-    
+
     if (isFirstTimeLogin) {
       // روح لصفحة إعداد الحساسيات
       Get.off(() => const ProfileSetupScreen());
