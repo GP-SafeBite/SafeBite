@@ -1,6 +1,6 @@
 // lib/app/modules/splash/splash_view.dart
 import 'package:flutter/material.dart';
-import 'package:get_x/get.dart';
+import 'package:get/get.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:safebite/views/onboarding/get_started_screen.dart';
 
@@ -29,7 +29,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
       body: Center(
         child: SvgPicture.asset(
-          'assets/logo/logo_lightmode.svg',
+          'Assets/Logo/Logo_LightMode.svg',
           width: 250,
           height: 325,
         ),

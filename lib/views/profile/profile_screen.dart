@@ -1,6 +1,6 @@
 // lib/views/profile/profile_screen.dart
 import 'package:flutter/material.dart';
-import 'package:get_x/get.dart';
+import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:safebite/views/home/home_screen.dart';
 import '../history/history_screen.dart';

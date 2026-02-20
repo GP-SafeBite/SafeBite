@@ -29,15 +29,13 @@ environment:
 # versions available, run `flutter pub outdated`.
 dependencies:
   flutter:
-    sdk: flutter
- 
-  
-
-
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
+    sdk: flutter               # ✅ only this is nested under flutter
+  supabase_flutter: ^2.3.0    # ✅ these are at the same level as flutter
+  sqflite: ^2.3.0
+  path: ^1.9.0
+  shared_preferences: ^2.2.0
   cupertino_icons: ^1.0.8
-  get_x: ^5.0.0
+  get: ^4.6.6        # ← changed from get_x: ^5.0.0
   flutter_svg: ^2.0.9
   google_fonts: ^6.1.0  # ← أضف هذا السطر
   
@@ -58,9 +56,9 @@ dev_dependencies:
 # The following section is specific to Flutter packages.
 flutter:
   assets:
-    - assets/logo/
-    - assets/allergies14/
-    - assets/allergies14/milk.png
+    - Assets/Logo/
+    - Assets/allergies14/
+    - Assets/allergies14/milk.png
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.
