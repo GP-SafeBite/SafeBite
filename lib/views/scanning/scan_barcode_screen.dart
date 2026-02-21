@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:get_x/get.dart';
 import 'safe_result_screen.dart';
 import 'unsafe_result_screen.dart';
 
@@ -29,7 +30,6 @@ class _ScanBarcodeScreenState extends State<ScanBarcodeScreen> {
 
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) {
-        // ❌ حالة غير آمن:
         setState(() {
           _isScanning = false;
           _scannedBarcode = '6200010102346';
@@ -39,22 +39,12 @@ class _ScanBarcodeScreenState extends State<ScanBarcodeScreen> {
         });
 
         if (_isSafe == true) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => SafeResultScreen(productName: _productName!),
-            ),
-          );
+          Get.off(() => SafeResultScreen(productName: _productName!)); // ✅ Get.off
         } else {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => UnsafeResultScreen(
-                productName: _productName!,
-                detectedAllergens: _allergens ?? [],
-              ),
-            ),
-          );
+          Get.off(() => UnsafeResultScreen( // ✅ Get.off
+            productName: _productName!,
+            detectedAllergens: _allergens ?? [],
+          ));
         }
       }
     });
@@ -75,7 +65,7 @@ class _ScanBarcodeScreenState extends State<ScanBarcodeScreen> {
                 child: Row(
                   children: [
                     GestureDetector(
-                      onTap: () => Navigator.pop(context),
+                      onTap: () => Get.back(),
                       child: Container(
                         width: 40,
                         height: 40,
