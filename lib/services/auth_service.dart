@@ -17,6 +17,12 @@ class AuthResult {
 class AuthService {
   static final _supabase = Supabase.instance.client;
 
+  // 🔴 added: global debounce flags to prevent duplicate API calls
+  static bool _isRegistering = false;
+  static bool _isVerifying = false;
+  static bool _isLoggingIn = false;
+  static bool _isSendingOTP = false;
+
   // ──────────────────────────────────────────────
   // REGISTER
   // Creates account in Supabase Auth
@@ -28,90 +34,82 @@ class AuthService {
     required String email,
     required String password,
   }) async {
+    // 🔴 added: prevent duplicate signUp() calls which invalidate OTP
+    if (_isRegistering) {
+      return AuthResult(success: false, message: 'جاري المعالجة، انتظر لحظة...');
+    }
+    _isRegistering = true;
+
     try {
-      // Validate inputs (requirement 1.2, 1.3, 1.5 from your document)
       if (name.trim().isEmpty) {
-        return AuthResult(
-          success: false,
-          message: 'Please enter your name',
-        );
+        return AuthResult(success: false, message: 'Please enter your name');
       }
       if (!email.contains('@') || !email.contains('.')) {
-        return AuthResult(
-          success: false,
-          message: 'Please enter a valid email',
-        );
+        return AuthResult(success: false, message: 'Please enter a valid email');
       }
       if (password.length < 8) {
         return AuthResult(
-          success: false,
-          message: 'Password must be at least 8 characters',
-        );
+            success: false, message: 'Password must be at least 8 characters');
       }
 
-      // Create account in Supabase Auth
-      // This also fires the trigger → creates row in your User table
-      // Supabase automatically sends 6-digit OTP to email
       final response = await _supabase.auth.signUp(
         email: email,
         password: password,
-        data: {'name': name}, // this goes into raw_user_meta_data in auth.users
-                               // the trigger reads it and puts it in User.name
+        data: {'name': name},
       );
 
       if (response.user == null) {
         return AuthResult(
-          success: false,
-          message: 'Registration failed. Please try again.',
-        );
+            success: false, message: 'Registration failed. Please try again.');
       }
 
       // Do NOT save to SQLite yet — wait until OTP is verified
       return AuthResult(
         success: true,
         message: 'A 6-digit verification code has been sent to $email',
-        data: {
-          'email': email,
-          'name': name,
-        },
+        data: {'email': email, 'name': name},
       );
 
     } on AuthException catch (e) {
       if (e.message.contains('already registered')) {
         return AuthResult(
-          success: false,
-          message: 'This email is already registered. Please login.',
-        );
+            success: false,
+            message: 'This email is already registered. Please login.');
       }
       return AuthResult(success: false, message: e.message);
 
     } catch (e) {
       return AuthResult(
-        success: false,
-        message: 'Connection error. Please check your internet.',
-      );
+          success: false,
+          message: 'Connection error. Please check your internet.');
+
+    } finally {
+      // 🔴 added: always release the lock even if an error occurs
+      _isRegistering = false;
     }
   }
 
   // ──────────────────────────────────────────────
-  // VERIFY OTP
+  // VERIFY OTP (signup)
   // User enters the 6-digit code from email
   // Only after this succeeds do we save to SQLite
-  // This matches Figure 9 in your document (enter verification code)
   // ──────────────────────────────────────────────
   static Future<AuthResult> verifyOTP({
     required String email,
     required String otpCode,
   }) async {
+    // 🔴 added: prevent double-tap on verify button sending two verify requests
+    if (_isVerifying) {
+      return AuthResult(success: false, message: 'جاري التحقق...');
+    }
+    _isVerifying = true;
+
     try {
       if (otpCode.trim().length != 6) {
-        return AuthResult(
-          success: false,
-          message: 'Please enter all 6 digits',
-        );
+        return AuthResult(success: false, message: 'Please enter all 6 digits');
       }
 
-      // Send OTP to Supabase to verify
+      // 🔴 fixed: was OtpType.email — must be OtpType.signup to match signUp() flow
       final response = await _supabase.auth.verifyOTP(
         email: email,
         token: otpCode,
@@ -120,12 +118,10 @@ class AuthService {
 
       if (response.user == null) {
         return AuthResult(
-          success: false,
-          message: 'Invalid or expired code. Please try again.',
-        );
+            success: false,
+            message: 'Invalid or expired code. Please try again.');
       }
 
-      // OTP verified — now save user locally to SQLite
       final user = response.user!;
       final name = user.userMetadata?['name'] ?? '';
 
@@ -138,73 +134,69 @@ class AuthService {
       return AuthResult(
         success: true,
         message: 'Account verified successfully',
-        data: {
-          'userId': user.id,
-          'email': email,
-          'name': name,
-        },
+        data: {'userId': user.id, 'email': email, 'name': name},
       );
 
     } on AuthException catch (e) {
-      if (e.message.contains('expired')) {
+      // 🔴 note: "token has expired or is invalid" from Supabase logs maps here
+      if (e.message.contains('expired') || e.message.contains('invalid')) {
         return AuthResult(
-          success: false,
-          message: 'Code has expired. Please request a new one.',
-        );
+            success: false,
+            message: 'Code has expired. Please request a new one.');
       }
-      return AuthResult(
-        success: false,
-        message: 'Invalid code. Please try again.',
-      );
+      return AuthResult(success: false, message: 'Invalid code. Please try again.');
 
     } catch (e) {
       return AuthResult(
-        success: false,
-        message: 'Connection error. Please check your internet.',
-      );
+          success: false,
+          message: 'Connection error. Please check your internet.');
+
+    } finally {
+      // 🔴 added: always release the lock
+      _isVerifying = false;
     }
   }
 
   // ──────────────────────────────────────────────
-  // RESEND OTP
+  // RESEND OTP (signup)
   // User didn't receive code or it expired
   // ──────────────────────────────────────────────
   static Future<AuthResult> resendOTP({
     required String email,
   }) async {
     try {
+      // 🔴 confirmed: OtpType.signup matches verifyOTP above — correct
       await _supabase.auth.resend(
         type: OtpType.signup,
         email: email,
       );
       return AuthResult(
-        success: true,
-        message: 'A new code has been sent to $email',
-      );
+          success: true, message: 'A new code has been sent to $email');
 
     } catch (e) {
       return AuthResult(
-        success: false,
-        message: 'Could not resend code. Please try again.',
-      );
+          success: false, message: 'Could not resend code. Please try again.');
     }
   }
 
   // ──────────────────────────────────────────────
-  // LOGIN
-  // For existing verified users
-  // Matches Figure 5 and 6 in your document (login screens)
+  // LOGIN (email + password)
   // ──────────────────────────────────────────────
   static Future<AuthResult> login({
     required String email,
     required String password,
   }) async {
+    // 🔴 added: prevent duplicate login calls
+    if (_isLoggingIn) {
+      return AuthResult(success: false, message: 'جاري تسجيل الدخول...');
+    }
+    _isLoggingIn = true;
+
     try {
       if (email.trim().isEmpty || password.isEmpty) {
         return AuthResult(
-          success: false,
-          message: 'Please enter your email and password',
-        );
+            success: false,
+            message: 'Please enter your email and password');
       }
 
       final response = await _supabase.auth.signInWithPassword(
@@ -219,7 +211,6 @@ class AuthService {
       final user = response.user!;
       final name = user.userMetadata?['name'] ?? '';
 
-      // Save to SQLite so app remembers login across sessions
       await LocalDB.saveUser(
         userId: user.id,
         email: email,
@@ -229,38 +220,123 @@ class AuthService {
       return AuthResult(
         success: true,
         message: 'Welcome back!',
-        data: {
-          'userId': user.id,
-          'email': email,
-          'name': name,
-        },
+        data: {'userId': user.id, 'email': email, 'name': name},
       );
 
     } on AuthException catch (e) {
       if (e.message.contains('Invalid login credentials')) {
-        return AuthResult(
-          success: false,
-          message: 'Wrong email or password',
-        );
+        return AuthResult(success: false, message: 'Wrong email or password');
       }
-      // User registered but never verified OTP
       if (e.message.contains('Email not confirmed')) {
         return AuthResult(
           success: false,
           message: 'Please verify your email first',
-          data: {
-            'needsVerification': true,
-            'email': email,
-          },
+          data: {'needsVerification': true, 'email': email},
         );
       }
       return AuthResult(success: false, message: e.message);
 
     } catch (e) {
       return AuthResult(
-        success: false,
-        message: 'Connection error. Please check your internet.',
+          success: false,
+          message: 'Connection error. Please check your internet.');
+
+    } finally {
+      // 🔴 added: always release the lock
+      _isLoggingIn = false;
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  // SEND LOGIN OTP (passwordless login)
+  // ──────────────────────────────────────────────
+  static Future<AuthResult> sendLoginOTP({
+    required String email,
+  }) async {
+    // 🔴 added: prevent duplicate OTP send calls
+    if (_isSendingOTP) {
+      return AuthResult(success: false, message: 'جاري الإرسال...');
+    }
+    _isSendingOTP = true;
+
+    try {
+      if (email.trim().isEmpty) {
+        return AuthResult(
+            success: false, message: 'الرجاء إدخال البريد الإلكتروني');
+      }
+
+      await _supabase.auth.signInWithOtp(
+        email: email,
+        shouldCreateUser: false, // don't create new account
       );
+
+      return AuthResult(
+          success: true, message: 'تم إرسال رمز التحقق إلى $email');
+
+    } on AuthException catch (e) {
+      if (e.message.contains('not found')) {
+        return AuthResult(
+            success: false, message: 'البريد الإلكتروني غير مسجل');
+      }
+      return AuthResult(success: false, message: e.message);
+
+    } catch (e) {
+      return AuthResult(
+          success: false, message: 'خطأ في الاتصال. تحقق من الإنترنت');
+
+    } finally {
+      // 🔴 added: always release the lock
+      _isSendingOTP = false;
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  // VERIFY LOGIN OTP (passwordless login)
+  // ──────────────────────────────────────────────
+  static Future<AuthResult> verifyLoginOTP({
+    required String email,
+    required String otpCode,
+  }) async {
+    try {
+      if (otpCode.trim().length != 6) {
+        return AuthResult(
+            success: false, message: 'الرجاء إدخال الرمز كاملاً');
+      }
+
+      // 🔴 confirmed: OtpType.email is correct for signInWithOtp() flow
+      // (magiclink also works but email is more explicit for 6-digit OTP)
+      final response = await _supabase.auth.verifyOTP(
+        email: email,
+        token: otpCode,
+        type: OtpType.email,
+      );
+
+      if (response.user == null) {
+        return AuthResult(
+            success: false, message: 'رمز غير صحيح أو منتهي الصلاحية');
+      }
+
+      final user = response.user!;
+      final name = user.userMetadata?['name'] ?? '';
+
+      await LocalDB.saveUser(
+        userId: user.id,
+        email: email,
+        name: name,
+      );
+
+      return AuthResult(
+        success: true,
+        message: 'تم تسجيل الدخول بنجاح',
+        data: {'userId': user.id, 'email': email, 'name': name},
+      );
+
+    } on AuthException catch (e) {
+      return AuthResult(success: false, message: 'رمز غير صحيح. حاول مجدداً');
+
+    } catch (e) {
+      return AuthResult(
+          success: false, message: 'خطأ في الاتصال. تحقق من الإنترنت');
     }
   }
 
@@ -271,7 +347,7 @@ class AuthService {
   static Future<AuthResult> logout() async {
     try {
       await _supabase.auth.signOut();
-      await LocalDB.clearUser(); // clears user + allergies + scan history
+      await LocalDB.clearUser();
       return AuthResult(success: true, message: 'Logged out successfully');
 
     } catch (e) {
@@ -282,19 +358,16 @@ class AuthService {
   // ──────────────────────────────────────────────
   // IS LOGGED IN
   // Used by splash screen to decide where to go
-  // Checks Supabase session first, then SQLite fallback
   // ──────────────────────────────────────────────
   static Future<bool> isLoggedIn() async {
     final session = _supabase.auth.currentSession;
     if (session != null) return true;
-
     final localUser = await LocalDB.getUser();
     return localUser != null;
   }
 
   // ──────────────────────────────────────────────
   // GET CURRENT USER
-  // Returns local user data without hitting Supabase
   // ──────────────────────────────────────────────
   static Future<Map<String, dynamic>?> getCurrentUser() async {
     return await LocalDB.getUser();

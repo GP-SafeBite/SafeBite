@@ -4,12 +4,19 @@ import 'package:get/get.dart'; // 🔴 added
 
 import '../../services/auth_service.dart'; // 🔴 added
 import '../../widgets/custom_button.dart';
+import '../home/home_screen.dart'; // 🔴 added
 import '../onboarding/profile_setup_screen.dart'; // 🔴 added
 import 'login_screen.dart';
 
 class VerificationScreen extends StatefulWidget {
   final String email;
-  const VerificationScreen({super.key, required this.email});
+  final bool isLoginMode; // 🔴 added
+
+  const VerificationScreen({
+    super.key,
+    required this.email,
+    this.isLoginMode = false, // 🔴 added: default is signup
+  });
 
   @override
   State<VerificationScreen> createState() => _VerificationScreenState();
@@ -61,7 +68,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
     if (value.length > 1) {
       _controllers[index].text = value.substring(value.length - 1);
       _controllers[index].selection =
-        TextSelection.fromPosition(TextPosition(offset: 1));
+          TextSelection.fromPosition(const TextPosition(offset: 1));
     }
     if (_controllers[index].text.isNotEmpty && index < 5) {
       _nodes[index + 1].requestFocus();
@@ -71,12 +78,13 @@ class _VerificationScreenState extends State<VerificationScreen> {
     }
   }
 
-  // 🔴 changed: now calls AuthService.resendOTP() instead of TODO
+  // 🔴 changed: resends correct OTP type based on login or signup
   Future<void> _resendCode() async {
     if (_secondsRemaining > 0) return;
 
-    // 🔴 added: call AuthService
-    final result = await AuthService.resendOTP(email: widget.email);
+    final result = widget.isLoginMode
+        ? await AuthService.sendLoginOTP(email: widget.email)
+        : await AuthService.resendOTP(email: widget.email);
 
     _startTimer();
     if (!mounted) return;
@@ -85,7 +93,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
     );
   }
 
-  // 🔴 changed: now calls AuthService.verifyOTP() instead of TODO
+  // 🔴 changed: verifies correct OTP type based on login or signup
   Future<void> _verifyCode() async {
     if (_otpCode.length != 6) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -101,18 +109,29 @@ class _VerificationScreenState extends State<VerificationScreen> {
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
 
-    // 🔴 added: call AuthService instead of TODO
-    final result = await AuthService.verifyOTP(
-      email: widget.email,
-      otpCode: _otpCode,
-    );
+    // 🔴 added: call correct service based on mode
+    final result = widget.isLoginMode
+        ? await AuthService.verifyLoginOTP(
+            email: widget.email,
+            otpCode: _otpCode,
+          )
+        : await AuthService.verifyOTP(
+            email: widget.email,
+            otpCode: _otpCode,
+          );
 
     // 🔴 added: hide loading spinner
     if (mounted) Navigator.of(context).pop();
     if (!mounted) return;
 
     if (result.success) {
-      _showSuccessDialog();
+      if (widget.isLoginMode) {
+        // 🔴 login OTP success → go to Home
+        Get.offAll(() => const HomeScreen());
+      } else {
+        // 🔴 signup OTP success → show success dialog
+        _showSuccessDialog();
+      }
     } else {
       // 🔴 added: show error from AuthService
       ScaffoldMessenger.of(context).showSnackBar(
@@ -160,8 +179,8 @@ class _VerificationScreenState extends State<VerificationScreen> {
                 const Text(
                   'تم تأكيد البريد الإلكتروني',
                   textAlign: TextAlign.center,
-                  style:
-                      TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                  style: TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 10),
                 const Text(
@@ -177,8 +196,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                   width: double.infinity,
                   child: CustomButton(
                     text: 'تسجيل الدخول الآن',
-                    // 🔴 changed: goes to ProfileSetupScreen on first registration
-                    // not LoginScreen — user is already logged in after OTP
+                    // 🔴 changed: goes to ProfileSetupScreen after signup
                     onTap: () {
                       Navigator.of(context).pop();
                       Get.offAll(() => const ProfileSetupScreen());

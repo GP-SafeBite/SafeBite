@@ -78,6 +78,7 @@ class LocalDB {
       'name': name,
       'created_at': DateTime.now().toIso8601String(),
     });
+    
   }
 
   static Future<Map<String, dynamic>?> getUser() async {

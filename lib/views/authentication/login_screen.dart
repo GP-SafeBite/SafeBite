@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../services/auth_service.dart'; // 🔴 added
 import '../../widgets/custom_text_field.dart';
+import '../home/home_screen.dart'; // 🔴 added
 import '../onboarding/profile_setup_screen.dart';
 import 'register_screen.dart';
 import 'verification_screen.dart';
-import '../../services/auth_service.dart'; // 🔴 added
-import '../home/home_screen.dart'; // 🔴 added
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -41,14 +41,54 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // 🔴 fixed: removed duplicate SnackBar, simplified function
-  void _goToVerification() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => VerificationScreen(email: _emailController.text.trim()),
-      ),
+  // 🔴 changed: sends login OTP then goes to verification screen
+  void _goToVerification() async {
+    final email = _emailController.text.trim();
+
+    if (email.isEmpty || !email.contains('@')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'الرجاء إدخال البريد الإلكتروني أولاً',
+            style: GoogleFonts.tajawal(),
+          ),
+        ),
+      );
+      return;
+    }
+
+    // 🔴 added: show loading spinner
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
     );
+
+    // 🔴 added: send login OTP to email
+    final result = await AuthService.sendLoginOTP(email: email);
+
+    // 🔴 added: hide loading spinner
+    if (mounted) Navigator.of(context).pop();
+    if (!mounted) return;
+
+    if (result.success) {
+      // 🔴 added: go to OTP screen in login mode
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => VerificationScreen(
+            email: email,
+            isLoginMode: true, // 🔴 tells screen this is login not signup
+          ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.message, style: GoogleFonts.tajawal()),
+        ),
+      );
+    }
   }
 
   // 🔴 changed: now async and calls AuthService.login()
@@ -59,13 +99,16 @@ class _LoginScreenState extends State<LoginScreen> {
     if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('الرجاء ملء جميع الحقول', style: GoogleFonts.tajawal()),
+          content: Text(
+            'الرجاء ملء جميع الحقول',
+            style: GoogleFonts.tajawal(),
+          ),
         ),
       );
       return;
     }
 
-    // 🔴 added: show loading spinner while waiting
+    // 🔴 added: show loading spinner
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -87,7 +130,7 @@ class _LoginScreenState extends State<LoginScreen> {
       Get.offAll(() => const HomeScreen());
     } else if (result.data != null &&
         result.data['needsVerification'] == true) {
-      // 🔴 added: user registered but never verified OTP
+      // 🔴 added: registered but never verified OTP
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -95,7 +138,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       );
     } else {
-      // 🔴 added: show error message from AuthService
+      // 🔴 added: show error from AuthService
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(result.message, style: GoogleFonts.tajawal()),
@@ -117,7 +160,6 @@ class _LoginScreenState extends State<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 48),
-
                 Text(
                   'مرحباً بعودتك! 👋',
                   textAlign: TextAlign.center,
@@ -127,9 +169,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     color: Colors.black,
                   ),
                 ),
-
                 const SizedBox(height: 40),
-
                 Text(
                   'البريد الإلكتروني',
                   textAlign: TextAlign.right,
@@ -147,9 +187,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   grey900: LoginScreen.kGrey900,
                   grey300: LoginScreen.kGrey300,
                 ),
-
                 const SizedBox(height: 20),
-
                 Text(
                   'كلمة المرور',
                   textAlign: TextAlign.right,
@@ -168,9 +206,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   grey900: LoginScreen.kGrey900,
                   grey300: LoginScreen.kGrey300,
                 ),
-
                 const SizedBox(height: 14),
-
                 Align(
                   alignment: Alignment.center,
                   child: TextButton(
@@ -185,9 +221,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 10),
-
                 SizedBox(
                   height: 56,
                   child: ElevatedButton(
@@ -209,9 +243,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 18),
-
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [

@@ -17,6 +17,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _fullNameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  bool _isLoading = false; // ✅ added
 
   static const Color kPrimary = Color(0xFFA0C878);
   static const Color kBackground = Color(0xFFFFFDF6);
@@ -35,9 +36,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   // 🔴 changed: now async and calls AuthService.register()
   void _goToVerification() async {
+    if (_isLoading) return; // ✅ added
+
     final name = _fullNameController.text.trim();
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
+
+    setState(() => _isLoading = true); // ✅ added
 
     // 🔴 added: show loading spinner while waiting
     showDialog(
@@ -56,6 +61,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     // 🔴 added: hide loading spinner
     if (mounted) Navigator.of(context).pop();
     if (!mounted) return;
+
+    setState(() => _isLoading = false); // ✅ added
 
     if (result.success) {
       // 🔴 added: go to OTP screen only if registration succeeded
@@ -165,7 +172,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 SizedBox(
                   height: 56,
                   child: ElevatedButton(
-                    onPressed: _goToVerification,
+                    onPressed: _isLoading ? null : _goToVerification, // ✅ changed
                     style: ElevatedButton.styleFrom(
                       backgroundColor: kPrimary,
                       elevation: 0,
