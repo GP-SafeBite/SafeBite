@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:get_x/get.dart';
 import 'safe_result_screen.dart';
 import 'unsafe_result_screen.dart';
 
@@ -29,14 +30,9 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
           _isScanning = false;
         });
         
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => SafeResultScreen(
-              productName: 'منتج تجريبي',
-            ),
-          ),
-        );
+        Get.off(() => SafeResultScreen( // ✅ Get.off
+          productName: 'منتج تجريبي',
+        ));
       }
     });
   }
@@ -56,7 +52,7 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
                 child: Row(
                   children: [
                     GestureDetector(
-                      onTap: () => Navigator.pop(context),
+                      onTap: () => Get.back(),
                       child: Container(
                         width: 40,
                         height: 40,
