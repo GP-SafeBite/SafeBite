@@ -1,6 +1,6 @@
 // lib/views/profile/edit_profile_screen.dart
 import 'package:flutter/material.dart';
-import 'package:get_x/get.dart';
+import 'package:get/get.dart'; // ✅ correct
 import 'package:google_fonts/google_fonts.dart';
 import '../../widgets/custom_button.dart';
 
