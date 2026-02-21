@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:get_x/get.dart';
+import 'package:get/get.dart'; // ✅ correct
 import 'safe_result_screen.dart';
 import 'unsafe_result_screen.dart';
 
