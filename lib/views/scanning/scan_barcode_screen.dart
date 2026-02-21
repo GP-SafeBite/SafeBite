@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-// ✏️ تم إضافة هذين الـ import للربط مع شاشتي النتيجة
+import 'package:google_fonts/google_fonts.dart';
 import 'safe_result_screen.dart';
 import 'unsafe_result_screen.dart';
 
@@ -11,6 +11,10 @@ class ScanBarcodeScreen extends StatefulWidget {
 }
 
 class _ScanBarcodeScreenState extends State<ScanBarcodeScreen> {
+  static const Color kPrimary = Color(0xFF9CCB7A);
+  static const Color kBackground = Color(0xFFFFFDF6);
+  static const Color kGrey900 = Color(0xFF818898);
+
   bool _isFlashOn = false;
   bool _isScanning = false;
   String? _scannedBarcode;
@@ -25,17 +29,6 @@ class _ScanBarcodeScreenState extends State<ScanBarcodeScreen> {
 
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) {
-        // ✏️ اختر الحالة اللي تريد تختبرها — فعّل واحدة وعلّق على الثانية
-
-        // ✅ حالة آمن:
-        // setState(() {
-        //   _isScanning = false;
-        //   _scannedBarcode = '7622201765286';
-        //   _productName = 'أوريو OREO';
-        //   _isSafe = true;
-        //   _allergens = [];
-        // });
-
         // ❌ حالة غير آمن:
         setState(() {
           _isScanning = false;
@@ -45,8 +38,6 @@ class _ScanBarcodeScreenState extends State<ScanBarcodeScreen> {
           _allergens = ['الحليب'];
         });
 
-        // ✏️ تم إضافة التنقل التلقائي بناءً على نتيجة الفحص
-        // آمن → SafeResultScreen | غير آمن → UnsafeResultScreen
         if (_isSafe == true) {
           Navigator.push(
             context,
@@ -69,164 +60,186 @@ class _ScanBarcodeScreenState extends State<ScanBarcodeScreen> {
     });
   }
 
-  void _reset() {
-    setState(() {
-      _scannedBarcode = null;
-      _productName = null;
-      _isSafe = null;
-      _allergens = null;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'مسح الباركود',
-          style: TextStyle(
-            color: Colors.black,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        centerTitle: true,
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            flex: 3,
-            child: Container(
-              margin: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.black,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.black87,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  if (_isScanning)
-                    const CircularProgressIndicator(color: Colors.white)
-                  else if (_scannedBarcode == null)
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.camera_alt_outlined,
-                          size: 48,
-                          color: Colors.white.withOpacity(0.7),
-                        ),
-                        const SizedBox(height: 8),
-                        _buildScanFrame(),
-                      ],
-                    )
-                  else
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: kBackground,
+        body: SafeArea(
+          child: Column(
+            children: [
+              // ========== HEADER ==========
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
                       child: Container(
-                        color: Colors.blueAccent.withOpacity(0.3),
-                        child: const Center(
-                          child: Icon(Icons.qr_code, size: 64, color: Colors.white),
+                        width: 40,
+                        height: 40,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFFAF6E9),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.arrow_back,
+                          color: Colors.black,
+                          size: 20,
                         ),
                       ),
                     ),
-                ],
-              ),
-            ),
-          ),
-
-          Expanded(
-            flex: 2,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (_scannedBarcode == null) ...[
+                    const Spacer(),
                     Text(
-                      'ضع الباركود داخل الإطار',
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 14,
+                      'مسح الباركود',
+                      style: GoogleFonts.tajawal(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black,
                       ),
-                      textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    const Spacer(),
+                    const SizedBox(width: 40),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // ========== CAMERA VIEW ==========
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: AspectRatio(
+                  aspectRatio: 1,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Stack(
+                      alignment: Alignment.center,
                       children: [
-                        // ✏️ تم تعديل زر الفلاش: يتغير الأيقون والنص واللون حسب الحالة
-                        // مفعّل → flash_on أصفر + نص "مضيء"
-                        // مغلق  → flash_off رمادي + نص "مغلق"
-                        GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _isFlashOn = !_isFlashOn;
-                            });
-                          },
-                          child: Column(
+                        if (_isScanning)
+                          const CircularProgressIndicator(color: Colors.white)
+                        else
+                          Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(
-                                _isFlashOn ? Icons.flash_on : Icons.flash_off,
-                                color: _isFlashOn ? Colors.amber : Colors.grey,
-                                size: 28,
+                              const Icon(
+                                Icons.camera_alt_outlined,
+                                size: 64,
+                                color: Colors.white,
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                _isFlashOn ? 'مضيء' : 'مغلق',
-                                style: TextStyle(
-                                  color: _isFlashOn ? Colors.amber : Colors.grey,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
+                              const SizedBox(height: 16),
+                              _buildScanFrame(),
                             ],
                           ),
-                        ),
-                        GestureDetector(
-                          onTap: _simulateScan,
-                          child: Container(
-                            width: 64,
-                            height: 64,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFF7CB342),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () {},
-                          icon: Icon(
-                            Icons.image_outlined,
-                            color: Colors.grey.shade600,
-                            size: 28,
-                          ),
-                        ),
                       ],
                     ),
-                  ] else ...[
-                    _buildScanResult(),
-                  ],
-                ],
+                  ),
+                ),
               ),
-            ),
-          ),
 
-          _buildBottomNav(),
-        ],
+              const SizedBox(height: 24),
+
+              Text(
+                'ضع الباركود داخل الإطار',
+                style: GoogleFonts.tajawal(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: kGrey900,
+                ),
+              ),
+
+              const Spacer(),
+
+              // ========== الأزرار ==========
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 60),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    SizedBox(
+                      width: 48,
+                      child: GestureDetector(
+                        onTap: () {},
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.image_outlined,
+                              color: kGrey900,
+                              size: 32,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: _simulateScan,
+                      child: Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          color: kPrimary,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 48,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _isFlashOn = !_isFlashOn;
+                          });
+                        },
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _isFlashOn ? Icons.flash_on : Icons.flash_off,
+                              color: _isFlashOn ? Colors.amber : kGrey900,
+                              size: 32,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _isFlashOn ? 'مضيء' : 'مغلق',
+                              style: GoogleFonts.tajawal(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: _isFlashOn ? Colors.amber : kGrey900,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 40),
+
+              // ========== BOTTOM NAVIGATION ==========
+              Container(
+                height: 70,
+                decoration: const BoxDecoration(
+                  color: kBackground,
+                ),
+                child: Row(
+                  children: [
+                    _buildNavItem(Icons.home, 'الرئيسية', true),
+                    _buildNavItem(Icons.history, 'السجل', false),
+                    _buildNavItem(Icons.description_outlined, 'محتوى توعوي', false),
+                    _buildNavItem(Icons.person_outline, 'الملف الشخصي', false),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -239,83 +252,31 @@ class _ScanBarcodeScreenState extends State<ScanBarcodeScreen> {
     );
   }
 
-  Widget _buildScanResult() {
-    if (_isSafe == null) return const SizedBox.shrink();
-    return Column(
-      children: [
-        Row(
+  Widget _buildNavItem(IconData icon, String label, bool isActive) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {},
+        child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              _isSafe! ? Icons.check_circle : Icons.cancel,
-              color: _isSafe! ? Colors.green : Colors.red,
-              size: 20,
+              icon,
+              color: isActive ? kPrimary : kGrey900,
+              size: 26,
             ),
-            const SizedBox(width: 6),
+            const SizedBox(height: 4),
             Text(
-              _isSafe! ? 'المنتج آمن!' : 'المنتج غير آمن!',
-              style: TextStyle(
-                color: _isSafe! ? Colors.green : Colors.red,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
+              label,
+              style: GoogleFonts.tajawal(
+                fontSize: 11,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                color: isActive ? kPrimary : kGrey900,
               ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
-        const SizedBox(height: 8),
-        Text('اسم المنتج: $_productName',
-            style: const TextStyle(fontSize: 14, color: Colors.black87)),
-        if (_allergens != null && _allergens!.isNotEmpty) ...[
-          const SizedBox(height: 4),
-          Text('مسببات الحساسية: ${_allergens!.join(', ')}',
-              style: const TextStyle(fontSize: 13, color: Colors.orange)),
-        ],
-        const SizedBox(height: 16),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: _reset,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF7CB342),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-            ),
-            child: const Text('فحص منتج آخر',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBottomNav() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      decoration: BoxDecoration(
-          border: Border(top: BorderSide(color: Colors.grey.shade200))),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _navItem(Icons.person_outline, 'الملف الشخصي'),
-          _navItem(Icons.list_alt_outlined, 'محتوى نوعي'),
-          _navItem(Icons.history, 'السجل'),
-          _navItem(Icons.home, 'الرئيسية', isActive: true),
-        ],
       ),
-    );
-  }
-
-  Widget _navItem(IconData icon, String label, {bool isActive = false}) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, color: isActive ? const Color(0xFF7CB342) : Colors.grey, size: 22),
-        Text(label,
-            style: TextStyle(
-                fontSize: 10,
-                color: isActive ? const Color(0xFF7CB342) : Colors.grey)),
-      ],
     );
   }
 }

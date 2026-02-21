@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'safe_result_screen.dart';
+import 'unsafe_result_screen.dart';
 
 class ScanIngredientsScreen extends StatefulWidget {
   const ScanIngredientsScreen({super.key});
@@ -8,255 +11,242 @@ class ScanIngredientsScreen extends StatefulWidget {
 }
 
 class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
+  static const Color kPrimary = Color(0xFF9CCB7A);
+  static const Color kBackground = Color(0xFFFFFDF6);
+  static const Color kGrey900 = Color(0xFF818898);
+
   bool _isFlashOn = false;
   bool _isScanning = false;
-  bool _hasScanned = false;
 
   void _simulateScan() {
     setState(() {
       _isScanning = true;
     });
+    
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) {
         setState(() {
           _isScanning = false;
-          _hasScanned = true;
         });
+        
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => SafeResultScreen(
+              productName: 'منتج تجريبي',
+            ),
+          ),
+        );
       }
-    });
-  }
-
-  void _reset() {
-    setState(() {
-      _hasScanned = false;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'مسح المكونات',
-          style: TextStyle(
-            color: Colors.black,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        centerTitle: true,
-      ),
-      body: Column(
-        children: [
-          // Camera viewfinder
-          Expanded(
-            flex: 3,
-            child: Container(
-              margin: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.black,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.black87,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  if (_isScanning)
-                    const CircularProgressIndicator(color: Colors.white)
-                  else if (!_hasScanned)
-                    Icon(
-                      Icons.camera_alt_outlined,
-                      size: 48,
-                      color: Colors.white.withOpacity(0.7),
-                    )
-                  else
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: kBackground,
+        body: SafeArea(
+          child: Column(
+            children: [
+              // ========== HEADER ==========
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
                       child: Container(
-                        color: Colors.white10,
-                        child: const Center(
-                          child: Icon(Icons.document_scanner, size: 64, color: Colors.white),
+                        width: 40,
+                        height: 40,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFFAF6E9),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.arrow_back,
+                          color: Colors.black,
+                          size: 20,
                         ),
                       ),
                     ),
-                ],
-              ),
-            ),
-          ),
-
-          // Bottom area
-          Expanded(
-            flex: 2,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (!_hasScanned) ...[
+                    const Spacer(),
                     Text(
-                      'صوّر قائمة المكونات المكتوبة على العبوة',
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 14,
+                      'مسح المكونات',
+                      style: GoogleFonts.tajawal(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black,
                       ),
-                      textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    const Spacer(),
+                    const SizedBox(width: 40),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // ========== CAMERA VIEW ==========
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: AspectRatio(
+                  aspectRatio: 1,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Stack(
+                      alignment: Alignment.center,
                       children: [
-                        // ✏️ زر الفلاش: يتغير الأيقون والنص واللون حسب الحالة
-                        // مفعّل → flash_on أصفر + نص "مضيء"
-                        // مغلق  → flash_off رمادي + نص "مغلق"
-                        GestureDetector(
-                          onTap: () => setState(() => _isFlashOn = !_isFlashOn),
-                          child: Column(
-                            children: [
-                              Icon(
-                                _isFlashOn ? Icons.flash_on : Icons.flash_off,
-                                color: _isFlashOn ? Colors.amber : Colors.grey,
-                                size: 28,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                _isFlashOn ? 'مضيء' : 'مغلق',
-                                style: TextStyle(
-                                  color: _isFlashOn ? Colors.amber : Colors.grey,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
+                        if (_isScanning)
+                          const CircularProgressIndicator(color: Colors.white)
+                        else
+                          const Icon(
+                            Icons.camera_alt_outlined,
+                            size: 64,
+                            color: Colors.white,
                           ),
-                        ),
-                        GestureDetector(
-                          onTap: _simulateScan,
-                          child: Container(
-                            width: 64,
-                            height: 64,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFF7CB342),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () {},
-                          icon: Icon(
-                            Icons.image_outlined,
-                            color: Colors.grey.shade600,
-                            size: 28,
-                          ),
-                        ),
                       ],
                     ),
-                  ] else ...[
-                    // Ingredients scanned result navigation
-                    Text(
-                      'تم مسح المكونات بنجاح',
-                      style: TextStyle(
-                        color: Colors.grey.shade700,
-                        fontSize: 14,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40),
+                child: Text(
+                  'صوّر قائمة المكونات المكتوبة على العبوة',
+                  style: GoogleFonts.tajawal(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: kGrey900,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+
+              const Spacer(),
+
+              // ========== الأزرار ==========
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 60),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    SizedBox(
+                      width: 48,
+                      child: GestureDetector(
+                        onTap: () {},
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.image_outlined,
+                              color: kGrey900,
+                              size: 32,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    GestureDetector(
+                      onTap: _simulateScan,
+                      child: Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          color: kPrimary,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
                     SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          // Navigate to result screen
+                      width: 48,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _isFlashOn = !_isFlashOn;
+                          });
                         },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF7CB342),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                        ),
-                        child: const Text(
-                          'عرض النتائج',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        onPressed: _reset,
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Color(0xFF7CB342)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                        ),
-                        child: const Text(
-                          'مسح مجدداً',
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: Color(0xFF7CB342),
-                            fontWeight: FontWeight.w600,
-                          ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _isFlashOn ? Icons.flash_on : Icons.flash_off,
+                              color: _isFlashOn ? Colors.amber : kGrey900,
+                              size: 32,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _isFlashOn ? 'مضيء' : 'مغلق',
+                              style: GoogleFonts.tajawal(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: _isFlashOn ? Colors.amber : kGrey900,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
                   ],
-                ],
+                ),
               ),
-            ),
-          ),
 
-          _buildBottomNav(),
-        ],
-      ),
-    );
-  }
+              const SizedBox(height: 40),
 
-  Widget _buildBottomNav() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: Colors.grey.shade200)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _navItem(Icons.person_outline, 'الملف الشخصي'),
-          _navItem(Icons.list_alt_outlined, 'محتوى نوعي'),
-          _navItem(Icons.history, 'السجل'),
-          _navItem(Icons.home, 'الرئيسية', isActive: true),
-        ],
-      ),
-    );
-  }
-
-  Widget _navItem(IconData icon, String label, {bool isActive = false}) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, color: isActive ? const Color(0xFF7CB342) : Colors.grey, size: 22),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 10,
-            color: isActive ? const Color(0xFF7CB342) : Colors.grey,
+              // ========== BOTTOM NAVIGATION ==========
+              Container(
+                height: 70,
+                decoration: const BoxDecoration(
+                  color: kBackground,
+                ),
+                child: Row(
+                  children: [
+                    _buildNavItem(Icons.home, 'الرئيسية', true),
+                    _buildNavItem(Icons.history, 'السجل', false),
+                    _buildNavItem(Icons.description_outlined, 'محتوى توعوي', false),
+                    _buildNavItem(Icons.person_outline, 'الملف الشخصي', false),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
-      ],
+      ),
+    );
+  }
+
+  Widget _buildNavItem(IconData icon, String label, bool isActive) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {},
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              color: isActive ? kPrimary : kGrey900,
+              size: 26,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: GoogleFonts.tajawal(
+                fontSize: 11,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                color: isActive ? kPrimary : kGrey900,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

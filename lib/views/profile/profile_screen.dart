@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:get_x/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:safebite/views/home/home_screen.dart';
+import 'package:safebite/views/profile/about_app.dart';
 import '../history/history_screen.dart';
 import '../educational/articles_list_screen.dart';
 import '../onboarding/get_started_screen.dart';
 import '../profile/edit_allergies_screen.dart';
+import '../profile/edit_profile_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -91,7 +93,9 @@ class ProfileScreen extends StatelessWidget {
                       _buildSettingItem(
                         icon: Icons.person_outline,
                         label: 'تعديل الملف الشخصي',
-                        onTap: () {},
+                        onTap: () {
+                          Get.to(() => const EditProfileScreen());
+                        },
                       ),
 
                       const SizedBox(height: 16),
@@ -186,7 +190,9 @@ class ProfileScreen extends StatelessWidget {
                       _buildSettingItem(
                         icon: Icons.info_outline,
                         label: 'حول التطبيق',
-                        onTap: () {},
+                        onTap: () {
+                          Get.to(() => const AboutAppScreen()); // ✅ ربطته
+                        },
                       ),
 
                       const SizedBox(height: 16),
