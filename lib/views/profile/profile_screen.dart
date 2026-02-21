@@ -8,6 +8,7 @@ import '../history/history_screen.dart';
 import '../educational/articles_list_screen.dart';
 import '../onboarding/get_started_screen.dart';
 import '../profile/edit_allergies_screen.dart';
+import '../profile/edit_profile_screen.dart';
 
 // 🔴 changed: StatelessWidget → StatefulWidget to load real data
 class ProfileScreen extends StatefulWidget {
