@@ -1,8 +1,9 @@
-// lib/views/onboarding/profile_setup_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:safebite/views/home/home_screen.dart';
+import '../../services/auth_service.dart'; // 🔴 added
+import '../../services/profile_service.dart'; // 🔴 added
 import '../../widgets/custom_button.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
@@ -13,10 +14,9 @@ class ProfileSetupScreen extends StatefulWidget {
 }
 
 class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
-  // قائمة الحساسيات المختارة
   final Set<String> _selectedAllergies = {};
+  bool _isLoading = false; // 🔴 added
 
-  // قائمة كل الحساسيات - ✅ PNG بدل SVG + lowercase
   final List<Map<String, dynamic>> _allergies = [
     {'name': 'الحليب', 'icon': 'assets/allergies14/milk.png', 'id': 'milk'},
     {'name': 'البيض', 'icon': 'assets/allergies14/eggs.png', 'id': 'eggs'},
@@ -34,6 +34,40 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     {'name': 'الكبريتيت', 'icon': 'assets/allergies14/sulfur.png', 'id': 'sulfur'},
   ];
 
+  // 🔴 added: save allergies and navigate to home
+  Future<void> _saveAndContinue() async {
+    if (_isLoading) return;
+    setState(() => _isLoading = true);
+
+    // 🔴 added: get current logged in user
+    final user = await AuthService.getCurrentUser();
+    if (user == null) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('خطأ: لم يتم العثور على المستخدم')),
+      );
+      return;
+    }
+
+    // 🔴 added: save to Supabase + SQLite
+    final result = await ProfileService.saveUserAllergens(
+      userId: user['user_id'],
+      selectedIds: _selectedAllergies,
+    );
+
+    setState(() => _isLoading = false);
+    if (!mounted) return;
+
+    if (result.success) {
+      // 🔴 added: go to Home after saving
+      Get.offAll(() => const HomeScreen());
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.message)),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -42,8 +76,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         child: Column(
           children: [
             const SizedBox(height: 40),
-
-            // العنوان
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Text(
@@ -56,10 +88,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 ),
               ),
             ),
-
             const SizedBox(height: 8),
-
-            // النص الفرعي
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Text(
@@ -72,10 +101,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 ),
               ),
             ),
-
             const SizedBox(height: 32),
-
-            // عنوان القسم
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Align(
@@ -90,10 +116,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 ),
               ),
             ),
-
             const SizedBox(height: 20),
-
-            // قائمة الحساسيات
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -102,8 +125,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   runSpacing: 12,
                   alignment: WrapAlignment.end,
                   children: _allergies.map((allergy) {
-                    final isSelected = _selectedAllergies.contains(allergy['id']);
-                    
+                    final isSelected =
+                        _selectedAllergies.contains(allergy['id']);
                     return GestureDetector(
                       onTap: () {
                         setState(() {
@@ -120,13 +143,13 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                           vertical: 12,
                         ),
                         decoration: BoxDecoration(
-                          color: isSelected 
+                          color: isSelected
                               ? const Color(0xFFE8F5E9)
                               : const Color(0xFFFAF6E9),
                           borderRadius: BorderRadius.circular(24),
                           border: Border.all(
-                            color: isSelected 
-                                ? const Color(0xFF9CCB7A) 
+                            color: isSelected
+                                ? const Color(0xFF9CCB7A)
                                 : Colors.transparent,
                             width: 2,
                           ),
@@ -143,19 +166,14 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            // ✅ استخدام PNG
                             Image.asset(
                               allergy['icon'],
                               width: 20,
                               height: 20,
                               fit: BoxFit.contain,
                               errorBuilder: (context, error, stackTrace) {
-                                debugPrint('❌ Error loading: ${allergy['icon']}');
-                                return const Icon(
-                                  Icons.error_outline,
-                                  size: 20,
-                                  color: Colors.red,
-                                );
+                                return const Icon(Icons.error_outline,
+                                    size: 20, color: Colors.red);
                               },
                             ),
                           ],
@@ -166,22 +184,15 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 ),
               ),
             ),
-
-            // زر المتابعة
             Padding(
               padding: const EdgeInsets.all(24),
-              child: CustomButton(
-                text: 'متابعة',
-                onTap: () {
-                  // ✅ حفظ الحساسيات المختارة
-                  debugPrint('Selected allergies: $_selectedAllergies');
-                  
-                  // TODO: هنا تحفظ الحساسيات في الداتابيس
-                  
-                  // ✅ الانتقال لصفحة الهوم
-                  Get.offAll(() => const HomeScreen());
-                },
-              ),
+              child: // 🔴 changed: calls _saveAndContinue instead of TODO
+                  _isLoading
+                      ? const CircularProgressIndicator()
+                      : CustomButton(
+                          text: 'متابعة',
+                          onTap: _saveAndContinue,
+                        ),
             ),
           ],
         ),

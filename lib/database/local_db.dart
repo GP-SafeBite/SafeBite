@@ -95,4 +95,43 @@ class LocalDB {
     await db.delete('user_allergies');
     await db.delete('scan_history');
   }
+
+  // ── Allergy operations ────────────────────────
+
+// 🔴 NEW: Save user's allergy selections to SQLite
+static Future<void> saveUserAllergies({
+  required String userId,
+  required List<int> allergyIds,
+}) async {
+  final db = await getDatabase();
+
+  // Delete old selections for this user
+  await db.delete(
+    'user_allergies',
+    where: 'user_id = ?',
+    whereArgs: [userId],
+  );
+
+  // Insert new selections
+  for (final allergyId in allergyIds) {
+    await db.insert('user_allergies', {
+      'user_id': userId,
+      'allergy_id': allergyId,
+    });
+  }
+}
+
+// 🔴 NEW: Get user's allergy selections from SQLite
+static Future<List<int>> getUserAllergies({
+  required String userId,
+}) async {
+  final db = await getDatabase();
+  final result = await db.query(
+    'user_allergies',
+    where: 'user_id = ?',
+    whereArgs: [userId],
+  );
+
+  return result.map((row) => row['allergy_id'] as int).toList();
+}
 }
