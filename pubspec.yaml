@@ -38,6 +38,8 @@ dependencies:
   get: ^4.6.6        # ← changed from get_x: ^5.0.0
   flutter_svg: ^2.0.9
   google_fonts: ^6.1.0  # ← أضف هذا السطر
+  mobile_scanner: ^5.2.3
+  http: ^1.2.0
   
 dev_dependencies:
   flutter_test:
