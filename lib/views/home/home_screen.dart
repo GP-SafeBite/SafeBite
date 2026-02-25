@@ -1,26 +1,74 @@
-// lib/views/main/home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../widgets/product_card.dart';
+import '../../services/auth_service.dart'; // 🔴 added
+import '../../services/scan_service.dart'; // 🔴 added
 import '../history/history_screen.dart';
 import '../educational/articles_list_screen.dart';
 import '../profile/profile_screen.dart';
 import '../scanning/scan_barcode_screen.dart';
 import '../scanning/scan_ingredients_screen.dart';
 
-
-
-
-class HomeScreen extends StatelessWidget {
+// 🔴 changed: StatelessWidget → StatefulWidget to load real data
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
   static const Color kPrimary = Color(0xFF9CCB7A);
   static const Color kBackground = Color(0xFFFFFDF6);
   static const Color kCardBg = Color(0xFFFAF6E9);
   static const Color kGrey900 = Color(0xFF818898);
   static const Color kGrey400 = Color(0xFFB3B3B3);
   static const Color kRed = Color(0xFFD32F2F);
+
+  // 🔴 added: real data variables
+  String _userName = '';
+  int _totalScans = 0;
+  int _safeScans = 0;
+  int _unsafeScans = 0;
+  Map<String, dynamic>? _lastScan;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData(); // 🔴 added
+  }
+
+  // 🔴 added: loads real user data + scan stats
+  Future<void> _loadData() async {
+    final user = await AuthService.getCurrentUser();
+    if (user == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    final result = await ScanService.getScanHistory(
+      userId: user['user_id'],
+    );
+
+    final history = result.success
+        ? List<Map<String, dynamic>>.from(result.data ?? [])
+        : [];
+
+    if (mounted) {
+      setState(() {
+        _userName = user['name'] ?? '';
+        _totalScans = history.length;
+        _safeScans =
+            history.where((h) => h['safety_status'] == 'safe').length;
+        _unsafeScans =
+            history.where((h) => h['safety_status'] == 'unsafe').length;
+        _lastScan = history.isNotEmpty ? history.first : null;
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,23 +91,23 @@ class HomeScreen extends StatelessWidget {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: kGrey400,
-                        image: const DecorationImage(
-                          image: NetworkImage('https://via.placeholder.com/150'),
-                          fit: BoxFit.cover,
-                        ),
+                      ),
+                      child: const Icon(
+                        Icons.person,
+                        color: Colors.white,
+                        size: 28,
                       ),
                     ),
                     const SizedBox(width: 12),
-                    // النص
+                    // 🔴 changed: was hardcoded 'أحمد'
                     Text(
-                      'مرحباً، أحمد',
+                      'مرحباً، ${_userName.isEmpty ? 'مستخدم' : _userName}',
                       style: GoogleFonts.tajawal(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
                         color: Colors.black,
                       ),
                     ),
-                    // الإيموجي بعد النص
                     const Text('👋', style: TextStyle(fontSize: 20)),
                     const Spacer(),
                   ],
@@ -73,7 +121,6 @@ class HomeScreen extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
                   children: [
-                    // مسح الباركود (يمين في RTL)
                     Expanded(
                       child: AspectRatio(
                         aspectRatio: 1,
@@ -87,7 +134,6 @@ class HomeScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    // مسح المكونات (يسار في RTL)
                     Expanded(
                       child: AspectRatio(
                         aspectRatio: 1,
@@ -129,81 +175,84 @@ class HomeScreen extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                  padding: const EdgeInsets.symmetric(
+                      vertical: 20, horizontal: 16),
                   decoration: BoxDecoration(
                     color: kCardBg,
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // إجمالي الفحوصات
-                      Text.rich(
-                        TextSpan(
+                  child: _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            TextSpan(
-                              text: '• إجمالي الفحوصات: ',
-                              style: GoogleFonts.tajawal(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: kGrey900,
+                            // 🔴 changed: was hardcoded 24
+                            Text.rich(
+                              TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: '• إجمالي الفحوصات: ',
+                                    style: GoogleFonts.tajawal(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: kGrey900,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: '$_totalScans',
+                                    style: GoogleFonts.tajawal(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: kGrey900,
+                                    ),
+                                  ),
+                                ],
                               ),
+                              textDirection: TextDirection.rtl,
                             ),
-                            TextSpan(
-                              text: '24',
-                              style: GoogleFonts.tajawal(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: kGrey900,
+                            const SizedBox(height: 10),
+                            // 🔴 changed: was hardcoded 18 and 6
+                            Text.rich(
+                              TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: '• آمن: ',
+                                    style: GoogleFonts.tajawal(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: kGrey900,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: '$_safeScans',
+                                    style: GoogleFonts.tajawal(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: kPrimary,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: ' | غير آمن: ',
+                                    style: GoogleFonts.tajawal(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: kGrey900,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: '$_unsafeScans',
+                                    style: GoogleFonts.tajawal(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: kRed,
+                                    ),
+                                  ),
+                                ],
                               ),
+                              textDirection: TextDirection.rtl,
                             ),
                           ],
                         ),
-                        textDirection: TextDirection.rtl,
-                      ),
-                      const SizedBox(height: 10),
-                      // آمن وغير آمن
-                      Text.rich(
-                        TextSpan(
-                          children: [
-                            TextSpan(
-                              text: '• آمن: ',
-                              style: GoogleFonts.tajawal(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: kGrey900,
-                              ),
-                            ),
-                            TextSpan(
-                              text: '18',
-                              style: GoogleFonts.tajawal(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: kPrimary,
-                              ),
-                            ),
-                            TextSpan(
-                              text: ' | غير آمن: ',
-                              style: GoogleFonts.tajawal(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: kGrey900,
-                              ),
-                            ),
-                            TextSpan(
-                              text: '6',
-                              style: GoogleFonts.tajawal(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: kRed,
-                              ),
-                            ),
-                          ],
-                        ),
-                        textDirection: TextDirection.rtl,
-                      ),
-                    ],
-                  ),
                 ),
               ),
 
@@ -250,10 +299,13 @@ class HomeScreen extends StatelessWidget {
                     _buildNavItem(Icons.history, 'السجل', false, () {
                       Get.to(() => const HistoryScreen());
                     }),
-                    _buildNavItem(Icons.description_outlined, 'محتوى توعوي', false, () {
+                    _buildNavItem(
+                        Icons.description_outlined, 'محتوى توعوي', false,
+                        () {
                       Get.to(() => const ArticlesListScreen());
                     }),
-                    _buildNavItem(Icons.person_outline, 'الملف الشخصي', false, () {
+                    _buildNavItem(
+                        Icons.person_outline, 'الملف الشخصي', false, () {
                       Get.to(() => const ProfileScreen());
                     }),
                   ],
@@ -268,13 +320,13 @@ class HomeScreen extends StatelessWidget {
 
   // ========== WIDGETS ==========
 
-  // يمكن تمرير lastProduct من controller لاحقاً
-  // حالياً: null = لا توجد فحوصات، وإلا يعرض الكارد
-  static const _lastProductName = 'حليب السعودية بالشوكولاتة';
-  static const bool? _lastProductSafe = false; // null = لا توجد فحوصات بعد
-
+  // 🔴 changed: was hardcoded, now shows real last scan
   Widget _buildLastScanSection() {
-    if (_lastProductSafe == null) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_lastScan == null) {
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 20),
@@ -289,10 +341,11 @@ class HomeScreen extends StatelessWidget {
         ),
       );
     }
+
     return ProductCard(
-      productName: _lastProductName,
-      imageUrl: '',
-      isSafe: _lastProductSafe!,
+      productName: _lastScan!['product_name'] ?? 'منتج غير معروف',
+      imageUrl: _lastScan!['product_image_url'] ?? '',
+      isSafe: _lastScan!['safety_status'] == 'safe',
       onTap: () {
         debugPrint('Product card tapped!');
       },
@@ -348,7 +401,8 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildNavItem(IconData icon, String label, bool isActive, VoidCallback onTap) {
+  Widget _buildNavItem(
+      IconData icon, String label, bool isActive, VoidCallback onTap) {
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
