@@ -36,7 +36,7 @@ class ProfileService {
   };
 
   // Reverse map → Supabase allergy_id number → frontend string id
-  static const Map<int, String> _allergyReverseMap = {
+  static const Map<int, String> allergyReverseMap = { // 🔴 removed underscore to make public
     1: 'milk',
     2: 'eggs',
     3: 'gluten',
@@ -121,7 +121,7 @@ class ProfileService {
       if (localIds.isNotEmpty) {
         // Convert int ids back to string ids
         final stringIds = localIds
-            .map((id) => _allergyReverseMap[id])
+            .map((id) => allergyReverseMap[id])
             .where((id) => id != null)
             .cast<String>()
             .toSet();
@@ -151,7 +151,7 @@ class ProfileService {
 
       // Convert to string ids
       final stringIds = supabaseIds
-          .map((id) => _allergyReverseMap[id])
+          .map((id) => allergyReverseMap[id])
           .where((id) => id != null)
           .cast<String>()
           .toSet();

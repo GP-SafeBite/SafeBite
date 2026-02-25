@@ -134,4 +134,41 @@ static Future<List<int>> getUserAllergies({
 
   return result.map((row) => row['allergy_id'] as int).toList();
 }
+
+// ── Scan History operations ───────────────────
+
+// 🔴 NEW: Save scan to local SQLite history
+static Future<void> saveScanHistory({
+  required String userId,
+  required String productId,
+  required String productName,
+  required String productImageUrl,
+  required String foundAllergens,
+  required String safetyStatus,
+}) async {
+  final db = await getDatabase();
+  await db.insert('scan_history', {
+    'user_id': userId,
+    'product_id': productId,
+    'product_name': productName,
+    'product_image_url': productImageUrl,
+    'found_allergens': foundAllergens,
+    'safety_status': safetyStatus,
+    'scan_date': DateTime.now().toIso8601String(),
+  });
+}
+
+// 🔴 NEW: Get scan history from SQLite
+static Future<List<Map<String, dynamic>>> getScanHistory({
+  required String userId,
+}) async {
+  final db = await getDatabase();
+  return await db.query(
+    'scan_history',
+    where: 'user_id = ?',
+    whereArgs: [userId],
+    orderBy: 'scan_date DESC',
+    limit: 50,
+  );
+}
 }
