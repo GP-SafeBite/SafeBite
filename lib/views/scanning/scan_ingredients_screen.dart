@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:get/get.dart';
-import '../../services/auth_service.dart'; // 🔴 added
-import '../../services/scan_service.dart'; // 🔴 added
 import 'safe_result_screen.dart';
 import 'unsafe_result_screen.dart';
 
@@ -23,74 +21,22 @@ class _ScanIngredientsScreenState
   bool _isFlashOn = false;
   bool _isScanning = false;
 
-  // 🔴 added: text controller for manual ingredients input
-  final TextEditingController _ingredientsController =
-      TextEditingController();
-  bool _showTextInput = false; // 🔴 shows text field after photo
-
-  @override
-  void dispose() {
-    _ingredientsController.dispose(); // 🔴 cleanup
-    super.dispose();
-  }
-
-  // 🔴 changed: shows text input after tapping camera button
-  // temporary solution until OCR is implemented
-  void _onCameraTap() {
+  void _simulateScan() {
     setState(() {
-      _showTextInput = true;
+      _isScanning = true;
     });
-  }
 
-  // 🔴 changed: checks typed ingredients against user allergies
-  Future<void> _checkIngredients() async {
-    final text = _ingredientsController.text.trim();
-    if (text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('يرجى إدخال المكونات أولاً')),
-      );
-      return;
-    }
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() {
+          _isScanning = false;
+        });
 
-    setState(() => _isScanning = true);
-
-    // 🔴 get current user
-    final user = await AuthService.getCurrentUser();
-    if (user == null) {
-      setState(() => _isScanning = false);
-      return;
-    }
-
-    // 🔴 check ingredients text against user allergies
-    final result = await ScanService.checkIngredientsText(
-      ingredientsText: text,
-      userId: user['user_id'],
-    );
-
-    setState(() => _isScanning = false);
-    if (!mounted) return;
-
-    if (!result.success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result.message)),
-      );
-      return;
-    }
-
-    final scanData = result.data as ProductScanData;
-
-    // 🔴 navigate based on result
-    if (scanData.safetyStatus == 'safe') {
-      Get.off(() => SafeResultScreen(
-            productName: scanData.productName,
-          ));
-    } else {
-      Get.off(() => UnsafeResultScreen(
-            productName: scanData.productName,
-            detectedAllergens: scanData.detectedAllergens,
-          ));
-    }
+        Get.off(() => SafeResultScreen(
+              productName: 'منتج تجريبي',
+            ));
+      }
+    });
   }
 
   @override
@@ -170,81 +116,45 @@ class _ScanIngredientsScreenState
 
               const SizedBox(height: 24),
 
-              // 🔴 changed: shows text field after camera tap
-              if (_showTextInput) ...[
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: TextField(
-                    controller: _ingredientsController,
-                    maxLines: 3,
-                    textDirection: TextDirection.rtl,
-                    decoration: InputDecoration(
-                      hintText: 'اكتب المكونات هنا...',
-                      hintStyle: GoogleFonts.tajawal(color: kGrey900),
-                      filled: true,
-                      fillColor: const Color(0xFFFAF6E9),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                    style: GoogleFonts.tajawal(),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40),
+                child: Text(
+                  'صوّر قائمة المكونات المكتوبة على العبوة',
+                  style: GoogleFonts.tajawal(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: kGrey900,
                   ),
+                  textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 12),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _checkIngredients,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: kPrimary,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 14),
-                        elevation: 0,
-                      ),
-                      child: Text(
-                        'تحقق من المكونات',
-                        style: GoogleFonts.tajawal(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ] else
-                Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 40),
-                  child: Text(
-                    'صوّر قائمة المكونات المكتوبة على العبوة',
-                    style: GoogleFonts.tajawal(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: kGrey900,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
+              ),
 
               const Spacer(),
 
               // ========== الأزرار ==========
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 60),
+                padding: const EdgeInsets.symmetric(horizontal: 60),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const SizedBox(width: 48),
+                    SizedBox(
+                      width: 48,
+                      child: GestureDetector(
+                        onTap: () {},
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.image_outlined,
+                              color: kGrey900,
+                              size: 32,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                     GestureDetector(
-                      onTap: _onCameraTap, // 🔴 shows text input
+                      onTap: _simulateScan,
                       child: Container(
                         width: 100,
                         height: 100,
@@ -269,9 +179,8 @@ class _ScanIngredientsScreenState
                               _isFlashOn
                                   ? Icons.flash_on
                                   : Icons.flash_off,
-                              color: _isFlashOn
-                                  ? Colors.amber
-                                  : kGrey900,
+                              color:
+                                  _isFlashOn ? Colors.amber : kGrey900,
                               size: 32,
                             ),
                             const SizedBox(height: 4),
@@ -280,9 +189,8 @@ class _ScanIngredientsScreenState
                               style: GoogleFonts.tajawal(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
-                                color: _isFlashOn
-                                    ? Colors.amber
-                                    : kGrey900,
+                                color:
+                                    _isFlashOn ? Colors.amber : kGrey900,
                               ),
                             ),
                           ],
@@ -336,8 +244,7 @@ class _ScanIngredientsScreenState
               label,
               style: GoogleFonts.tajawal(
                 fontSize: 11,
-                fontWeight:
-                    isActive ? FontWeight.w700 : FontWeight.w500,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
                 color: isActive ? kPrimary : kGrey900,
               ),
               textAlign: TextAlign.center,
