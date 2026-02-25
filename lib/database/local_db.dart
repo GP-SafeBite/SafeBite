@@ -171,4 +171,17 @@ static Future<List<Map<String, dynamic>>> getScanHistory({
     limit: 50,
   );
 }
+
+/// Clear ONLY user session data (keeps scan history)
+static Future<void> clearUserSession() async {
+  final db = await getDatabase();
+  
+  // Clear user data
+  await db.delete('current_user');
+  
+  // Clear user's allergy selections
+  await db.delete('user_allergies');
+  
+  // ✅ DO NOT delete 'scan_history' — we want to keep it!
+}
 }

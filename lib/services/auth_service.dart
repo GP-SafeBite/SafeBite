@@ -347,7 +347,7 @@ class AuthService {
   static Future<AuthResult> logout() async {
     try {
       await _supabase.auth.signOut();
-      await LocalDB.clearUser();
+      await LocalDB.clearUserSession(); // ✅ Only clears user session, keeps scan history
       return AuthResult(success: true, message: 'Logged out successfully');
 
     } catch (e) {
