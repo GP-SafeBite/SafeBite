@@ -10,6 +10,7 @@ import '../onboarding/get_started_screen.dart';
 import '../profile/edit_allergies_screen.dart';
 import '../profile/edit_profile_screen.dart';
 
+
 // 🔴 changed: StatelessWidget → StatefulWidget to load real data
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -158,11 +159,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                             const SizedBox(height: 20),
 
-                            _buildSettingItem(
-                              icon: Icons.person_outline,
-                              label: 'تعديل الملف الشخصي',
-                              onTap: () {},
-                            ),
+_buildSettingItem(
+  icon: Icons.person_outline,
+  label: 'تعديل الملف الشخصي',
+  // 🔴 changed: navigate to real screen and reload on return
+  onTap: () async {
+    await Get.to(() => const EditProfileScreen());
+    _loadUserData(); // reload name after editing
+  },
+),
 
                             const SizedBox(height: 16),
 

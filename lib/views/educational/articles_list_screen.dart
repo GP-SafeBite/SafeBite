@@ -1,11 +1,13 @@
-// lib/views/educational/articles_list_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:safebite/views/home/home_screen.dart';
+import '../../models/article_model.dart'; // 🔴 added
+import '../../services/articles_service.dart'; // 🔴 added
 import '../../widgets/article_card.dart';
 import '../history/history_screen.dart';
 import '../profile/profile_screen.dart';
+import 'article_detail_screen.dart'; // 🔴 added
 
 class ArticlesListScreen extends StatefulWidget {
   const ArticlesListScreen({super.key});
@@ -23,10 +25,59 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
 
   final TextEditingController _searchController = TextEditingController();
 
+  // 🔴 added: real data variables
+  List<ArticleModel> _allArticles = [];
+  List<ArticleModel> _filteredArticles = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadArticles(); // 🔴 added
+    _searchController.addListener(_filterArticles); // 🔴 added
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  // 🔴 added: fetch articles from RSS feeds
+  Future<void> _loadArticles() async {
+    try {
+      final articles = await ArticlesService.fetchAllArticles();
+      if (mounted) {
+        setState(() {
+          _allArticles = articles;
+          _filteredArticles = articles;
+          _isLoading = false;
+          _errorMessage =
+              articles.isEmpty ? 'لا توجد مقالات متاحة حالياً' : null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'فشل تحميل المقالات. تحقق من الاتصال';
+        });
+      }
+    }
+  }
+
+  // 🔴 added: filter articles by search query
+  void _filterArticles() {
+    final query = _searchController.text.trim().toLowerCase();
+    setState(() {
+      _filteredArticles = query.isEmpty
+          ? _allArticles
+          : _allArticles.where((a) {
+              return a.title.toLowerCase().contains(query) ||
+                  a.description.toLowerCase().contains(query);
+            }).toList();
+    });
   }
 
   @override
@@ -43,7 +94,6 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
                 child: Row(
                   children: [
-                    // زر الرجوع (دائرة - أقصى اليسار)
                     GestureDetector(
                       onTap: () {
                         Get.back();
@@ -63,7 +113,6 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
                       ),
                     ),
                     const Spacer(),
-                    // العنوان
                     Text(
                       'المحتوى التوعوي',
                       style: GoogleFonts.tajawal(
@@ -119,40 +168,41 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
 
               // ========== ARTICLES LIST ==========
               Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  children: [
-                    // مقال 1
-                    ArticleCard(
-                      title: 'احم نفسك: الدليل الشامل لحساسية الطعام',
-                      imageUrl: '',
-                      onTap: () {
-                        // TODO: navigate to article detail
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // مقال 2
-                    ArticleCard(
-                      title: 'الغذاء والدواء": علاج حساسية الطعام هو تجنب المكونات المسببة لها',
-                      imageUrl: '',
-                      onTap: () {
-                        // TODO: navigate to article detail
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // مقال 3
-                    ArticleCard(
-                      title: 'تحليل حساسية الطعام',
-                      imageUrl: '',
-                      onTap: () {
-                        // TODO: navigate to article detail
-                      },
-                    ),
-                    const SizedBox(height: 80),
-                  ],
-                ),
+                child: _isLoading
+                    // 🔴 loading spinner
+                    ? const Center(child: CircularProgressIndicator())
+                    : _errorMessage != null
+                        // 🔴 error or empty state
+                        ? Center(
+                            child: Text(
+                              _errorMessage!,
+                              style: GoogleFonts.tajawal(
+                                fontSize: 14,
+                                color: kGrey900,
+                              ),
+                            ),
+                          )
+                        // 🔴 real articles list
+                        : ListView.separated(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 20),
+                            itemCount: _filteredArticles.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 16),
+                            itemBuilder: (context, index) {
+                              final article = _filteredArticles[index];
+                              return ArticleCard(
+                                title: article.title,
+                                imageUrl: article.imageUrl,
+                                // 🔴 navigate to detail screen
+                                onTap: () {
+                                  Get.to(() => ArticleDetailScreen(
+                                        article: article,
+                                      ));
+                                },
+                              );
+                            },
+                          ),
               ),
 
               // ========== BOTTOM NAVIGATION ==========
@@ -170,10 +220,13 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
                     _buildNavItem(Icons.history, 'السجل', false, () {
                       Get.offAll(() => HistoryScreen());
                     }),
-                    _buildNavItem(Icons.description_outlined, 'محتوى توعوي', true, () {
+                    _buildNavItem(
+                        Icons.description_outlined, 'محتوى توعوي', true,
+                        () {
                       // already here
                     }),
-                    _buildNavItem(Icons.person_outline, 'الملف الشخصي', false, () {
+                    _buildNavItem(
+                        Icons.person_outline, 'الملف الشخصي', false, () {
                       Get.offAll(() => ProfileScreen());
                     }),
                   ],
@@ -188,7 +241,8 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
 
   // ========== WIDGETS ==========
 
-  Widget _buildNavItem(IconData icon, String label, bool isActive, VoidCallback onTap) {
+  Widget _buildNavItem(
+      IconData icon, String label, bool isActive, VoidCallback onTap) {
     return Expanded(
       child: GestureDetector(
         onTap: onTap,

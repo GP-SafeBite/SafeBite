@@ -372,4 +372,32 @@ class AuthService {
   static Future<Map<String, dynamic>?> getCurrentUser() async {
     return await LocalDB.getUser();
   }
+
+  // 🔴 added: update user name in Supabase and SQLite
+static Future<bool> updateUserName({required String newName}) async {
+  try {
+    final user = await getCurrentUser();
+    if (user == null) return false;
+
+    // 🔴 update Supabase User table
+    await _supabase
+        .from('User')
+        .update({'name': newName})
+        .eq('user_id', user['user_id']);
+
+    // 🔴 update SQLite
+    final db = await LocalDB.getDatabase();
+    await db.update(
+      'current_user',
+      {'name': newName},
+      where: 'user_id = ?',
+      whereArgs: [user['user_id']],
+    );
+
+    return true;
+  } catch (e) {
+    print('❌ Update name error: $e');
+    return false;
+  }
+}
 }

@@ -40,6 +40,8 @@ dependencies:
   google_fonts: ^6.1.0  # ← أضف هذا السطر
   mobile_scanner: ^5.2.3
   http: ^1.2.0
+  webview_flutter: ^4.4.2
+  dart_rss: ^3.0.2
   
 dev_dependencies:
   flutter_test:
