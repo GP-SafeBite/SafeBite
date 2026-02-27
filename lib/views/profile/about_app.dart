@@ -1,6 +1,6 @@
 // lib/views/profile/about_app_screen.dart
 import 'package:flutter/material.dart';
-import 'package:get_x/get.dart';
+import 'package:get/get.dart'; // ✅ correct
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart'; // ✅ أضفته
 

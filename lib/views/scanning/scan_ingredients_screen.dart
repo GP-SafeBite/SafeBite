@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:get_x/get.dart';
+import 'package:get/get.dart';
 import 'safe_result_screen.dart';
 import 'unsafe_result_screen.dart';
 
@@ -8,10 +8,12 @@ class ScanIngredientsScreen extends StatefulWidget {
   const ScanIngredientsScreen({super.key});
 
   @override
-  State<ScanIngredientsScreen> createState() => _ScanIngredientsScreenState();
+  State<ScanIngredientsScreen> createState() =>
+      _ScanIngredientsScreenState();
 }
 
-class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
+class _ScanIngredientsScreenState
+    extends State<ScanIngredientsScreen> {
   static const Color kPrimary = Color(0xFF9CCB7A);
   static const Color kBackground = Color(0xFFFFFDF6);
   static const Color kGrey900 = Color(0xFF818898);
@@ -23,16 +25,16 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
     setState(() {
       _isScanning = true;
     });
-    
+
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) {
         setState(() {
           _isScanning = false;
         });
-        
-        Get.off(() => SafeResultScreen( // ✅ Get.off
-          productName: 'منتج تجريبي',
-        ));
+
+        Get.off(() => SafeResultScreen(
+              productName: 'منتج تجريبي',
+            ));
       }
     });
   }
@@ -98,7 +100,8 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
                       alignment: Alignment.center,
                       children: [
                         if (_isScanning)
-                          const CircularProgressIndicator(color: Colors.white)
+                          const CircularProgressIndicator(
+                              color: Colors.white)
                         else
                           const Icon(
                             Icons.camera_alt_outlined,
@@ -173,8 +176,11 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              _isFlashOn ? Icons.flash_on : Icons.flash_off,
-                              color: _isFlashOn ? Colors.amber : kGrey900,
+                              _isFlashOn
+                                  ? Icons.flash_on
+                                  : Icons.flash_off,
+                              color:
+                                  _isFlashOn ? Colors.amber : kGrey900,
                               size: 32,
                             ),
                             const SizedBox(height: 4),
@@ -183,7 +189,8 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
                               style: GoogleFonts.tajawal(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
-                                color: _isFlashOn ? Colors.amber : kGrey900,
+                                color:
+                                    _isFlashOn ? Colors.amber : kGrey900,
                               ),
                             ),
                           ],
@@ -206,8 +213,10 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
                   children: [
                     _buildNavItem(Icons.home, 'الرئيسية', true),
                     _buildNavItem(Icons.history, 'السجل', false),
-                    _buildNavItem(Icons.description_outlined, 'محتوى توعوي', false),
-                    _buildNavItem(Icons.person_outline, 'الملف الشخصي', false),
+                    _buildNavItem(Icons.description_outlined,
+                        'محتوى توعوي', false),
+                    _buildNavItem(
+                        Icons.person_outline, 'الملف الشخصي', false),
                   ],
                 ),
               ),

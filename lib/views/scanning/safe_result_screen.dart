@@ -4,11 +4,13 @@ import 'package:google_fonts/google_fonts.dart';
 class SafeResultScreen extends StatelessWidget {
   final String productName;
   final String? barcode;
+  final String? imageUrl; // 🔴 added
 
   const SafeResultScreen({
     super.key,
     this.productName = 'أوريو OREO',
     this.barcode,
+    this.imageUrl, // 🔴 added
   });
 
   static const Color kPrimary = Color(0xFF9CCB7A);
@@ -63,21 +65,47 @@ class SafeResultScreen extends StatelessWidget {
               const SizedBox(height: 20),
 
               // ========== صورة المنتج ==========
+              // 🔴 changed: shows real product image from Open Food Facts
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: AspectRatio(
                   aspectRatio: 1,
                   child: Container(
                     decoration: BoxDecoration(
-                      color: Colors.blue.shade700,
+                      color: Colors.grey.shade200,
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: const Center(
-                      child: Icon(
-                        Icons.cookie_outlined,
-                        size: 100,
-                        color: Colors.white,
-                      ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: imageUrl != null && imageUrl!.isNotEmpty
+                          // 🔴 show real image if available
+                          ? Image.network(
+                              imageUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return const Center(
+                                  child: Icon(
+                                    Icons.image_not_supported_outlined,
+                                    size: 80,
+                                    color: Colors.grey,
+                                  ),
+                                );
+                              },
+                              loadingBuilder: (context, child, progress) {
+                                if (progress == null) return child;
+                                return const Center(
+                                  child: CircularProgressIndicator(),
+                                );
+                              },
+                            )
+                          // 🔴 fallback if no image
+                          : const Center(
+                              child: Icon(
+                                Icons.image_not_supported_outlined,
+                                size: 80,
+                                color: Colors.grey,
+                              ),
+                            ),
                     ),
                   ),
                 ),
@@ -181,8 +209,10 @@ class SafeResultScreen extends StatelessWidget {
                   children: [
                     _buildNavItem(Icons.home, 'الرئيسية', true),
                     _buildNavItem(Icons.history, 'السجل', false),
-                    _buildNavItem(Icons.description_outlined, 'محتوى توعوي', false),
-                    _buildNavItem(Icons.person_outline, 'الملف الشخصي', false),
+                    _buildNavItem(
+                        Icons.description_outlined, 'محتوى توعوي', false),
+                    _buildNavItem(
+                        Icons.person_outline, 'الملف الشخصي', false),
                   ],
                 ),
               ),
