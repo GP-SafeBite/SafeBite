@@ -9,6 +9,7 @@ import '../educational/articles_list_screen.dart';
 import '../onboarding/get_started_screen.dart';
 import '../profile/edit_allergies_screen.dart';
 import '../profile/edit_profile_screen.dart';
+import '../profile/about_app.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -297,7 +298,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             _buildSettingItem(
                               icon: Icons.info_outline,
                               label: 'حول التطبيق',
-                              onTap: () {},
+                              onTap: () {
+                                Get.to(() => const AboutAppScreen());
+                              },
                             ),
 
                             const SizedBox(height: 16),
