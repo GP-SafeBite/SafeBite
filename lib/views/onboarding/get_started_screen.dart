@@ -21,7 +21,7 @@ class GetStartedScreen extends StatelessWidget {
 
             // 🖼️ الشعار
             SvgPicture.asset(
-              'Assets/Logo/Logo_LightMode.svg',
+              'assets/logo/logo_lightmode.svg',
               width: 180,
             ),
 
