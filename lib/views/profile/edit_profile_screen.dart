@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart'; // ✅ إضافة
 import '../../services/auth_service.dart'; // 🔴 added
 import '../../widgets/custom_button.dart';
 
@@ -21,6 +23,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   bool _isLoading = true; // 🔴 added
+  File? _pickedImage; // ✅ إضافة: الصورة المختارة
 
   @override
   void initState() {
@@ -46,6 +49,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       });
     } else {
       setState(() => _isLoading = false);
+    }
+  }
+
+  // ✅ إضافة: اختيار الصورة من الألبوم
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final XFile? file = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+      maxWidth: 800,
+    );
+    if (file != null && mounted) {
+      setState(() => _pickedImage = File(file.path));
     }
   }
 
@@ -132,26 +148,33 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             // ========== صورة البروفايل ==========
                             Stack(
                               children: [
+                                // ✅ تعديل: عرض الصورة المختارة أو الـ placeholder
                                 Container(
                                   width: 120,
                                   height: 120,
-                                  decoration: const BoxDecoration(
+                                  decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    color: Color(0xFFB3D9E8),
+                                    color: const Color(0xFFB3D9E8),
+                                    image: _pickedImage != null
+                                        ? DecorationImage(
+                                            image: FileImage(_pickedImage!),
+                                            fit: BoxFit.cover,
+                                          )
+                                        : null,
                                   ),
-                                  child: const Icon(
-                                    Icons.person,
-                                    size: 60,
-                                    color: Colors.white,
-                                  ),
+                                  child: _pickedImage == null
+                                      ? const Icon(
+                                          Icons.person,
+                                          size: 60,
+                                          color: Colors.white,
+                                        )
+                                      : null,
                                 ),
                                 Positioned(
                                   bottom: 0,
                                   right: 0,
                                   child: GestureDetector(
-                                    onTap: () {
-                                      // TODO: pick image
-                                    },
+                                    onTap: _pickImage, // ✅ تعديل: ربط الدالة
                                     child: Container(
                                       width: 36,
                                       height: 36,

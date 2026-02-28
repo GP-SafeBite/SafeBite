@@ -42,6 +42,8 @@ dependencies:
   http: ^1.2.0
   webview_flutter: ^4.4.2
   dart_rss: ^3.0.2
+  image_picker: ^1.1.2        # ✅ اختيار الصور من الألبوم والكاميرا
+  provider: ^6.1.1             # ✅ إدارة الـ Dark Mode
   
 dev_dependencies:
   flutter_test:
