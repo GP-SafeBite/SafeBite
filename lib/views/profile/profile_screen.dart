@@ -2,16 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:safebite/views/home/home_screen.dart';
-import '../../services/auth_service.dart'; // 🔴 added
-import '../../services/profile_service.dart'; // 🔴 added
+import '../../services/auth_service.dart';
+import '../../services/profile_service.dart';
 import '../history/history_screen.dart';
 import '../educational/articles_list_screen.dart';
 import '../onboarding/get_started_screen.dart';
 import '../profile/edit_allergies_screen.dart';
 import '../profile/edit_profile_screen.dart';
 
-
-// 🔴 changed: StatelessWidget → StatefulWidget to load real data
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -24,41 +22,53 @@ class _ProfileScreenState extends State<ProfileScreen> {
   static const Color kBackground = Color(0xFFFFFDF6);
   static const Color kGrey900 = Color(0xFF818898);
 
-  // 🔴 added: real user data
   String _userName = '';
   String _userEmail = '';
+  String _userPhotoUrl = '';
   Set<String> _userAllergyIds = {};
   bool _isLoading = true;
 
-  // 🔴 added: needed to map allergy id → name and icon for preview
   final List<Map<String, dynamic>> _allAllergies = [
-    {'name': 'الحليب', 'icon': 'assets/allergies14/milk.png', 'id': 'milk'},
-    {'name': 'البيض', 'icon': 'assets/allergies14/eggs.png', 'id': 'eggs'},
-    {'name': 'القشريات', 'icon': 'assets/allergies14/crustaceans.png', 'id': 'crustaceans'},
-    {'name': 'الحبوب (مثل الجلوتين)', 'icon': 'assets/allergies14/gluten.png', 'id': 'gluten'},
-    {'name': 'السمك', 'icon': 'assets/allergies14/fish.png', 'id': 'fish'},
-    {'name': 'فول الصويا', 'icon': 'assets/allergies14/soyabeans.png', 'id': 'soybeans'},
-    {'name': 'الكرفس', 'icon': 'assets/allergies14/celery.png', 'id': 'celery'},
-    {'name': 'الفول السوداني', 'icon': 'assets/allergies14/peanuts.png', 'id': 'peanuts'},
-    {'name': 'المكسرات', 'icon': 'assets/allergies14/treenuts.png', 'id': 'treenuts'},
-    {'name': 'الخردل', 'icon': 'assets/allergies14/mustard.png', 'id': 'mustard'},
-    {'name': 'الترمس', 'icon': 'assets/allergies14/lupin.png', 'id': 'lupin'},
-    {'name': 'الرخويات', 'icon': 'assets/allergies14/mollusks.png', 'id': 'mollusks'},
-    {'name': 'بذورالسمسم', 'icon': 'assets/allergies14/sesame.png', 'id': 'sesame'},
-    {'name': 'الكبريتيت', 'icon': 'assets/allergies14/sulfur.png', 'id': 'sulfur'},
+    {'name': 'الحليب', 'icon': 'Assets/allergies14/milk.png', 'id': 'milk'},
+    {'name': 'البيض', 'icon': 'Assets/allergies14/eggs.png', 'id': 'eggs'},
+    {'name': 'القشريات', 'icon': 'Assets/allergies14/crustaceans.png', 'id': 'crustaceans'},
+    {'name': 'الحبوب (مثل الجلوتين)', 'icon': 'Assets/allergies14/gluten.png', 'id': 'gluten'},
+    {'name': 'السمك', 'icon': 'Assets/allergies14/fish.png', 'id': 'fish'},
+    {'name': 'فول الصويا', 'icon': 'Assets/allergies14/soyabeans.png', 'id': 'soybeans'},
+    {'name': 'الكرفس', 'icon': 'Assets/allergies14/celery.png', 'id': 'celery'},
+    {'name': 'الفول السوداني', 'icon': 'Assets/allergies14/peanuts.png', 'id': 'peanuts'},
+    {'name': 'المكسرات', 'icon': 'Assets/allergies14/treenuts.png', 'id': 'treenuts'},
+    {'name': 'الخردل', 'icon': 'Assets/allergies14/mustard.png', 'id': 'mustard'},
+    {'name': 'الترمس', 'icon': 'Assets/allergies14/lupin.png', 'id': 'lupin'},
+    {'name': 'الرخويات', 'icon': 'Assets/allergies14/mollusks.png', 'id': 'mollusks'},
+    {'name': 'بذورالسمسم', 'icon': 'Assets/allergies14/sesame.png', 'id': 'sesame'},
+    {'name': 'الكبريتيت', 'icon': 'Assets/allergies14/sulfur.png', 'id': 'sulfur'},
   ];
 
   @override
   void initState() {
     super.initState();
-    _loadUserData(); // 🔴 added
+    _loadUserData();
   }
 
-  // 🔴 added: loads real name, email, and allergy preview
+  // 🔴 reload when returning from edit screens
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loadUserData();
+  }
+
+  // 🔴 cache busting helper
+  String _bustCache(String url) {
+    if (url.isEmpty) return url;
+    final base = url.split('?').first;
+    return '$base?t=${DateTime.now().millisecondsSinceEpoch}';
+  }
+
   Future<void> _loadUserData() async {
     final user = await AuthService.getCurrentUser();
     if (user == null) {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
       return;
     }
 
@@ -70,6 +80,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() {
         _userName = user['name'] ?? '';
         _userEmail = user['email'] ?? '';
+        _userPhotoUrl = user['photo_url'] ?? '';
         if (allergyResult.success && allergyResult.data != null) {
           _userAllergyIds = allergyResult.data as Set<String>;
         }
@@ -86,7 +97,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         backgroundColor: kBackground,
         body: SafeArea(
           child: _isLoading
-              // 🔴 added: show spinner while loading
+              // 🔴 full loader — no glitch
               ? const Center(child: CircularProgressIndicator())
               : Column(
                   children: [
@@ -108,46 +119,54 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     shape: BoxShape.circle,
                                     color: Color(0xFFB3B3B3),
                                   ),
-                                  child: const Icon(
-                                    Icons.person,
-                                    size: 40,
-                                    color: Colors.white,
-                                  ),
+                                  // 🔴 cache busting on display
+                                  child: _userPhotoUrl.isNotEmpty
+                                      ? ClipOval(
+                                          child: Image.network(
+                                            _bustCache(_userPhotoUrl),
+                                            width: 80,
+                                            height: 80,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (context, error, stackTrace) =>
+                                                const Icon(Icons.person,
+                                                    size: 40, color: Colors.white),
+                                          ),
+                                        )
+                                      : const Icon(Icons.person,
+                                          size: 40, color: Colors.white),
                                 ),
                                 const SizedBox(width: 16),
-                                Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    // 🔴 changed: was hardcoded 'أحمد'
-                                    Text(
-                                      _userName.isEmpty
-                                          ? 'مستخدم'
-                                          : _userName,
-                                      style: GoogleFonts.tajawal(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.black,
+                                Flexible(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _userName.isEmpty ? 'مستخدم' : _userName,
+                                        style: GoogleFonts.tajawal(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.black,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
                                       ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    // 🔴 changed: was hardcoded email
-                                    Text(
-                                      _userEmail,
-                                      style: GoogleFonts.tajawal(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w400,
-                                        color: kGrey900,
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        _userEmail,
+                                        style: GoogleFonts.tajawal(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w400,
+                                          color: kGrey900,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ],
                             ),
 
                             const SizedBox(height: 40),
 
-                            // ===== إعدادات الحساب =====
                             Text(
                               'إعدادات الحساب',
                               style: GoogleFonts.tajawal(
@@ -159,15 +178,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                             const SizedBox(height: 20),
 
-_buildSettingItem(
-  icon: Icons.person_outline,
-  label: 'تعديل الملف الشخصي',
-  // 🔴 changed: navigate to real screen and reload on return
-  onTap: () async {
-    await Get.to(() => const EditProfileScreen());
-    _loadUserData(); // reload name after editing
-  },
-),
+                            _buildSettingItem(
+                              icon: Icons.person_outline,
+                              label: 'تعديل الملف الشخصي',
+                              onTap: () async {
+                                await Get.to(() => const EditProfileScreen());
+                                _loadUserData();
+                              },
+                            ),
 
                             const SizedBox(height: 16),
 
@@ -187,7 +205,6 @@ _buildSettingItem(
 
                             const SizedBox(height: 40),
 
-                            // ===== ملف الحساسية =====
                             Text(
                               'ملف الحساسية',
                               style: GoogleFonts.tajawal(
@@ -202,9 +219,6 @@ _buildSettingItem(
                             Row(
                               mainAxisAlignment: MainAxisAlignment.start,
                               children: [
-
-                                // 🔴 changed: was hardcoded eggs + milk
-                                // now shows real selected allergies (max 3)
                                 if (_userAllergyIds.isEmpty)
                                   Text(
                                     'لم تختر أي حساسية بعد',
@@ -215,32 +229,22 @@ _buildSettingItem(
                                   )
                                 else
                                   ..._allAllergies
-                                      .where((a) => _userAllergyIds
-                                          .contains(a['id']))
+                                      .where((a) => _userAllergyIds.contains(a['id']))
                                       .take(3)
                                       .map((a) => Padding(
-                                            padding: const EdgeInsets
-                                                .only(left: 6),
-                                            child: _buildAllergyIcon(
-                                              a['icon'],
-                                              a['name'],
-                                            ),
+                                            padding: const EdgeInsets.only(left: 6),
+                                            child: _buildAllergyIcon(a['icon'], a['name']),
                                           )),
 
-                                // 🔴 added: +N badge if more than 3
                                 if (_userAllergyIds.length > 3)
                                   Padding(
-                                    padding:
-                                        const EdgeInsets.only(left: 6),
+                                    padding: const EdgeInsets.only(left: 6),
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 10,
-                                      ),
+                                          horizontal: 10, vertical: 10),
                                       decoration: BoxDecoration(
                                         color: const Color(0xFFFAF6E9),
-                                        borderRadius:
-                                            BorderRadius.circular(16),
+                                        borderRadius: BorderRadius.circular(16),
                                       ),
                                       child: Text(
                                         '+${_userAllergyIds.length - 3}',
@@ -255,30 +259,23 @@ _buildSettingItem(
 
                                 const Spacer(),
 
-                                // 🔴 changed: reloads data when returning
-                                // from EditAllergiesScreen
                                 GestureDetector(
                                   onTap: () async {
-                                    await Get.to(
-                                        () => const EditAllergiesScreen());
+                                    await Get.to(() => const EditAllergiesScreen());
                                     _loadUserData();
                                   },
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 6,
-                                    ),
+                                        horizontal: 12, vertical: 6),
                                     decoration: BoxDecoration(
                                       color: kPrimary,
-                                      borderRadius:
-                                          BorderRadius.circular(14),
+                                      borderRadius: BorderRadius.circular(14),
                                     ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         const Icon(Icons.edit,
-                                            size: 16,
-                                            color: Colors.white),
+                                            size: 16, color: Colors.white),
                                         const SizedBox(width: 4),
                                         Text(
                                           'تعديل',
@@ -305,14 +302,12 @@ _buildSettingItem(
 
                             const SizedBox(height: 16),
 
-                            // 🔴 changed: now calls AuthService.logout()
                             _buildSettingItem(
                               icon: Icons.logout,
                               label: 'تسجيل الخروج',
                               onTap: () async {
                                 await AuthService.logout();
-                                Get.offAll(
-                                    () => const GetStartedScreen());
+                                Get.offAll(() => const GetStartedScreen());
                               },
                             ),
 
@@ -329,23 +324,18 @@ _buildSettingItem(
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
-                          _buildNavItem(
-                              Icons.home, 'الرئيسية', false, () {
+                          _buildNavItem(Icons.home, 'الرئيسية', false, () {
                             Get.offAll(() => HomeScreen());
                           }),
-                          _buildNavItem(
-                              Icons.history, 'السجل', false, () {
+                          _buildNavItem(Icons.history, 'السجل', false, () {
                             Get.offAll(() => HistoryScreen());
                           }),
                           _buildNavItem(
-                              Icons.description_outlined,
-                              'محتوى تعليمي',
-                              false, () {
-                            Get.offAll(
-                                () => const ArticlesListScreen());
+                              Icons.description_outlined, 'محتوى تعليمي', false, () {
+                            Get.offAll(() => const ArticlesListScreen());
                           }),
-                          _buildNavItem(Icons.person_outline,
-                              'الملف الشخصي', true, () {}),
+                          _buildNavItem(
+                              Icons.person_outline, 'الملف الشخصي', true, () {}),
                         ],
                       ),
                     ),
@@ -364,8 +354,7 @@ _buildSettingItem(
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         decoration: BoxDecoration(
           color: const Color(0xFFFAF6E9),
           borderRadius: BorderRadius.circular(12),
@@ -384,11 +373,7 @@ _buildSettingItem(
                 ),
               ),
             ),
-            const Icon(
-              Icons.chevron_right,
-              size: 20,
-              color: Color(0xFF818898),
-            ),
+            const Icon(Icons.chevron_right, size: 20, color: Color(0xFF818898)),
           ],
         ),
       ),
@@ -397,8 +382,7 @@ _buildSettingItem(
 
   Widget _buildAllergyIcon(String assetPath, String label) {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: const Color(0xFFFAF6E9),
         borderRadius: BorderRadius.circular(16),
@@ -410,13 +394,8 @@ _buildSettingItem(
             assetPath,
             width: 35,
             height: 35,
-            errorBuilder: (context, error, stackTrace) {
-              return const Icon(
-                Icons.image_outlined,
-                size: 28,
-                color: Color(0xFFD1D1D1),
-              );
-            },
+            errorBuilder: (context, error, stackTrace) =>
+                const Icon(Icons.image_outlined, size: 28, color: Color(0xFFD1D1D1)),
           ),
           const SizedBox(width: 10),
           Text(
@@ -440,18 +419,13 @@ _buildSettingItem(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              color: isActive ? kPrimary : kGrey900,
-              size: 26,
-            ),
+            Icon(icon, color: isActive ? kPrimary : kGrey900, size: 26),
             const SizedBox(height: 4),
             Text(
               label,
               style: GoogleFonts.tajawal(
                 fontSize: 11,
-                fontWeight:
-                    isActive ? FontWeight.w700 : FontWeight.w500,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
                 color: isActive ? kPrimary : kGrey900,
               ),
             ),

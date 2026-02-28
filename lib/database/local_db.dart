@@ -15,20 +15,18 @@ class LocalDB {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2, // 🔴 bumped from 1 to 2
       onCreate: (Database db, int version) async {
-
-        // Mirrors your Supabase User table (no password — Supabase handles that)
         await db.execute('''
           CREATE TABLE current_user (
             user_id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
             email TEXT NOT NULL,
+            photo_url TEXT,
             created_at TEXT
           )
         ''');
 
-        // Mirrors your Supabase Allergy table (name_ar added)
         await db.execute('''
           CREATE TABLE cached_allergies (
             allergy_id INTEGER PRIMARY KEY,
@@ -37,7 +35,6 @@ class LocalDB {
           )
         ''');
 
-        // Mirrors your Supabase UserAllergy table
         await db.execute('''
           CREATE TABLE user_allergies (
             user_id TEXT NOT NULL,
@@ -46,7 +43,6 @@ class LocalDB {
           )
         ''');
 
-        // Mirrors your Supabase ScanHistory table (with new columns)
         await db.execute('''
           CREATE TABLE scan_history (
             history_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -60,6 +56,14 @@ class LocalDB {
           )
         ''');
       },
+      // 🔴 migration: adds photo_url to existing installs
+      onUpgrade: (Database db, int oldVersion, int newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute(
+            'ALTER TABLE current_user ADD COLUMN photo_url TEXT'
+          );
+        }
+      },
     );
   }
 
@@ -69,16 +73,17 @@ class LocalDB {
     required String userId,
     required String email,
     required String name,
+    String? photoUrl, // 🔴 added
   }) async {
     final db = await getDatabase();
-    await db.delete('current_user'); // only one user at a time
+    await db.delete('current_user');
     await db.insert('current_user', {
       'user_id': userId,
       'email': email,
       'name': name,
+      'photo_url': photoUrl ?? '', // 🔴 added
       'created_at': DateTime.now().toIso8601String(),
     });
-    
   }
 
   static Future<Map<String, dynamic>?> getUser() async {
@@ -88,100 +93,79 @@ class LocalDB {
     return result.first;
   }
 
-  static Future<void> clearUser() async {
-    final db = await getDatabase();
-    await db.delete('current_user');
-    // Also clear personal cached data on logout
-    await db.delete('user_allergies');
-    await db.delete('scan_history');
-  }
-
   // ── Allergy operations ────────────────────────
 
-// 🔴 NEW: Save user's allergy selections to SQLite
-static Future<void> saveUserAllergies({
-  required String userId,
-  required List<int> allergyIds,
-}) async {
-  final db = await getDatabase();
+  static Future<void> saveUserAllergies({
+    required String userId,
+    required List<int> allergyIds,
+  }) async {
+    final db = await getDatabase();
+    await db.delete(
+      'user_allergies',
+      where: 'user_id = ?',
+      whereArgs: [userId],
+    );
+    for (final allergyId in allergyIds) {
+      await db.insert('user_allergies', {
+        'user_id': userId,
+        'allergy_id': allergyId,
+      });
+    }
+  }
 
-  // Delete old selections for this user
-  await db.delete(
-    'user_allergies',
-    where: 'user_id = ?',
-    whereArgs: [userId],
-  );
+  static Future<List<int>> getUserAllergies({
+    required String userId,
+  }) async {
+    final db = await getDatabase();
+    final result = await db.query(
+      'user_allergies',
+      where: 'user_id = ?',
+      whereArgs: [userId],
+    );
+    return result.map((row) => row['allergy_id'] as int).toList();
+  }
 
-  // Insert new selections
-  for (final allergyId in allergyIds) {
-    await db.insert('user_allergies', {
+  // ── Scan History operations ───────────────────
+
+  static Future<void> saveScanHistory({
+    required String userId,
+    required String productId,
+    required String productName,
+    required String productImageUrl,
+    required String foundAllergens,
+    required String safetyStatus,
+  }) async {
+    final db = await getDatabase();
+    await db.insert('scan_history', {
       'user_id': userId,
-      'allergy_id': allergyId,
+      'product_id': productId,
+      'product_name': productName,
+      'product_image_url': productImageUrl,
+      'found_allergens': foundAllergens,
+      'safety_status': safetyStatus,
+      'scan_date': DateTime.now().toIso8601String(),
     });
   }
-}
 
-// 🔴 NEW: Get user's allergy selections from SQLite
-static Future<List<int>> getUserAllergies({
-  required String userId,
-}) async {
-  final db = await getDatabase();
-  final result = await db.query(
-    'user_allergies',
-    where: 'user_id = ?',
-    whereArgs: [userId],
-  );
+  static Future<List<Map<String, dynamic>>> getScanHistory({
+    required String userId,
+  }) async {
+    final db = await getDatabase();
+    return await db.query(
+      'scan_history',
+      where: 'user_id = ?',
+      whereArgs: [userId],
+      orderBy: 'scan_date DESC',
+      limit: 50,
+    );
+  }
 
-  return result.map((row) => row['allergy_id'] as int).toList();
-}
+  // ── Session ───────────────────────────────────
 
-// ── Scan History operations ───────────────────
-
-// 🔴 NEW: Save scan to local SQLite history
-static Future<void> saveScanHistory({
-  required String userId,
-  required String productId,
-  required String productName,
-  required String productImageUrl,
-  required String foundAllergens,
-  required String safetyStatus,
-}) async {
-  final db = await getDatabase();
-  await db.insert('scan_history', {
-    'user_id': userId,
-    'product_id': productId,
-    'product_name': productName,
-    'product_image_url': productImageUrl,
-    'found_allergens': foundAllergens,
-    'safety_status': safetyStatus,
-    'scan_date': DateTime.now().toIso8601String(),
-  });
-}
-
-// 🔴 NEW: Get scan history from SQLite
-static Future<List<Map<String, dynamic>>> getScanHistory({
-  required String userId,
-}) async {
-  final db = await getDatabase();
-  return await db.query(
-    'scan_history',
-    where: 'user_id = ?',
-    whereArgs: [userId],
-    orderBy: 'scan_date DESC',
-    limit: 50,
-  );
-}
-
-/// Clear ONLY user session data (keeps scan history)
-static Future<void> clearUserSession() async {
-  final db = await getDatabase();
-  
-  // Clear user data
-  await db.delete('current_user');
-  
-  // Clear user's allergy selections
-  await db.delete('user_allergies');
-  
-  // ✅ DO NOT delete 'scan_history' — we want to keep it!
-}
+  static Future<void> clearUserSession() async {
+    final db = await getDatabase();
+    await db.delete('current_user');
+    await db.delete('user_allergies');
+    // ✅ scan_history kept intentionally
+  }
 }
