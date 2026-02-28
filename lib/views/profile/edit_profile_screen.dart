@@ -1,9 +1,12 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../../services/auth_service.dart';
+import 'package:image_picker/image_picker.dart'; // ✅ إضافة
+import '../../services/auth_service.dart'; // 🔴 added
 import '../../widgets/custom_button.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -210,10 +213,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             // ========== صورة البروفايل ==========
                             Stack(
                               children: [
+                                // ✅ تعديل: عرض الصورة المختارة أو الـ placeholder
                                 Container(
                                   width: 120,
                                   height: 120,
-                                  decoration: const BoxDecoration(
+                                  decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     color: Color(0xFFB3D9E8),
                                   ),

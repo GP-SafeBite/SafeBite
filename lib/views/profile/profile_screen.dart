@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:safebite/views/home/home_screen.dart';
+import 'package:safebite/views/profile/about_app.dart';
 import '../../services/auth_service.dart';
 import '../../services/profile_service.dart';
 import '../history/history_screen.dart';
@@ -25,25 +26,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   String _userName = '';
   String _userEmail = '';
-  String _userPhotoUrl = '';
   Set<String> _userAllergyIds = {};
   bool _isLoading = true;
 
   final List<Map<String, dynamic>> _allAllergies = [
-    {'name': 'الحليب', 'icon': 'Assets/allergies14/milk.png', 'id': 'milk'},
-    {'name': 'البيض', 'icon': 'Assets/allergies14/eggs.png', 'id': 'eggs'},
-    {'name': 'القشريات', 'icon': 'Assets/allergies14/crustaceans.png', 'id': 'crustaceans'},
-    {'name': 'الحبوب (مثل الجلوتين)', 'icon': 'Assets/allergies14/gluten.png', 'id': 'gluten'},
-    {'name': 'السمك', 'icon': 'Assets/allergies14/fish.png', 'id': 'fish'},
-    {'name': 'فول الصويا', 'icon': 'Assets/allergies14/soyabeans.png', 'id': 'soybeans'},
-    {'name': 'الكرفس', 'icon': 'Assets/allergies14/celery.png', 'id': 'celery'},
-    {'name': 'الفول السوداني', 'icon': 'Assets/allergies14/peanuts.png', 'id': 'peanuts'},
-    {'name': 'المكسرات', 'icon': 'Assets/allergies14/treenuts.png', 'id': 'treenuts'},
-    {'name': 'الخردل', 'icon': 'Assets/allergies14/mustard.png', 'id': 'mustard'},
-    {'name': 'الترمس', 'icon': 'Assets/allergies14/lupin.png', 'id': 'lupin'},
-    {'name': 'الرخويات', 'icon': 'Assets/allergies14/mollusks.png', 'id': 'mollusks'},
-    {'name': 'بذورالسمسم', 'icon': 'Assets/allergies14/sesame.png', 'id': 'sesame'},
-    {'name': 'الكبريتيت', 'icon': 'Assets/allergies14/sulfur.png', 'id': 'sulfur'},
+    {'name': 'الحليب', 'icon': 'assets/allergies14/milk.png', 'id': 'milk'},
+    {'name': 'البيض', 'icon': 'assets/allergies14/eggs.png', 'id': 'eggs'},
+    {'name': 'القشريات', 'icon': 'assets/allergies14/crustaceans.png', 'id': 'crustaceans'},
+    {'name': 'الحبوب (مثل الجلوتين)', 'icon': 'assets/allergies14/gluten.png', 'id': 'gluten'},
+    {'name': 'السمك', 'icon': 'assets/allergies14/fish.png', 'id': 'fish'},
+    {'name': 'فول الصويا', 'icon': 'assets/allergies14/soyabeans.png', 'id': 'soybeans'},
+    {'name': 'الكرفس', 'icon': 'assets/allergies14/celery.png', 'id': 'celery'},
+    {'name': 'الفول السوداني', 'icon': 'assets/allergies14/peanuts.png', 'id': 'peanuts'},
+    {'name': 'المكسرات', 'icon': 'assets/allergies14/treenuts.png', 'id': 'treenuts'},
+    {'name': 'الخردل', 'icon': 'assets/allergies14/mustard.png', 'id': 'mustard'},
+    {'name': 'الترمس', 'icon': 'assets/allergies14/lupin.png', 'id': 'lupin'},
+    {'name': 'الرخويات', 'icon': 'assets/allergies14/mollusks.png', 'id': 'mollusks'},
+    {'name': 'بذورالسمسم', 'icon': 'assets/allergies14/sesame.png', 'id': 'sesame'},
+    {'name': 'الكبريتيت', 'icon': 'assets/allergies14/sulfur.png', 'id': 'sulfur'},
   ];
 
   @override
@@ -52,24 +52,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadUserData();
   }
 
-  // 🔴 reload when returning from edit screens
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _loadUserData();
-  }
-
-  // 🔴 cache busting helper
-  String _bustCache(String url) {
-    if (url.isEmpty) return url;
-    final base = url.split('?').first;
-    return '$base?t=${DateTime.now().millisecondsSinceEpoch}';
-  }
-
   Future<void> _loadUserData() async {
     final user = await AuthService.getCurrentUser();
     if (user == null) {
-      if (mounted) setState(() => _isLoading = false);
+      setState(() => _isLoading = false);
       return;
     }
 
@@ -81,7 +67,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() {
         _userName = user['name'] ?? '';
         _userEmail = user['email'] ?? '';
-        _userPhotoUrl = user['photo_url'] ?? '';
         if (allergyResult.success && allergyResult.data != null) {
           _userAllergyIds = allergyResult.data as Set<String>;
         }
@@ -98,7 +83,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         backgroundColor: kBackground,
         body: SafeArea(
           child: _isLoading
-              // 🔴 full loader — no glitch
               ? const Center(child: CircularProgressIndicator())
               : Column(
                   children: [
@@ -120,54 +104,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     shape: BoxShape.circle,
                                     color: Color(0xFFB3B3B3),
                                   ),
-                                  // 🔴 cache busting on display
-                                  child: _userPhotoUrl.isNotEmpty
-                                      ? ClipOval(
-                                          child: Image.network(
-                                            _bustCache(_userPhotoUrl),
-                                            width: 80,
-                                            height: 80,
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (context, error, stackTrace) =>
-                                                const Icon(Icons.person,
-                                                    size: 40, color: Colors.white),
-                                          ),
-                                        )
-                                      : const Icon(Icons.person,
-                                          size: 40, color: Colors.white),
+                                  child: const Icon(
+                                    Icons.person,
+                                    size: 40,
+                                    color: Colors.white,
+                                  ),
                                 ),
                                 const SizedBox(width: 16),
-                                Flexible(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        _userName.isEmpty ? 'مستخدم' : _userName,
-                                        style: GoogleFonts.tajawal(
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.black,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _userName.isEmpty ? 'مستخدم' : _userName,
+                                      style: GoogleFonts.tajawal(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.black,
                                       ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        _userEmail,
-                                        style: GoogleFonts.tajawal(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w400,
-                                          color: kGrey900,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      _userEmail,
+                                      style: GoogleFonts.tajawal(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w400,
+                                        color: kGrey900,
                                       ),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
 
                             const SizedBox(height: 40),
 
+                            // ===== إعدادات الحساب =====
                             Text(
                               'إعدادات الحساب',
                               style: GoogleFonts.tajawal(
@@ -206,6 +177,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                             const SizedBox(height: 40),
 
+                            // ===== ملف الحساسية =====
                             Text(
                               'ملف الحساسية',
                               style: GoogleFonts.tajawal(
@@ -234,7 +206,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       .take(3)
                                       .map((a) => Padding(
                                             padding: const EdgeInsets.only(left: 6),
-                                            child: _buildAllergyIcon(a['icon'], a['name']),
+                                            child: _buildAllergyIcon(
+                                              a['icon'],
+                                              a['name'],
+                                            ),
                                           )),
 
                                 if (_userAllergyIds.length > 3)
@@ -242,7 +217,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     padding: const EdgeInsets.only(left: 6),
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(
-                                          horizontal: 10, vertical: 10),
+                                        horizontal: 10,
+                                        vertical: 10,
+                                      ),
                                       decoration: BoxDecoration(
                                         color: const Color(0xFFFAF6E9),
                                         borderRadius: BorderRadius.circular(16),
@@ -267,7 +244,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   },
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 6),
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: kPrimary,
                                       borderRadius: BorderRadius.circular(14),
@@ -376,7 +355,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
             ),
-            const Icon(Icons.chevron_right, size: 20, color: Color(0xFF818898)),
+            const Icon(
+              Icons.chevron_right,
+              size: 20,
+              color: Color(0xFF818898),
+            ),
           ],
         ),
       ),
@@ -397,8 +380,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             assetPath,
             width: 35,
             height: 35,
-            errorBuilder: (context, error, stackTrace) =>
-                const Icon(Icons.image_outlined, size: 28, color: Color(0xFFD1D1D1)),
+            errorBuilder: (context, error, stackTrace) {
+              return const Icon(
+                Icons.image_outlined,
+                size: 28,
+                color: Color(0xFFD1D1D1),
+              );
+            },
           ),
           const SizedBox(width: 10),
           Text(
@@ -422,7 +410,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: isActive ? kPrimary : kGrey900, size: 26),
+            Icon(
+              icon,
+              color: isActive ? kPrimary : kGrey900,
+              size: 26,
+            ),
             const SizedBox(height: 4),
             Text(
               label,

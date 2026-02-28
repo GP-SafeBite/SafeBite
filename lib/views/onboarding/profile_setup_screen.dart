@@ -17,21 +17,21 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final Set<String> _selectedAllergies = {};
   bool _isLoading = false; // 🔴 added
 
-  final List<Map<String, dynamic>> _allergies = [
-    {'name': 'الحليب', 'icon': 'Assets/allergies14/milk.png', 'id': 'milk'},
-    {'name': 'البيض', 'icon': 'Assets/allergies14/eggs.png', 'id': 'eggs'},
-    {'name': 'القشريات', 'icon': 'Assets/allergies14/crustaceans.png', 'id': 'crustaceans'},
-    {'name': 'الحبوب (مثل الجلوتين)', 'icon': 'Assets/allergies14/gluten.png', 'id': 'gluten'},
-    {'name': 'السمك', 'icon': 'Assets/allergies14/fish.png', 'id': 'fish'},
-    {'name': 'فول الصويا', 'icon': 'Assets/allergies14/soyabeans.png', 'id': 'soybeans'},
-    {'name': 'الكرفس', 'icon': 'Assets/allergies14/celery.png', 'id': 'celery'},
-    {'name': 'الفول السوداني', 'icon': 'Assets/allergies14/peanuts.png', 'id': 'peanuts'},
-    {'name': 'المكسرات', 'icon': 'Assets/allergies14/treenuts.png', 'id': 'treenuts'},
-    {'name': 'الخردل', 'icon': 'Assets/allergies14/mustard.png', 'id': 'mustard'},
-    {'name': 'الترمس', 'icon': 'Assets/allergies14/lupin.png', 'id': 'lupin'},
-    {'name': 'الرخويات', 'icon': 'Assets/allergies14/mollusks.png', 'id': 'mollusks'},
-    {'name': 'بذورالسمسم', 'icon': 'Assets/allergies14/sesame.png', 'id': 'sesame'},
-    {'name': 'الكبريتيت', 'icon': 'Assets/allergies14/sulfur.png', 'id': 'sulfur'},
+ final List<Map<String, dynamic>> _allAllergies = [
+    {'name': 'الحليب', 'icon': 'assets/allergies14/milk.png', 'id': 'milk'},
+    {'name': 'البيض', 'icon': 'assets/allergies14/eggs.png', 'id': 'eggs'},
+    {'name': 'القشريات', 'icon': 'assets/allergies14/crustaceans.png', 'id': 'crustaceans'},
+    {'name': 'الحبوب (مثل الجلوتين)', 'icon': 'assets/allergies14/gluten.png', 'id': 'gluten'},
+    {'name': 'السمك', 'icon': 'assets/allergies14/fish.png', 'id': 'fish'},
+    {'name': 'فول الصويا', 'icon': 'assets/allergies14/soyabeans.png', 'id': 'soybeans'},
+    {'name': 'الكرفس', 'icon': 'assets/allergies14/celery.png', 'id': 'celery'},
+    {'name': 'الفول السوداني', 'icon': 'assets/allergies14/peanuts.png', 'id': 'peanuts'},
+    {'name': 'المكسرات', 'icon': 'assets/allergies14/treenuts.png', 'id': 'treenuts'},
+    {'name': 'الخردل', 'icon': 'assets/allergies14/mustard.png', 'id': 'mustard'},
+    {'name': 'الترمس', 'icon': 'assets/allergies14/lupin.png', 'id': 'lupin'},
+    {'name': 'الرخويات', 'icon': 'assets/allergies14/mollusks.png', 'id': 'mollusks'},
+    {'name': 'بذورالسمسم', 'icon': 'assets/allergies14/sesame.png', 'id': 'sesame'},
+    {'name': 'الكبريتيت', 'icon': 'assets/allergies14/sulfur.png', 'id': 'sulfur'},
   ];
 
   // 🔴 added: save allergies and navigate to home
@@ -124,7 +124,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   spacing: 12,
                   runSpacing: 12,
                   alignment: WrapAlignment.end,
-                  children: _allergies.map((allergy) {
+                  children: _allAllergies.map((allergy) {
                     final isSelected =
                         _selectedAllergies.contains(allergy['id']);
                     return GestureDetector(
