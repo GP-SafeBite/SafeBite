@@ -2,6 +2,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import '../../services/auth_service.dart';
 import 'package:image_picker/image_picker.dart'; // ✅ إضافة
 import '../../services/auth_service.dart'; // 🔴 added
 import '../../widgets/custom_button.dart';
@@ -19,16 +22,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   static const Color kFieldBg = Color(0xFFFAF6E9);
   static const Color kGrey900 = Color(0xFF818898);
 
-  // 🔴 changed: empty instead of hardcoded
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
-  bool _isLoading = true; // 🔴 added
-  File? _pickedImage; // ✅ إضافة: الصورة المختارة
+  bool _isLoading = true;
+  bool _isSaving = false;
+  String _currentPhotoUrl = '';   // photo saved in DB
+  File? _pendingPhotoFile = null; // photo picked but NOT yet saved
+  bool _deletePhoto = false;      // user wants to delete avatar
+  String? _userId;
 
   @override
   void initState() {
     super.initState();
-    _loadUserData(); // 🔴 added
+    _loadUserData();
   }
 
   @override
@@ -38,13 +44,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.dispose();
   }
 
-  // 🔴 added: load real user data
   Future<void> _loadUserData() async {
     final user = await AuthService.getCurrentUser();
     if (user != null && mounted) {
       setState(() {
         _nameController.text = user['name'] ?? '';
         _emailController.text = user['email'] ?? '';
+        _currentPhotoUrl = user['photo_url'] ?? '';
+        _userId = user['user_id'];
         _isLoading = false;
       });
     } else {
@@ -52,20 +59,29 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
-  // ✅ إضافة: اختيار الصورة من الألبوم
-  Future<void> _pickImage() async {
+  // 🔴 Just picks photo locally — does NOT upload yet
+  Future<void> _pickPhoto() async {
     final picker = ImagePicker();
-    final XFile? file = await picker.pickImage(
+    final picked = await picker.pickImage(
       source: ImageSource.gallery,
-      imageQuality: 80,
-      maxWidth: 800,
+      imageQuality: 70,
     );
-    if (file != null && mounted) {
-      setState(() => _pickedImage = File(file.path));
-    }
+    if (picked == null) return;
+    setState(() {
+      _pendingPhotoFile = File(picked.path);
+      _deletePhoto = false; // cancel any pending delete
+    });
   }
 
-  // 🔴 added: save name to Supabase + SQLite
+  // 🔴 Mark photo for deletion — does NOT delete yet
+  void _removePhoto() {
+    setState(() {
+      _pendingPhotoFile = null;
+      _deletePhoto = true;
+    });
+  }
+
+  // 🔴 Save everything on button press
   Future<void> _saveChanges() async {
     final newName = _nameController.text.trim();
     if (newName.isEmpty) {
@@ -75,14 +91,27 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       return;
     }
 
-    setState(() => _isLoading = true);
+    setState(() => _isSaving = true);
 
-    final success = await AuthService.updateUserName(newName: newName);
+    // Step 1: Save name
+    final nameSuccess = await AuthService.updateUserName(newName: newName);
+
+    // Step 2: Handle photo
+    if (_pendingPhotoFile != null && _userId != null) {
+      // Upload new photo
+      await AuthService.uploadProfilePhoto(
+        userId: _userId!,
+        filePath: _pendingPhotoFile!.path,
+      );
+    } else if (_deletePhoto && _userId != null) {
+      // Delete photo
+      await AuthService.deleteProfilePhoto(userId: _userId!);
+    }
 
     if (!mounted) return;
-    setState(() => _isLoading = false);
+    setState(() => _isSaving = false);
 
-    if (success) {
+    if (nameSuccess) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('تم حفظ التغييرات بنجاح')),
       );
@@ -92,6 +121,45 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         const SnackBar(content: Text('فشل حفظ التغييرات')),
       );
     }
+  }
+
+  // 🔴 What photo to show: pending local > existing url > nothing
+  Widget _buildAvatar() {
+    // Deleted → show default
+    if (_deletePhoto) {
+      return const Icon(Icons.person, size: 60, color: Colors.white);
+    }
+
+    // Picked locally but not saved yet → show local file
+    if (_pendingPhotoFile != null) {
+      return ClipOval(
+        child: Image.file(
+          _pendingPhotoFile!,
+          width: 120,
+          height: 120,
+          fit: BoxFit.cover,
+        ),
+      );
+    }
+
+    // Existing photo from DB
+    if (_currentPhotoUrl.isNotEmpty) {
+      // 🔴 cache busting: add timestamp so Flutter reloads fresh image
+      final url = '${_currentPhotoUrl}?t=${DateTime.now().millisecondsSinceEpoch}';
+      return ClipOval(
+        child: Image.network(
+          url,
+          width: 120,
+          height: 120,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) =>
+              const Icon(Icons.person, size: 60, color: Colors.white),
+        ),
+      );
+    }
+
+    // No photo
+    return const Icon(Icons.person, size: 60, color: Colors.white);
   }
 
   @override
@@ -122,11 +190,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                       color: kFieldBg,
                                       shape: BoxShape.circle,
                                     ),
-                                    child: const Icon(
-                                      Icons.arrow_back,
-                                      color: Colors.black,
-                                      size: 20,
-                                    ),
+                                    child: const Icon(Icons.arrow_back,
+                                        color: Colors.black, size: 20),
                                   ),
                                 ),
                                 const Spacer(),
@@ -154,27 +219,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   height: 120,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    color: const Color(0xFFB3D9E8),
-                                    image: _pickedImage != null
-                                        ? DecorationImage(
-                                            image: FileImage(_pickedImage!),
-                                            fit: BoxFit.cover,
-                                          )
-                                        : null,
+                                    color: Color(0xFFB3D9E8),
                                   ),
-                                  child: _pickedImage == null
-                                      ? const Icon(
-                                          Icons.person,
-                                          size: 60,
-                                          color: Colors.white,
-                                        )
-                                      : null,
+                                  child: _buildAvatar(),
                                 ),
+
+                                // Edit button
                                 Positioned(
                                   bottom: 0,
                                   right: 0,
                                   child: GestureDetector(
-                                    onTap: _pickImage, // ✅ تعديل: ربط الدالة
+                                    onTap: _pickPhoto,
                                     child: Container(
                                       width: 36,
                                       height: 36,
@@ -182,16 +237,61 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                         color: kPrimary,
                                         shape: BoxShape.circle,
                                       ),
-                                      child: const Icon(
-                                        Icons.edit,
-                                        color: Colors.white,
-                                        size: 18,
-                                      ),
+                                      child: const Icon(Icons.edit,
+                                          color: Colors.white, size: 18),
                                     ),
                                   ),
                                 ),
+
+                                // 🔴 Delete button — shows if photo exists
+                                if (_currentPhotoUrl.isNotEmpty ||
+                                    _pendingPhotoFile != null)
+                                  Positioned(
+                                    bottom: 0,
+                                    left: 0,
+                                    child: GestureDetector(
+                                      onTap: _removePhoto,
+                                      child: Container(
+                                        width: 36,
+                                        height: 36,
+                                        decoration: const BoxDecoration(
+                                          color: Colors.red,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(Icons.delete,
+                                            color: Colors.white, size: 18),
+                                      ),
+                                    ),
+                                  ),
                               ],
                             ),
+
+                            // 🔴 pending photo label
+                            if (_pendingPhotoFile != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Text(
+                                  'صورة جديدة — ستُحفظ عند الضغط على حفظ',
+                                  style: GoogleFonts.tajawal(
+                                    fontSize: 12,
+                                    color: kGrey900,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+
+                            if (_deletePhoto)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Text(
+                                  'ستُحذف الصورة عند الضغط على حفظ',
+                                  style: GoogleFonts.tajawal(
+                                    fontSize: 12,
+                                    color: Colors.red,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
 
                             const SizedBox(height: 40),
 
@@ -207,10 +307,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 ),
                               ),
                             ),
-
                             const SizedBox(height: 8),
-
-                            // 🔴 name field - editable
                             Container(
                               decoration: BoxDecoration(
                                 color: kFieldBg,
@@ -220,15 +317,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 controller: _nameController,
                                 textAlign: TextAlign.right,
                                 style: GoogleFonts.tajawal(
-                                  fontSize: 15,
-                                  color: kGrey900,
-                                ),
+                                    fontSize: 15, color: kGrey900),
                                 decoration: const InputDecoration(
                                   border: InputBorder.none,
                                   contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 16,
-                                  ),
+                                      horizontal: 16, vertical: 16),
                                 ),
                               ),
                             ),
@@ -247,10 +340,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 ),
                               ),
                             ),
-
                             const SizedBox(height: 8),
-
-                            // 🔴 email field - grayed out, not editable
                             Container(
                               decoration: BoxDecoration(
                                 color: const Color(0xFFE8E8E8),
@@ -259,17 +349,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               child: TextField(
                                 controller: _emailController,
                                 textAlign: TextAlign.right,
-                                enabled: false, // 🔴 not editable
+                                enabled: false,
                                 style: GoogleFonts.tajawal(
-                                  fontSize: 15,
-                                  color: kGrey900,
-                                ),
+                                    fontSize: 15, color: kGrey900),
                                 decoration: const InputDecoration(
                                   border: InputBorder.none,
                                   contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 16,
-                                  ),
+                                      horizontal: 16, vertical: 16),
                                 ),
                               ),
                             ),
@@ -281,11 +367,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     // ========== زر حفظ التغييرات ==========
                     Padding(
                       padding: const EdgeInsets.all(20),
-                      child: CustomButton(
-                        text: 'حفظ التغييرات',
-                        // 🔴 changed: calls real save function
-                        onTap: _saveChanges,
-                      ),
+                      child: _isSaving
+                          ? const Center(child: CircularProgressIndicator())
+                          : CustomButton(
+                              text: 'حفظ التغييرات',
+                              onTap: _saveChanges,
+                            ),
                     ),
                   ],
                 ),

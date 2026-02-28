@@ -17,7 +17,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final Set<String> _selectedAllergies = {};
   bool _isLoading = false; // 🔴 added
 
-  final List<Map<String, dynamic>> _allergies = [
+ final List<Map<String, dynamic>> _allAllergies = [
     {'name': 'الحليب', 'icon': 'assets/allergies14/milk.png', 'id': 'milk'},
     {'name': 'البيض', 'icon': 'assets/allergies14/eggs.png', 'id': 'eggs'},
     {'name': 'القشريات', 'icon': 'assets/allergies14/crustaceans.png', 'id': 'crustaceans'},
@@ -124,7 +124,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   spacing: 12,
                   runSpacing: 12,
                   alignment: WrapAlignment.end,
-                  children: _allergies.map((allergy) {
+                  children: _allAllergies.map((allergy) {
                     final isSelected =
                         _selectedAllergies.contains(allergy['id']);
                     return GestureDetector(

@@ -1,7 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../database/local_db.dart';
+import 'dart:io';
 
-// Every function returns this — frontend always knows what happened
 class AuthResult {
   final bool success;
   final String message;
@@ -17,7 +17,6 @@ class AuthResult {
 class AuthService {
   static final _supabase = Supabase.instance.client;
 
-  // 🔴 added: global debounce flags to prevent duplicate API calls
   static bool _isRegistering = false;
   static bool _isVerifying = false;
   static bool _isLoggingIn = false;
@@ -25,16 +24,12 @@ class AuthService {
 
   // ──────────────────────────────────────────────
   // REGISTER
-  // Creates account in Supabase Auth
-  // Trigger automatically creates row in User table
-  // Supabase sends 6-digit OTP to email
   // ──────────────────────────────────────────────
   static Future<AuthResult> register({
     required String name,
     required String email,
     required String password,
   }) async {
-    // 🔴 added: prevent duplicate signUp() calls which invalidate OTP
     if (_isRegistering) {
       return AuthResult(success: false, message: 'جاري المعالجة، انتظر لحظة...');
     }
@@ -63,7 +58,6 @@ class AuthService {
             success: false, message: 'Registration failed. Please try again.');
       }
 
-      // Do NOT save to SQLite yet — wait until OTP is verified
       return AuthResult(
         success: true,
         message: 'A 6-digit verification code has been sent to $email',
@@ -84,21 +78,17 @@ class AuthService {
           message: 'Connection error. Please check your internet.');
 
     } finally {
-      // 🔴 added: always release the lock even if an error occurs
       _isRegistering = false;
     }
   }
 
   // ──────────────────────────────────────────────
   // VERIFY OTP (signup)
-  // User enters the 6-digit code from email
-  // Only after this succeeds do we save to SQLite
   // ──────────────────────────────────────────────
   static Future<AuthResult> verifyOTP({
     required String email,
     required String otpCode,
   }) async {
-    // 🔴 added: prevent double-tap on verify button sending two verify requests
     if (_isVerifying) {
       return AuthResult(success: false, message: 'جاري التحقق...');
     }
@@ -109,7 +99,6 @@ class AuthService {
         return AuthResult(success: false, message: 'Please enter all 6 digits');
       }
 
-      // 🔴 fixed: was OtpType.email — must be OtpType.signup to match signUp() flow
       final response = await _supabase.auth.verifyOTP(
         email: email,
         token: otpCode,
@@ -123,13 +112,28 @@ class AuthService {
       }
 
       final user = response.user!;
-      final name = user.userMetadata?['name'] ?? '';
 
-      await LocalDB.saveUser(
-        userId: user.id,
-        email: email,
-        name: name,
-      );
+     // 🔴 fetch real name AND photo from User table
+String name = '';
+String photoUrl = '';
+try {
+  final userData = await _supabase
+      .from('User')
+      .select('name, photo_url')
+      .eq('user_id', user.id)
+      .single();
+  name = userData['name'] ?? user.userMetadata?['name'] ?? '';
+  photoUrl = userData['photo_url'] ?? '';
+} catch (e) {
+  name = user.userMetadata?['name'] ?? '';
+}
+
+await LocalDB.saveUser(
+  userId: user.id,
+  email: email,
+  name: name,
+  photoUrl: photoUrl, // 🔴 added
+);
 
       return AuthResult(
         success: true,
@@ -138,7 +142,6 @@ class AuthService {
       );
 
     } on AuthException catch (e) {
-      // 🔴 note: "token has expired or is invalid" from Supabase logs maps here
       if (e.message.contains('expired') || e.message.contains('invalid')) {
         return AuthResult(
             success: false,
@@ -152,20 +155,17 @@ class AuthService {
           message: 'Connection error. Please check your internet.');
 
     } finally {
-      // 🔴 added: always release the lock
       _isVerifying = false;
     }
   }
 
   // ──────────────────────────────────────────────
   // RESEND OTP (signup)
-  // User didn't receive code or it expired
   // ──────────────────────────────────────────────
   static Future<AuthResult> resendOTP({
     required String email,
   }) async {
     try {
-      // 🔴 confirmed: OtpType.signup matches verifyOTP above — correct
       await _supabase.auth.resend(
         type: OtpType.signup,
         email: email,
@@ -186,7 +186,6 @@ class AuthService {
     required String email,
     required String password,
   }) async {
-    // 🔴 added: prevent duplicate login calls
     if (_isLoggingIn) {
       return AuthResult(success: false, message: 'جاري تسجيل الدخول...');
     }
@@ -209,13 +208,44 @@ class AuthService {
       }
 
       final user = response.user!;
-      final name = user.userMetadata?['name'] ?? '';
 
-      await LocalDB.saveUser(
-        userId: user.id,
-        email: email,
-        name: name,
-      );
+      // 🔴 fetch real name AND photo from User table
+String name = '';
+String photoUrl = '';
+try {
+  final userData = await _supabase
+      .from('User')
+      .select('name, photo_url')
+      .eq('user_id', user.id)
+      .single();
+  name = userData['name'] ?? user.userMetadata?['name'] ?? '';
+  photoUrl = userData['photo_url'] ?? '';
+} catch (e) {
+  name = user.userMetadata?['name'] ?? '';
+}
+
+await LocalDB.saveUser(
+  userId: user.id,
+  email: email,
+  name: name,
+  photoUrl: photoUrl, // 🔴 added
+);
+
+      // 🔴 reload allergies from Supabase into SQLite
+      try {
+        final allergies = await _supabase
+            .from('userallergy')
+            .select('allergy_id')
+            .eq('user_id', user.id);
+        await LocalDB.saveUserAllergies(
+          userId: user.id,
+          allergyIds: (allergies as List)
+              .map<int>((a) => a['allergy_id'] as int)
+              .toList(),
+        );
+      } catch (e) {
+        print('⚠️ Could not reload allergies: $e');
+      }
 
       return AuthResult(
         success: true,
@@ -242,7 +272,6 @@ class AuthService {
           message: 'Connection error. Please check your internet.');
 
     } finally {
-      // 🔴 added: always release the lock
       _isLoggingIn = false;
     }
   }
@@ -253,7 +282,6 @@ class AuthService {
   static Future<AuthResult> sendLoginOTP({
     required String email,
   }) async {
-    // 🔴 added: prevent duplicate OTP send calls
     if (_isSendingOTP) {
       return AuthResult(success: false, message: 'جاري الإرسال...');
     }
@@ -267,7 +295,7 @@ class AuthService {
 
       await _supabase.auth.signInWithOtp(
         email: email,
-        shouldCreateUser: false, // don't create new account
+        shouldCreateUser: false,
       );
 
       return AuthResult(
@@ -285,7 +313,6 @@ class AuthService {
           success: false, message: 'خطأ في الاتصال. تحقق من الإنترنت');
 
     } finally {
-      // 🔴 added: always release the lock
       _isSendingOTP = false;
     }
   }
@@ -303,8 +330,6 @@ class AuthService {
             success: false, message: 'الرجاء إدخال الرمز كاملاً');
       }
 
-      // 🔴 confirmed: OtpType.email is correct for signInWithOtp() flow
-      // (magiclink also works but email is more explicit for 6-digit OTP)
       final response = await _supabase.auth.verifyOTP(
         email: email,
         token: otpCode,
@@ -317,13 +342,44 @@ class AuthService {
       }
 
       final user = response.user!;
-      final name = user.userMetadata?['name'] ?? '';
 
-      await LocalDB.saveUser(
-        userId: user.id,
-        email: email,
-        name: name,
-      );
+  // 🔴 fetch real name AND photo from User table
+String name = '';
+String photoUrl = '';
+try {
+  final userData = await _supabase
+      .from('User')
+      .select('name, photo_url')
+      .eq('user_id', user.id)
+      .single();
+  name = userData['name'] ?? user.userMetadata?['name'] ?? '';
+  photoUrl = userData['photo_url'] ?? '';
+} catch (e) {
+  name = user.userMetadata?['name'] ?? '';
+}
+
+await LocalDB.saveUser(
+  userId: user.id,
+  email: email,
+  name: name,
+  photoUrl: photoUrl, // 🔴 added
+);
+
+      // 🔴 reload allergies from Supabase into SQLite
+      try {
+        final allergies = await _supabase
+            .from('userallergy')
+            .select('allergy_id')
+            .eq('user_id', user.id);
+        await LocalDB.saveUserAllergies(
+          userId: user.id,
+          allergyIds: (allergies as List)
+              .map<int>((a) => a['allergy_id'] as int)
+              .toList(),
+        );
+      } catch (e) {
+        print('⚠️ Could not reload allergies: $e');
+      }
 
       return AuthResult(
         success: true,
@@ -342,12 +398,11 @@ class AuthService {
 
   // ──────────────────────────────────────────────
   // LOGOUT
-  // Clears Supabase session + SQLite local data
   // ──────────────────────────────────────────────
   static Future<AuthResult> logout() async {
     try {
       await _supabase.auth.signOut();
-      await LocalDB.clearUserSession(); // ✅ Only clears user session, keeps scan history
+      await LocalDB.clearUserSession();
       return AuthResult(success: true, message: 'Logged out successfully');
 
     } catch (e) {
@@ -357,7 +412,6 @@ class AuthService {
 
   // ──────────────────────────────────────────────
   // IS LOGGED IN
-  // Used by splash screen to decide where to go
   // ──────────────────────────────────────────────
   static Future<bool> isLoggedIn() async {
     final session = _supabase.auth.currentSession;
@@ -373,30 +427,120 @@ class AuthService {
     return await LocalDB.getUser();
   }
 
-  // 🔴 added: update user name in Supabase and SQLite
-static Future<bool> updateUserName({required String newName}) async {
-  try {
-    final user = await getCurrentUser();
-    if (user == null) return false;
+  // ──────────────────────────────────────────────
+  // UPDATE USER NAME
+  // ──────────────────────────────────────────────
+  static Future<bool> updateUserName({required String newName}) async {
+    try {
+      final user = await getCurrentUser();
+      if (user == null) return false;
 
-    // 🔴 update Supabase User table
+      await _supabase
+          .from('User')
+          .update({'name': newName})
+          .eq('user_id', user['user_id']);
+
+      final db = await LocalDB.getDatabase();
+      await db.update(
+        'current_user',
+        {'name': newName},
+        where: 'user_id = ?',
+        whereArgs: [user['user_id']],
+      );
+
+      return true;
+    } catch (e) {
+      print('❌ Update name error: $e');
+      return false;
+    }
+  }
+// ──────────────────────────────────────────────
+// UPLOAD PROFILE PHOTO
+// ──────────────────────────────────────────────
+static Future<String?> uploadProfilePhoto({
+  required String userId,
+  required String filePath,
+}) async {
+  try {
+    // 🔴 Get current session
+    final session = _supabase.auth.currentSession;
+    
+    if (session == null) {
+      print('❌ No active session - user not authenticated');
+      return null;
+    }
+    
+    print('✅ Session active for user: ${session.user.id}');
+    
+    final file = File(filePath);
+    final fileName = '$userId/avatar.jpg';
+
+    // 🔴 upload to Supabase Storage avatars bucket
+    await _supabase.storage
+        .from('avatars')
+        .upload(
+          fileName,
+          file,
+          fileOptions: const FileOptions(
+            upsert: true, // replace if exists
+            contentType: 'image/jpeg',
+          ),
+        );
+
+    // 🔴 get public URL
+    final photoUrl = _supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName);
+
+    // 🔴 save URL to Supabase User table
     await _supabase
         .from('User')
-        .update({'name': newName})
-        .eq('user_id', user['user_id']);
+        .update({'photo_url': photoUrl})
+        .eq('user_id', userId);
 
-    // 🔴 update SQLite
+    // 🔴 save URL to SQLite
     final db = await LocalDB.getDatabase();
     await db.update(
       'current_user',
-      {'name': newName},
+      {'photo_url': photoUrl},
       where: 'user_id = ?',
-      whereArgs: [user['user_id']],
+      whereArgs: [userId],
+    );
+
+    return photoUrl;
+  } catch (e) {
+    print('❌ Upload photo error: $e');
+    return null;
+  }
+}
+// ──────────────────────────────────────────────
+// DELETE PROFILE PHOTO
+// ──────────────────────────────────────────────
+static Future<bool> deleteProfilePhoto({required String userId}) async {
+  try {
+    // Delete from Supabase Storage
+    await _supabase.storage
+        .from('avatars')
+        .remove(['$userId/avatar.jpg']);
+
+    // Clear URL in Supabase User table
+    await _supabase
+        .from('User')
+        .update({'photo_url': null})
+        .eq('user_id', userId);
+
+    // Clear URL in SQLite
+    final db = await LocalDB.getDatabase();
+    await db.update(
+      'current_user',
+      {'photo_url': ''},
+      where: 'user_id = ?',
+      whereArgs: [userId],
     );
 
     return true;
   } catch (e) {
-    print('❌ Update name error: $e');
+    print('❌ Delete photo error: $e');
     return false;
   }
 }
