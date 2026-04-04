@@ -1,21 +1,21 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:get/get.dart'; // 🔴 added
+import 'package:get/get.dart';
 
-import '../../services/auth_service.dart'; // 🔴 added
+import '../../services/auth_service.dart';
 import '../../widgets/custom_button.dart';
-import '../home/home_screen.dart'; // 🔴 added
-import '../onboarding/profile_setup_screen.dart'; // 🔴 added
+import '../home/home_screen.dart';
+import '../onboarding/profile_setup_screen.dart';
 import 'login_screen.dart';
 
 class VerificationScreen extends StatefulWidget {
   final String email;
-  final bool isLoginMode; // 🔴 added
+  final bool isLoginMode;
 
   const VerificationScreen({
     super.key,
     required this.email,
-    this.isLoginMode = false, // 🔴 added: default is signup
+    this.isLoginMode = false,
   });
 
   @override
@@ -40,6 +40,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
   void initState() {
     super.initState();
     _startTimer();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _nodes[0].requestFocus();
+    });
   }
 
   void _startTimer() {
@@ -78,7 +81,6 @@ class _VerificationScreenState extends State<VerificationScreen> {
     }
   }
 
-  // 🔴 changed: resends correct OTP type based on login or signup
   Future<void> _resendCode() async {
     if (_secondsRemaining > 0) return;
 
@@ -93,7 +95,6 @@ class _VerificationScreenState extends State<VerificationScreen> {
     );
   }
 
-  // 🔴 changed: verifies correct OTP type based on login or signup
   Future<void> _verifyCode() async {
     if (_otpCode.length != 6) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -102,14 +103,12 @@ class _VerificationScreenState extends State<VerificationScreen> {
       return;
     }
 
-    // 🔴 added: show loading spinner
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
 
-    // 🔴 added: call correct service based on mode
     final result = widget.isLoginMode
         ? await AuthService.verifyLoginOTP(
             email: widget.email,
@@ -120,20 +119,16 @@ class _VerificationScreenState extends State<VerificationScreen> {
             otpCode: _otpCode,
           );
 
-    // 🔴 added: hide loading spinner
     if (mounted) Navigator.of(context).pop();
     if (!mounted) return;
 
     if (result.success) {
       if (widget.isLoginMode) {
-        // 🔴 login OTP success → go to Home
         Get.offAll(() => const HomeScreen());
       } else {
-        // 🔴 signup OTP success → show success dialog
         _showSuccessDialog();
       }
     } else {
-      // 🔴 added: show error from AuthService
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(result.message)),
       );
@@ -196,7 +191,6 @@ class _VerificationScreenState extends State<VerificationScreen> {
                   width: double.infinity,
                   child: CustomButton(
                     text: 'تسجيل الدخول الآن',
-                    // 🔴 changed: goes to ProfileSetupScreen after signup
                     onTap: () {
                       Navigator.of(context).pop();
                       Get.offAll(() => const ProfileSetupScreen());
@@ -212,25 +206,42 @@ class _VerificationScreenState extends State<VerificationScreen> {
   }
 
   Widget _otpBox(int index) {
-    return SizedBox(
-      width: 48,
-      height: 48,
-      child: TextField(
-        controller: _controllers[index],
-        focusNode: _nodes[index],
-        keyboardType: TextInputType.number,
-        textAlign: TextAlign.center,
-        maxLength: 1,
-        decoration: InputDecoration(
-          counterText: '',
-          filled: true,
-          fillColor: _otpFill,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
+    bool isLocked() {
+      final firstEmpty = _controllers.indexWhere((c) => c.text.isEmpty);
+      return firstEmpty != -1 && firstEmpty != index;
+    }
+
+    return GestureDetector(
+      onTap: () {
+        if (isLocked()) {
+          final firstEmpty = _controllers.indexWhere((c) => c.text.isEmpty);
+          _nodes[firstEmpty].requestFocus();
+        }
+      },
+      child: AbsorbPointer(
+        absorbing: isLocked(),
+        child: SizedBox(
+          width: 48,
+          height: 48,
+          child: TextField(
+            controller: _controllers[index],
+            focusNode: _nodes[index],
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            maxLength: 1,
+            textDirection: TextDirection.ltr,
+            decoration: InputDecoration(
+              counterText: '',
+              filled: true,
+              fillColor: _otpFill,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+            ),
+            onChanged: (v) => _onOtpChanged(index, v),
           ),
         ),
-        onChanged: (v) => _onOtpChanged(index, v),
       ),
     );
   }
@@ -256,9 +267,12 @@ class _VerificationScreenState extends State<VerificationScreen> {
                   ),
                 ),
                 const SizedBox(height: 55),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: List.generate(6, _otpBox),
+                Directionality(
+                  textDirection: TextDirection.ltr,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: List.generate(6, _otpBox),
+                  ),
                 ),
                 const SizedBox(height: 26),
                 Text.rich(
