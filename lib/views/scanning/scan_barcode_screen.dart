@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:get_x/get.dart';
+import 'package:get/get.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:image_picker/image_picker.dart';
+import '../../services/auth_service.dart';
+import '../../services/scan_service.dart';
 import 'safe_result_screen.dart';
 import 'unsafe_result_screen.dart';
 
@@ -18,36 +22,115 @@ class _ScanBarcodeScreenState extends State<ScanBarcodeScreen> {
 
   bool _isFlashOn = false;
   bool _isScanning = false;
-  String? _scannedBarcode;
-  String? _productName;
-  bool? _isSafe;
-  List<String>? _allergens;
+  bool _barcodeDetected = false;
 
-  void _simulateScan() {
+  final MobileScannerController _cameraController = MobileScannerController();
+  final ImagePicker _imagePicker = ImagePicker(); // 🔴 added
+
+  @override
+  void dispose() {
+    _cameraController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _onBarcodeDetected(BarcodeCapture capture) async {
+    if (_barcodeDetected || _isScanning) return;
+
+    final barcode = capture.barcodes.firstOrNull?.rawValue;
+    if (barcode == null) return;
+
+    await _processBarcode(barcode);
+  }
+
+  // 🔴 added: جيب صورة من الألبوم واقرأ الباركود منها
+  Future<void> _pickFromGallery() async {
+    if (_isScanning) return;
+
+    final XFile? image = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+    );
+
+    if (image == null) return;
+
+    setState(() => _isScanning = true);
+    await _cameraController.stop();
+
+    // 🔴 mobile_scanner يقدر يقرأ باركود من صورة
+    final result = await MobileScannerController().analyzeImage(image.path);
+
+    if (result == null || result.barcodes.isEmpty) {
+      if (mounted) {
+        setState(() => _isScanning = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ما في باركود في الصورة')),
+        );
+        await _cameraController.start();
+      }
+      return;
+    }
+
+    final barcode = result.barcodes.firstOrNull?.rawValue;
+    if (barcode == null) return;
+
+    await _processBarcode(barcode);
+  }
+
+  // 🔴 added: منطق مشترك بين الكاميرا والألبوم
+  Future<void> _processBarcode(String barcode) async {
     setState(() {
+      _barcodeDetected = true;
       _isScanning = true;
     });
 
-    Future.delayed(const Duration(seconds: 2), () {
+    await _cameraController.stop();
+
+    final user = await AuthService.getCurrentUser();
+    if (user == null) {
       if (mounted) {
         setState(() {
           _isScanning = false;
-          _scannedBarcode = '6200010102346';
-          _productName = 'حليب السعودية بالشوكولاتة';
-          _isSafe = false;
-          _allergens = ['الحليب'];
+          _barcodeDetected = false;
         });
-
-        if (_isSafe == true) {
-          Get.off(() => SafeResultScreen(productName: _productName!)); // ✅ Get.off
-        } else {
-          Get.off(() => UnsafeResultScreen( // ✅ Get.off
-            productName: _productName!,
-            detectedAllergens: _allergens ?? [],
-          ));
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('يرجى تسجيل الدخول أولاً')),
+        );
+        await _cameraController.start();
       }
-    });
+      return;
+    }
+
+    final result = await ScanService.fetchProductByBarcode(
+      barcode: barcode,
+      userId: user['user_id'],
+    );
+
+    if (!mounted) return;
+    setState(() => _isScanning = false);
+
+    if (!result.success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.message)),
+      );
+      setState(() => _barcodeDetected = false);
+      await _cameraController.start();
+      return;
+    }
+
+    final scanData = result.data as ProductScanData;
+
+    if (scanData.safetyStatus == 'safe') {
+      Get.off(() => SafeResultScreen(
+            productName: scanData.productName,
+            barcode: barcode,
+            imageUrl: scanData.imageUrl,
+          ));
+    } else {
+      Get.off(() => UnsafeResultScreen(
+            productName: scanData.productName,
+            detectedAllergens: scanData.detectedAllergens,
+            imageUrl: scanData.imageUrl,
+          ));
+    }
   }
 
   @override
@@ -110,21 +193,22 @@ class _ScanBarcodeScreenState extends State<ScanBarcodeScreen> {
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        if (_isScanning)
-                          const CircularProgressIndicator(color: Colors.white)
-                        else
-                          Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.camera_alt_outlined,
-                                size: 64,
-                                color: Colors.white,
-                              ),
-                              const SizedBox(height: 16),
-                              _buildScanFrame(),
-                            ],
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: MobileScanner(
+                            controller: _cameraController,
+                            onDetect: _onBarcodeDetected,
                           ),
+                        ),
+                        if (_isScanning)
+                          Container(
+                            color: Colors.black54,
+                            child: const Center(
+                              child: CircularProgressIndicator(color: Colors.white),
+                            ),
+                          )
+                        else
+                          _buildScanFrame(),
                       ],
                     ),
                   ),
@@ -150,40 +234,54 @@ class _ScanBarcodeScreenState extends State<ScanBarcodeScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
+                    // 🔴 added: زر الألبوم
                     SizedBox(
                       width: 48,
                       child: GestureDetector(
-                        onTap: () {},
+                        onTap: _isScanning ? null : _pickFromGallery,
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
                               Icons.image_outlined,
-                              color: kGrey900,
+                              color: _isScanning ? kGrey900.withOpacity(0.4) : kGrey900,
                               size: 32,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'الألبوم',
+                              style: GoogleFonts.tajawal(
+                                fontSize: 12,
+                                color: _isScanning ? kGrey900.withOpacity(0.4) : kGrey900,
+                              ),
                             ),
                           ],
                         ),
                       ),
                     ),
-                    GestureDetector(
-                      onTap: _simulateScan,
-                      child: Container(
-                        width: 100,
-                        height: 100,
-                        decoration: BoxDecoration(
-                          color: kPrimary,
-                          shape: BoxShape.circle,
-                        ),
+
+                    // زر المسح
+                    Container(
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        color: _isScanning ? kGrey900 : kPrimary,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.qr_code_scanner,
+                        color: Colors.white,
+                        size: 40,
                       ),
                     ),
+
+                    // زر الفلاش
                     SizedBox(
                       width: 48,
                       child: GestureDetector(
                         onTap: () {
-                          setState(() {
-                            _isFlashOn = !_isFlashOn;
-                          });
+                          setState(() => _isFlashOn = !_isFlashOn);
+                          _cameraController.toggleTorch();
                         },
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -215,9 +313,7 @@ class _ScanBarcodeScreenState extends State<ScanBarcodeScreen> {
               // ========== BOTTOM NAVIGATION ==========
               Container(
                 height: 70,
-                decoration: const BoxDecoration(
-                  color: kBackground,
-                ),
+                decoration: const BoxDecoration(color: kBackground),
                 child: Row(
                   children: [
                     _buildNavItem(Icons.home, 'الرئيسية', true),
@@ -249,11 +345,7 @@ class _ScanBarcodeScreenState extends State<ScanBarcodeScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              color: isActive ? kPrimary : kGrey900,
-              size: 26,
-            ),
+            Icon(icon, color: isActive ? kPrimary : kGrey900, size: 26),
             const SizedBox(height: 4),
             Text(
               label,

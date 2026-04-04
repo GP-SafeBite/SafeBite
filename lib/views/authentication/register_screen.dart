@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../widgets/custom_text_field.dart';
+import '../../services/auth_service.dart'; // 🔴 added
 import 'login_screen.dart';
 import 'verification_screen.dart';
 
@@ -13,12 +14,11 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  // Controllers
   final TextEditingController _fullNameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  bool _isLoading = false; // ✅ added
 
-  // Colors
   static const Color kPrimary = Color(0xFFA0C878);
   static const Color kBackground = Color(0xFFFFFDF6);
   static const Color kFieldBg = Color(0xFFFAF6E9);
@@ -34,21 +34,52 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  void _goToVerification() {
+  // 🔴 changed: now async and calls AuthService.register()
+  void _goToVerification() async {
+    if (_isLoading) return; // ✅ added
+
+    final name = _fullNameController.text.trim();
     final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
 
-    if (email.isEmpty || !email.contains('@')) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('فضلاً أدخل بريد إلكتروني صحيح')),
-      );
-      return;
-    }
+    setState(() => _isLoading = true); // ✅ added
 
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => VerificationScreen(email: email),
-      ),
+    // 🔴 added: show loading spinner while waiting
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
     );
+
+    // 🔴 added: call AuthService instead of just navigating
+    final result = await AuthService.register(
+      name: name,
+      email: email,
+      password: password,
+    );
+
+    // 🔴 added: hide loading spinner
+    if (mounted) Navigator.of(context).pop();
+    if (!mounted) return;
+
+    setState(() => _isLoading = false); // ✅ added
+
+    if (result.success) {
+      // 🔴 added: go to OTP screen only if registration succeeded
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => VerificationScreen(email: email),
+        ),
+      );
+    } else {
+      // 🔴 added: show error from AuthService (wrong email, already exists etc)
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.message, style: GoogleFonts.tajawal()),
+        ),
+      );
+    }
   }
 
   @override
@@ -141,7 +172,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 SizedBox(
                   height: 56,
                   child: ElevatedButton(
-                    onPressed: _goToVerification, // ✅ الربط هنا
+                    onPressed: _isLoading ? null : _goToVerification, // ✅ changed
                     style: ElevatedButton.styleFrom(
                       backgroundColor: kPrimary,
                       elevation: 0,
@@ -177,7 +208,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const LoginScreen()),
+                          MaterialPageRoute(
+                              builder: (_) => const LoginScreen()),
                         );
                       },
                       child: Text(

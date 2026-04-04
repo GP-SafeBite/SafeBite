@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:get_x/get.dart';
+import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../services/auth_service.dart'; // 🔴 added
 import '../../widgets/custom_text_field.dart';
+import '../home/home_screen.dart'; // 🔴 added
 import '../onboarding/profile_setup_screen.dart';
 import 'register_screen.dart';
 import 'verification_screen.dart';
@@ -10,12 +12,12 @@ import 'verification_screen.dart';
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
-  static const Color kPrimary = Color(0xFFA0C878); // A0C878
-  static const Color kBg = Color(0xFFFFFDF6); // FFFDF6
-  static const Color kField = Color(0xFFFAF6E9); // FAF6E9
-  static const Color kGrey900 = Color(0xFF818898); // 818898
-  static const Color kGrey400 = Color(0xFFB3B3B3); // B3B3B3
-  static const Color kGrey300 = Color(0xFFD1D1D1); // D1D1D1
+  static const Color kPrimary = Color(0xFFA0C878);
+  static const Color kBg = Color(0xFFFFFDF6);
+  static const Color kField = Color(0xFFFAF6E9);
+  static const Color kGrey900 = Color(0xFF818898);
+  static const Color kGrey400 = Color(0xFFB3B3B3);
+  static const Color kGrey300 = Color(0xFFD1D1D1);
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -39,14 +41,15 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  void _goToVerification() {
+  // 🔴 changed: sends login OTP then goes to verification screen
+  void _goToVerification() async {
     final email = _emailController.text.trim();
 
     if (email.isEmpty || !email.contains('@')) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'فضلاً أدخل بريد إلكتروني صحيح',
+            'الرجاء إدخال البريد الإلكتروني أولاً',
             style: GoogleFonts.tajawal(),
           ),
         ),
@@ -54,19 +57,45 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => VerificationScreen(email: email),
-      ),
+    // 🔴 added: show loading spinner
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
     );
+
+    // 🔴 added: send login OTP to email
+    final result = await AuthService.sendLoginOTP(email: email);
+
+    // 🔴 added: hide loading spinner
+    if (mounted) Navigator.of(context).pop();
+    if (!mounted) return;
+
+    if (result.success) {
+      // 🔴 added: go to OTP screen in login mode
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => VerificationScreen(
+            email: email,
+            isLoginMode: true, // 🔴 tells screen this is login not signup
+          ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.message, style: GoogleFonts.tajawal()),
+        ),
+      );
+    }
   }
 
-  void _login() {
+  // 🔴 changed: now async and calls AuthService.login()
+  void _login() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
-    // ✅ تحقق من الحقول
     if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -79,24 +108,40 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    // TODO: هنا تضيف كود التحقق من البيانات مع الباك اند
-    // مثلاً: Supabase login, Firebase Auth, etc.
+    // 🔴 added: show loading spinner
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
 
-    // ✅ مؤقتاً: نفترض المستخدم جديد (لأول مرة)
-    bool isFirstTimeLogin = true; // TODO: غيّر هذا حسب الباك اند
+    // 🔴 added: call AuthService instead of TODO
+    final result = await AuthService.login(
+      email: email,
+      password: password,
+    );
 
-    if (isFirstTimeLogin) {
-      // روح لصفحة إعداد الحساسيات
-      Get.off(() => const ProfileSetupScreen());
+    // 🔴 added: hide loading spinner
+    if (mounted) Navigator.of(context).pop();
+    if (!mounted) return;
+
+    if (result.success) {
+      // 🔴 added: go to Home on successful login
+      Get.offAll(() => const HomeScreen());
+    } else if (result.data != null &&
+        result.data['needsVerification'] == true) {
+      // 🔴 added: registered but never verified OTP
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => VerificationScreen(email: email),
+        ),
+      );
     } else {
-      // روح للصفحة الرئيسية
-      // TODO: Get.off(() => const HomeScreen());
+      // 🔴 added: show error from AuthService
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'تم تسجيل الدخول بنجاح!',
-            style: GoogleFonts.tajawal(),
-          ),
+          content: Text(result.message, style: GoogleFonts.tajawal()),
         ),
       );
     }
@@ -115,7 +160,6 @@ class _LoginScreenState extends State<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 48),
-
                 Text(
                   'مرحباً بعودتك! 👋',
                   textAlign: TextAlign.center,
@@ -125,9 +169,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     color: Colors.black,
                   ),
                 ),
-
                 const SizedBox(height: 40),
-
                 Text(
                   'البريد الإلكتروني',
                   textAlign: TextAlign.right,
@@ -145,9 +187,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   grey900: LoginScreen.kGrey900,
                   grey300: LoginScreen.kGrey300,
                 ),
-
                 const SizedBox(height: 20),
-
                 Text(
                   'كلمة المرور',
                   textAlign: TextAlign.right,
@@ -166,10 +206,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   grey900: LoginScreen.kGrey900,
                   grey300: LoginScreen.kGrey300,
                 ),
-
                 const SizedBox(height: 14),
-
-                // ✅ ربط Login → Verification (OTP)
                 Align(
                   alignment: Alignment.center,
                   child: TextButton(
@@ -184,9 +221,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 10),
-
                 SizedBox(
                   height: 56,
                   child: ElevatedButton(
@@ -208,9 +243,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 18),
-
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [

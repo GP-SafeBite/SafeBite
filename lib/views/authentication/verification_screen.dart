@@ -1,24 +1,33 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart'; // 🔴 added
 
+import '../../services/auth_service.dart'; // 🔴 added
 import '../../widgets/custom_button.dart';
+import '../home/home_screen.dart'; // 🔴 added
+import '../onboarding/profile_setup_screen.dart'; // 🔴 added
 import 'login_screen.dart';
 
 class VerificationScreen extends StatefulWidget {
   final String email;
-  const VerificationScreen({super.key, required this.email});
+  final bool isLoginMode; // 🔴 added
+
+  const VerificationScreen({
+    super.key,
+    required this.email,
+    this.isLoginMode = false, // 🔴 added: default is signup
+  });
 
   @override
   State<VerificationScreen> createState() => _VerificationScreenState();
 }
 
 class _VerificationScreenState extends State<VerificationScreen> {
-  // 🎨 SafeBite Colors (من Figma)
-  static const Color _bg = Color(0xFFFFFDF6);       // FFFDF6
-  static const Color _primary = Color(0xFFA0C878);  // A0C878
-  static const Color _otpFill = Color(0xFFFAF6E9);  // FAF6E9
+  static const Color _bg = Color(0xFFFFFDF6);
+  static const Color _primary = Color(0xFFA0C878);
+  static const Color _otpFill = Color(0xFFFAF6E9);
   static const Color _muted = Color(0xFF7C8797);
-  static const Color _overlay = Color(0x66222222);  // 40%
+  static const Color _overlay = Color(0x66222222);
 
   final List<TextEditingController> _controllers =
       List.generate(6, (_) => TextEditingController());
@@ -36,7 +45,6 @@ class _VerificationScreenState extends State<VerificationScreen> {
   void _startTimer() {
     _timer?.cancel();
     setState(() => _secondsRemaining = 60);
-
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (_secondsRemaining == 0) {
         t.cancel();
@@ -49,51 +57,43 @@ class _VerificationScreenState extends State<VerificationScreen> {
   @override
   void dispose() {
     _timer?.cancel();
-    for (final c in _controllers) {
-      c.dispose();
-    }
-    for (final n in _nodes) {
-      n.dispose();
-    }
+    for (final c in _controllers) c.dispose();
+    for (final n in _nodes) n.dispose();
     super.dispose();
   }
 
   String get _otpCode => _controllers.map((c) => c.text.trim()).join();
 
   void _onOtpChanged(int index, String value) {
-    // يسمح فقط برقم واحد في كل خانة
     if (value.length > 1) {
       _controllers[index].text = value.substring(value.length - 1);
-      _controllers[index].selection = TextSelection.fromPosition(
-        const TextPosition(offset: 1),
-      );
+      _controllers[index].selection =
+          TextSelection.fromPosition(const TextPosition(offset: 1));
     }
-
-    // انتقال تلقائي
     if (_controllers[index].text.isNotEmpty && index < 5) {
       _nodes[index + 1].requestFocus();
     }
-
-    // رجوع عند الحذف
     if (_controllers[index].text.isEmpty && index > 0) {
       _nodes[index - 1].requestFocus();
     }
   }
 
+  // 🔴 changed: resends correct OTP type based on login or signup
   Future<void> _resendCode() async {
     if (_secondsRemaining > 0) return;
 
-    // TODO: هنا تربطين إعادة إرسال OTP مع الداتا بيس (Supabase مثلاً)
-    // مثال لاحقًا لو أضفتِ supabase_flutter:
-    // await Supabase.instance.client.auth.signInWithOtp(email: widget.email);
+    final result = widget.isLoginMode
+        ? await AuthService.sendLoginOTP(email: widget.email)
+        : await AuthService.resendOTP(email: widget.email);
 
     _startTimer();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('تمت إعادة إرسال الرمز')),
+      SnackBar(content: Text(result.message)),
     );
   }
 
+  // 🔴 changed: verifies correct OTP type based on login or signup
   Future<void> _verifyCode() async {
     if (_otpCode.length != 6) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -102,15 +102,42 @@ class _VerificationScreenState extends State<VerificationScreen> {
       return;
     }
 
-    // TODO: هنا تربطين التحقق من OTP مع الداتا بيس (Supabase مثلاً)
-    // مثال لاحقًا لو أضفتِ supabase_flutter:
-    // await Supabase.instance.client.auth.verifyOTP(
-    //   email: widget.email,
-    //   token: _otpCode,
-    //   type: OtpType.signup, // أو OtpType.email حسب التدفق
-    // );
+    // 🔴 added: show loading spinner
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
 
-    _showSuccessDialog();
+    // 🔴 added: call correct service based on mode
+    final result = widget.isLoginMode
+        ? await AuthService.verifyLoginOTP(
+            email: widget.email,
+            otpCode: _otpCode,
+          )
+        : await AuthService.verifyOTP(
+            email: widget.email,
+            otpCode: _otpCode,
+          );
+
+    // 🔴 added: hide loading spinner
+    if (mounted) Navigator.of(context).pop();
+    if (!mounted) return;
+
+    if (result.success) {
+      if (widget.isLoginMode) {
+        // 🔴 login OTP success → go to Home
+        Get.offAll(() => const HomeScreen());
+      } else {
+        // 🔴 signup OTP success → show success dialog
+        _showSuccessDialog();
+      }
+    } else {
+      // 🔴 added: show error from AuthService
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.message)),
+      );
+    }
   }
 
   void _showSuccessDialog() {
@@ -121,15 +148,13 @@ class _VerificationScreenState extends State<VerificationScreen> {
       builder: (_) {
         return Dialog(
           backgroundColor: _bg,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           child: Padding(
             padding: const EdgeInsets.all(22),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // أيقونة نجاح (بدون Assets)
                 Container(
                   width: 86,
                   height: 86,
@@ -145,7 +170,8 @@ class _VerificationScreenState extends State<VerificationScreen> {
                         color: Color(0xFF2CC5A5),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.check, color: Colors.white, size: 34),
+                      child: const Icon(Icons.check,
+                          color: Colors.white, size: 34),
                     ),
                   ),
                 ),
@@ -153,25 +179,27 @@ class _VerificationScreenState extends State<VerificationScreen> {
                 const Text(
                   'تم تأكيد البريد الإلكتروني',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                  style: TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 10),
                 const Text(
                   'تم إنشاء حسابك بنجاح\nيمكنك الآن الدخول',
                   textAlign: TextAlign.center,
-                  style: TextStyle(height: 1.5, color: _muted, fontWeight: FontWeight.w500),
+                  style: TextStyle(
+                      height: 1.5,
+                      color: _muted,
+                      fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(height: 18),
                 SizedBox(
                   width: double.infinity,
                   child: CustomButton(
                     text: 'تسجيل الدخول الآن',
+                    // 🔴 changed: goes to ProfileSetupScreen after signup
                     onTap: () {
                       Navigator.of(context).pop();
-                      Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(builder: (_) => const LoginScreen()),
-                        (route) => false,
-                      );
+                      Get.offAll(() => const ProfileSetupScreen());
                     },
                   ),
                 ),
@@ -219,7 +247,6 @@ class _VerificationScreenState extends State<VerificationScreen> {
             child: Column(
               children: [
                 const SizedBox(height: 90),
-
                 const Text(
                   'أدخل رمز التحقق',
                   style: TextStyle(
@@ -228,16 +255,12 @@ class _VerificationScreenState extends State<VerificationScreen> {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-
                 const SizedBox(height: 55),
-
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: List.generate(6, _otpBox),
                 ),
-
                 const SizedBox(height: 26),
-
                 Text.rich(
                   TextSpan(
                     children: [
@@ -260,9 +283,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 10),
-
                 TextButton(
                   onPressed: _resendCode,
                   child: const Text(
@@ -274,9 +295,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 26),
-
                 SizedBox(
                   width: double.infinity,
                   child: CustomButton(

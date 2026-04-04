@@ -5,11 +5,13 @@ import '../alternatives/alternatives_screen.dart';
 class UnsafeResultScreen extends StatelessWidget {
   final String productName;
   final List<String> detectedAllergens;
+  final String? imageUrl; // 🔴 added
 
   const UnsafeResultScreen({
     super.key,
     this.productName = 'حليب السعودية بالشوكولاتة',
     this.detectedAllergens = const ['الحليب'],
+    this.imageUrl, // 🔴 added
   });
 
   static const Color kPrimary = Color(0xFF9CCB7A);
@@ -66,21 +68,47 @@ class UnsafeResultScreen extends StatelessWidget {
                 const SizedBox(height: 20),
 
                 // ========== صورة المنتج ==========
+                // 🔴 changed: shows real product image from Open Food Facts
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: AspectRatio(
                     aspectRatio: 1,
                     child: Container(
                       decoration: BoxDecoration(
-                        color: Colors.orange.shade700,
+                        color: Colors.grey.shade200,
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: const Center(
-                        child: Icon(
-                          Icons.local_drink_outlined,
-                          size: 100,
-                          color: Colors.white,
-                        ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: imageUrl != null && imageUrl!.isNotEmpty
+                            // 🔴 show real image if available
+                            ? Image.network(
+                                imageUrl!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return const Center(
+                                    child: Icon(
+                                      Icons.image_not_supported_outlined,
+                                      size: 80,
+                                      color: Colors.grey,
+                                    ),
+                                  );
+                                },
+                                loadingBuilder: (context, child, progress) {
+                                  if (progress == null) return child;
+                                  return const Center(
+                                    child: CircularProgressIndicator(),
+                                  );
+                                },
+                              )
+                            // 🔴 fallback if no image
+                            : const Center(
+                                child: Icon(
+                                  Icons.image_not_supported_outlined,
+                                  size: 80,
+                                  color: Colors.grey,
+                                ),
+                              ),
                       ),
                     ),
                   ),
@@ -237,7 +265,8 @@ class UnsafeResultScreen extends StatelessWidget {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            padding:
+                                const EdgeInsets.symmetric(vertical: 16),
                             elevation: 0,
                           ),
                           child: Text(
@@ -260,7 +289,8 @@ class UnsafeResultScreen extends StatelessWidget {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            padding:
+                                const EdgeInsets.symmetric(vertical: 16),
                             elevation: 0,
                           ),
                           child: Text(
@@ -288,8 +318,10 @@ class UnsafeResultScreen extends StatelessWidget {
                     children: [
                       _buildNavItem(Icons.home, 'الرئيسية', true),
                       _buildNavItem(Icons.history, 'السجل', false),
-                      _buildNavItem(Icons.description_outlined, 'محتوى توعوي', false),
-                      _buildNavItem(Icons.person_outline, 'الملف الشخصي', false),
+                      _buildNavItem(Icons.description_outlined,
+                          'محتوى توعوي', false),
+                      _buildNavItem(
+                          Icons.person_outline, 'الملف الشخصي', false),
                     ],
                   ),
                 ),
