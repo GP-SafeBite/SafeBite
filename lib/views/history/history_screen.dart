@@ -8,6 +8,9 @@ import '../../services/scan_service.dart'; // 🔴 added
 import '../../widgets/product_card.dart';
 import '../educational/articles_list_screen.dart';
 import '../profile/profile_screen.dart';
+import 'dart:convert';
+import '../scanning/safe_result_screen.dart';
+import '../scanning/unsafe_result_screen.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -262,12 +265,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
           _buildDateSection(entry.key),
           const SizedBox(height: 12),
           for (final item in entry.value) ...[
-            _buildHistoryItem(
-              time: _formatTime(item['scan_date'] ?? ''),
-              productName: item['product_name'] ?? 'منتج غير معروف',
-              isSafe: item['safety_status'] == 'safe',
-              imageUrl: item['product_image_url'] ?? '',
-            ),
+            _buildHistoryItem(item: item),
             const SizedBox(height: 12),
           ],
           const SizedBox(height: 12),
@@ -293,25 +291,43 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
-  Widget _buildHistoryItem({
-    required String time,
-    required String productName,
-    required bool isSafe,
-    required String imageUrl,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 5),
-      child: ProductCard(
-        productName: productName,
-        imageUrl: imageUrl,
-        isSafe: isSafe,
-        time: time,
-        onTap: () {
-          // TODO: روح لتفاصيل المنتج
-        },
-      ),
-    );
-  }
+Widget _buildHistoryItem({
+  required Map<String, dynamic> item, // 🔥 مهم
+}) {
+  final allergensJson = item['found_allergens'] ?? '[]';
+  final allergens = List<String>.from(jsonDecode(allergensJson));
+
+  final isSafe = item['safety_status'] == 'safe';
+
+  final ingredients = [];
+
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 5),
+    child: ProductCard(
+      productName: item['product_name'] ?? '',
+      imageUrl: item['product_image_url'] ?? '',
+      isSafe: isSafe,
+      time: _formatTime(item['scan_date'] ?? ''),
+      onTap: () {
+        if (isSafe) {
+          Get.to(() => SafeResultScreen(
+                productName: item['product_name'] ?? '',
+                ingredients: ingredients,
+                allergens: allergens,
+                imageUrl: item['product_image_url'],
+              ));
+        } else {
+          Get.to(() => UnsafeResultScreen(
+                productName: item['product_name'] ?? '',
+                ingredients: ingredients,
+                detectedAllergens: allergens,
+                imageUrl: item['product_image_url'],
+              ));
+        }
+      },
+    ),
+  );
+}
 
   Widget _buildNavItem(
     IconData icon,

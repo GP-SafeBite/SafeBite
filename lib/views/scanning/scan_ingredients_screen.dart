@@ -6,6 +6,9 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'safe_result_screen.dart';
 import 'unsafe_result_screen.dart';
+import 'package:provider/provider.dart';
+import '../../controllers/scan_controller.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ScanIngredientsScreen extends StatefulWidget {
   const ScanIngredientsScreen({super.key});
@@ -103,14 +106,50 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
   }
 
   Future<void> _processImage(File imageFile) async {
-    // 🔴 TODO: الشخص الثاني يضيف هنا استدعاء الـ API
-    await Future.delayed(const Duration(seconds: 2));
+  try {
+    final controller =
+        context.read<ScanController>();
 
+    final userId =
+        Supabase.instance.client.auth.currentUser!.id;
+
+    // 🔥 تحليل الصورة
+    await controller.analyzeImage(imageFile, userId);
+
+    final result = controller.result;
+
+    if (result == null) {
+      throw Exception("مافي نتيجة");
+    }
+
+    final isSafe = result["is_safe"] == true;
+
+    if (isSafe) {
+      Get.off(() => SafeResultScreen(
+            productName: "منتج من صورة",
+            ingredients: result["ingredients"],
+            allergens: result["allergens"],
+          ));
+    } else {
+      Get.off(() => UnsafeResultScreen(
+            productName: "منتج من صورة",
+            ingredients: result["ingredients"],
+            detectedAllergens: List<String>.from(result["allergens"]),
+          ));
+    }
+
+  } catch (e) {
+    print("🔥 Error: $e");
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('فشل تحليل الصورة')),
+    );
+  } finally {
     if (mounted) {
       setState(() => _isScanning = false);
-      Get.off(() => SafeResultScreen(productName: 'منتج تجريبي'));
     }
   }
+}
 
   Future<void> _toggleFlash() async {
     if (_cameraController == null || !_cameraController!.value.isInitialized) return;
