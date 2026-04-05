@@ -5,13 +5,15 @@ import '../alternatives/alternatives_screen.dart';
 class UnsafeResultScreen extends StatelessWidget {
   final String productName;
   final List<String> detectedAllergens;
-  final String? imageUrl; // 🔴 added
+  final List ingredients; // 🔥 جديد
+  final String? imageUrl;
 
   const UnsafeResultScreen({
     super.key,
-    this.productName = 'حليب السعودية بالشوكولاتة',
-    this.detectedAllergens = const ['الحليب'],
-    this.imageUrl, // 🔴 added
+    required this.productName,
+    required this.detectedAllergens,
+    required this.ingredients, // 🔥 جديد
+    this.imageUrl,
   });
 
   static const Color kPrimary = Color(0xFF9CCB7A);
@@ -29,7 +31,7 @@ class UnsafeResultScreen extends StatelessWidget {
           child: SingleChildScrollView(
             child: Column(
               children: [
-                // ========== HEADER ==========
+                // HEADER
                 Padding(
                   padding: const EdgeInsets.all(20),
                   child: Row(
@@ -43,20 +45,15 @@ class UnsafeResultScreen extends StatelessWidget {
                             color: Color(0xFFFAF6E9),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(
-                            Icons.arrow_back,
-                            color: Colors.black,
-                            size: 20,
-                          ),
+                          child: const Icon(Icons.arrow_back, size: 20),
                         ),
                       ),
                       const Spacer(),
                       Text(
-                        'مسح الباركود',
+                        'نتيجة الفحص',
                         style: GoogleFonts.tajawal(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
-                          color: Colors.black,
                         ),
                       ),
                       const Spacer(),
@@ -67,8 +64,7 @@ class UnsafeResultScreen extends StatelessWidget {
 
                 const SizedBox(height: 20),
 
-                // ========== صورة المنتج ==========
-                // 🔴 changed: shows real product image from Open Food Facts
+                // صورة المنتج
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: AspectRatio(
@@ -81,34 +77,13 @@ class UnsafeResultScreen extends StatelessWidget {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(20),
                         child: imageUrl != null && imageUrl!.isNotEmpty
-                            // 🔴 show real image if available
                             ? Image.network(
                                 imageUrl!,
                                 fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return const Center(
-                                    child: Icon(
-                                      Icons.image_not_supported_outlined,
-                                      size: 80,
-                                      color: Colors.grey,
-                                    ),
-                                  );
-                                },
-                                loadingBuilder: (context, child, progress) {
-                                  if (progress == null) return child;
-                                  return const Center(
-                                    child: CircularProgressIndicator(),
-                                  );
-                                },
+                                errorBuilder: (_, __, ___) =>
+                                    const Icon(Icons.image_not_supported, size: 80),
                               )
-                            // 🔴 fallback if no image
-                            : const Center(
-                                child: Icon(
-                                  Icons.image_not_supported_outlined,
-                                  size: 80,
-                                  color: Colors.grey,
-                                ),
-                              ),
+                            : const Icon(Icons.image_not_supported, size: 80),
                       ),
                     ),
                   ),
@@ -116,44 +91,17 @@ class UnsafeResultScreen extends StatelessWidget {
 
                 const SizedBox(height: 32),
 
-                // ========== النتيجة ==========
+                // النتيجة
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Image.asset(
-                      'assets/icone/unsafe.png',
-                      width: 32,
-                      height: 32,
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) {
-                        return const Icon(
-                          Icons.cancel,
-                          color: Colors.red,
-                          size: 32,
-                        );
-                      },
-                    ),
+                    const Icon(Icons.cancel, color: Colors.red, size: 32),
                     const SizedBox(width: 8),
-                    RichText(
-                      text: TextSpan(
-                        children: [
-                          TextSpan(
-                            text: 'المنتج ',
-                            style: GoogleFonts.tajawal(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w400,
-                              color: kGrey900,
-                            ),
-                          ),
-                          TextSpan(
-                            text: 'غير آمن!',
-                            style: GoogleFonts.tajawal(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w400,
-                              color: kRed,
-                            ),
-                          ),
-                        ],
+                    Text(
+                      'المنتج غير آمن',
+                      style: GoogleFonts.tajawal(
+                        fontSize: 18,
+                        color: kRed,
                       ),
                     ),
                   ],
@@ -161,145 +109,93 @@ class UnsafeResultScreen extends StatelessWidget {
 
                 const SizedBox(height: 16),
 
-                // ========== اسم المنتج ==========
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 40),
-                  child: Text(
-                    'اسم المنتج: $productName',
-                    style: GoogleFonts.tajawal(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      color: kGrey900,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
+                // اسم المنتج
+                Text(
+                  'اسم المنتج: $productName',
+                  style: GoogleFonts.tajawal(fontSize: 15),
                 ),
 
                 const SizedBox(height: 20),
 
-                // ========== مسببات الحساسية ==========
+                // 🔥 المكونات
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 40),
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Image.asset(
-                            'assets/icone/warning.png',
-                            width: 28,
-                            height: 28,
-                            fit: BoxFit.contain,
-                            errorBuilder: (context, error, stackTrace) {
-                              return const Icon(
-                                Icons.warning_amber_rounded,
-                                color: Colors.amber,
-                                size: 28,
-                              );
-                            },
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'مسببات الحساسية المكتشفة:',
-                            style: GoogleFonts.tajawal(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: kGrey900,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      ...detectedAllergens.map(
-                        (allergen) => Padding(
-                          padding: const EdgeInsets.only(bottom: 4),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                '• ',
-                                style: GoogleFonts.tajawal(
-                                  fontSize: 14,
-                                  color: kGrey900,
-                                ),
-                              ),
-                              Text(
-                                allergen,
-                                style: GoogleFonts.tajawal(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  color: kGrey900,
-                                ),
-                              ),
-                            ],
-                          ),
+                      Text(
+                        'المكونات:',
+                        style: GoogleFonts.tajawal(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
                         ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        ingredients.join(', '),
+                        style: GoogleFonts.tajawal(fontSize: 14),
                       ),
                     ],
                   ),
                 ),
 
+                const SizedBox(height: 20),
+
+                // 🔥 مسببات الحساسية
+                Column(
+                  children: [
+                    Text(
+                      'مسببات الحساسية:',
+                      style: GoogleFonts.tajawal(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ...detectedAllergens.map(
+                      (a) => Text("• $a",
+                          style: GoogleFonts.tajawal(color: kRed)),
+                    ),
+                  ],
+                ),
+
                 const SizedBox(height: 32),
 
-                // ========== الأزرار ==========
+                // الأزرار
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 40),
                   child: Column(
                     children: [
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => AlternativesScreen(
-                                  unsafeProductName: productName,
-                                ),
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => AlternativesScreen(
+                                unsafeProductName: productName,
                               ),
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: kPrimary,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
                             ),
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 16),
-                            elevation: 0,
-                          ),
-                          child: Text(
-                            'عرض البدائل الآمنة',
-                            style: GoogleFonts.tajawal(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: kPrimary,
+                          minimumSize: const Size(double.infinity, 50),
+                        ),
+                        child: Text(
+                          'عرض البدائل الآمنة',
+                          style: GoogleFonts.tajawal(),
                         ),
                       ),
                       const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: kPrimary,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 16),
-                            elevation: 0,
-                          ),
-                          child: Text(
-                            'فحص منتج آخر',
-                            style: GoogleFonts.tajawal(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
+                      ElevatedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: kPrimary,
+                          minimumSize: const Size(double.infinity, 50),
+                        ),
+                        child: Text(
+                          'فحص منتج آخر',
+                          style: GoogleFonts.tajawal(),
                         ),
                       ),
                     ],
@@ -307,55 +203,9 @@ class UnsafeResultScreen extends StatelessWidget {
                 ),
 
                 const SizedBox(height: 40),
-
-                // ========== BOTTOM NAVIGATION ==========
-                Container(
-                  height: 70,
-                  decoration: const BoxDecoration(
-                    color: kBackground,
-                  ),
-                  child: Row(
-                    children: [
-                      _buildNavItem(Icons.home, 'الرئيسية', true),
-                      _buildNavItem(Icons.history, 'السجل', false),
-                      _buildNavItem(Icons.description_outlined,
-                          'محتوى توعوي', false),
-                      _buildNavItem(
-                          Icons.person_outline, 'الملف الشخصي', false),
-                    ],
-                  ),
-                ),
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavItem(IconData icon, String label, bool isActive) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {},
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              color: isActive ? kPrimary : kGrey900,
-              size: 26,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: GoogleFonts.tajawal(
-                fontSize: 11,
-                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                color: isActive ? kPrimary : kGrey900,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
         ),
       ),
     );
