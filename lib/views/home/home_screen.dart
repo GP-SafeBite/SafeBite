@@ -7,10 +7,8 @@ import '../../services/scan_service.dart';
 import '../history/history_screen.dart';
 import '../educational/articles_list_screen.dart';
 import '../profile/profile_screen.dart';
+// ✅ [Removed] import scan_barcode_screen.dart — barcode feature removed
 import '../scanning/scan_ingredients_screen.dart';
-import 'dart:convert';
-import '../scanning/safe_result_screen.dart';
-import '../scanning/unsafe_result_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -145,22 +143,48 @@ class _HomeScreenState extends State<HomeScreen> {
 
                             const SizedBox(height: 32),
 
-                            // ========== أزرار المسح ==========
+                            // ========== زر المسح ==========
+                            // ✅ [Removed] barcode scan button — ingredients scan only
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 20),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: AspectRatio(
-                                      aspectRatio: 1,
-                                      child: _buildScanButton(
-                                        title: 'مسح المكونات',
-                                        subtitle: 'صورة قائمة المكونات',
-                                        onTap: () => Get.to(() => const ScanIngredientsScreen()),
-                                      ),
-                                    ),
+                              child: GestureDetector(
+                                onTap: () => Get.to(() => const ScanIngredientsScreen()),
+                                child: Container(
+                                  width: double.infinity,
+                                  height: 160,
+                                  decoration: BoxDecoration(
+                                    color: kPrimary,
+                                    borderRadius: BorderRadius.circular(20),
                                   ),
-                                ],
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(
+                                        Icons.camera_alt_outlined,
+                                        size: 56,
+                                        color: Colors.white,
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        'مسح المكونات',
+                                        style: GoogleFonts.tajawal(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        'صورة قائمة المكونات',
+                                        style: GoogleFonts.tajawal(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w500,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ),
 
@@ -339,75 +363,7 @@ class _HomeScreenState extends State<HomeScreen> {
       productName: _lastScan!['product_name'] ?? 'منتج غير معروف',
       imageUrl: _lastScan!['product_image_url'] ?? '',
       isSafe: _lastScan!['safety_status'] == 'safe',
-      onTap: () {
-  final allergensJson = _lastScan!['found_allergens'] ?? '[]';
-  final allergens = List<String>.from(jsonDecode(allergensJson));
-
-  final isSafe = _lastScan!['safety_status'] == 'safe';
-
-  final ingredients = [];
-
-  if (isSafe) {
-    Get.to(() => SafeResultScreen(
-          productName: _lastScan!['product_name'] ?? '',
-          ingredients: ingredients,
-          allergens: allergens,
-          imageUrl: _lastScan!['product_image_url'],
-        ));
-  } else {
-    Get.to(() => UnsafeResultScreen(
-          productName: _lastScan!['product_name'] ?? '',
-          ingredients: ingredients,
-          detectedAllergens: allergens,
-          imageUrl: _lastScan!['product_image_url'],
-        ));
-  }
-},
-    );
-  }
-
-  Widget _buildScanButton({
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: kPrimary,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.camera_alt_outlined, size: 56, color: Colors.white),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              textDirection: TextDirection.rtl,
-              style: GoogleFonts.tajawal(
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              textDirection: TextDirection.rtl,
-              style: GoogleFonts.tajawal(
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-                height: 1.4,
-              ),
-            ),
-          ],
-        ),
-      ),
+      onTap: () => debugPrint('Product card tapped!'),
     );
   }
 
