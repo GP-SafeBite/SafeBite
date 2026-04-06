@@ -1,3 +1,4 @@
+// Scan.ingredients.screen.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:get/get.dart';
@@ -118,33 +119,54 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
 
     final result = controller.result;
 
-    if (result == null) {
-      throw Exception("مافي نتيجة");
-    }
+if (result == null) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('فشل تحليل الصورة، حاول مرة أخرى')),
+  );
+  return; // 🔥 مهم جدًا
+}
 
     final isSafe = result["is_safe"] == true;
+final isUnknown = result["is_unknown"] == true;
 
-    if (isSafe) {
-      Get.off(() => SafeResultScreen(
-            productName: "منتج من صورة",
-            ingredients: result["ingredients"],
-            allergens: result["allergens"],
-          ));
-    } else {
-      Get.off(() => UnsafeResultScreen(
-            productName: "منتج من صورة",
-            ingredients: result["ingredients"],
-            detectedAllergens: List<String>.from(result["allergens"]),
-          ));
-    }
+if (isUnknown) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('تعذر تحليل المنتج، حاول تصوير أوضح')),
+  );
+  return;
+}
+
+if (isSafe) {
+  Get.off(() => SafeResultScreen(
+    productName: "منتج من صورة",
+    ingredients: result["ingredients"],
+    allergens: result["allergens"],
+  ));
+} else {
+  Get.off(() => UnsafeResultScreen(
+    productName: "منتج من صورة",
+    ingredients: result["ingredients"],
+    detectedAllergens: List<String>.from(result["allergens"]),
+    warnings: List<String>.from(result["warnings"] ?? []),
+    hiddenSources: List<String>.from(result["hidden_sources"] ?? []),
+  ));
+}
 
   } catch (e) {
-    print("🔥 Error: $e");
+  print("🔥 Error: $e");
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('فشل تحليل الصورة')),
-    );
-  } finally {
+  String message = 'فشل تحليل الصورة';
+
+  if (e.toString().contains("RATE_LIMIT")) {
+    message = 'الضغط عالي، حاول بعد ثواني ⏳';
+  }
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text(message)),
+  );
+
+  return; // 🔥 مهم
+} finally {
     if (mounted) {
       setState(() => _isScanning = false);
     }
