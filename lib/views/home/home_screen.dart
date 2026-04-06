@@ -2,15 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../widgets/product_card.dart';
-import '../../services/auth_service.dart'; // 🔴 added
-import '../../services/scan_service.dart'; // 🔴 added
+import '../../services/auth_service.dart';
+import '../../services/scan_service.dart';
 import '../history/history_screen.dart';
 import '../educational/articles_list_screen.dart';
 import '../profile/profile_screen.dart';
-import '../scanning/scan_barcode_screen.dart';
 import '../scanning/scan_ingredients_screen.dart';
+import 'dart:convert';
+import '../scanning/safe_result_screen.dart';
+import '../scanning/unsafe_result_screen.dart';
 
-// 🔴 changed: StatelessWidget → StatefulWidget to load real data
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -26,8 +27,8 @@ class _HomeScreenState extends State<HomeScreen> {
   static const Color kGrey400 = Color(0xFFB3B3B3);
   static const Color kRed = Color(0xFFD32F2F);
 
-  // 🔴 added: real data variables
   String _userName = '';
+  String _userPhotoUrl = '';
   int _totalScans = 0;
   int _safeScans = 0;
   int _unsafeScans = 0;
@@ -37,14 +38,20 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadData(); // 🔴 added
+    _loadData();
   }
 
-  // 🔴 added: loads real user data + scan stats
+  // 🔴 reload when returning from any screen
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loadData();
+  }
+
   Future<void> _loadData() async {
     final user = await AuthService.getCurrentUser();
     if (user == null) {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
       return;
     }
 
@@ -54,20 +61,26 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final history = result.success
         ? List<Map<String, dynamic>>.from(result.data ?? [])
-        : [];
+        : <Map<String, dynamic>>[];
 
     if (mounted) {
       setState(() {
         _userName = user['name'] ?? '';
+        _userPhotoUrl = user['photo_url'] ?? '';
         _totalScans = history.length;
-        _safeScans =
-            history.where((h) => h['safety_status'] == 'safe').length;
-        _unsafeScans =
-            history.where((h) => h['safety_status'] == 'unsafe').length;
+        _safeScans = history.where((h) => h['safety_status'] == 'safe').length;
+        _unsafeScans = history.where((h) => h['safety_status'] == 'unsafe').length;
         _lastScan = history.isNotEmpty ? history.first : null;
         _isLoading = false;
       });
     }
+  }
+
+  // 🔴 cache busting helper
+  String _bustCache(String url) {
+    if (url.isEmpty) return url;
+    final base = url.split('?').first;
+    return '$base?t=${DateTime.now().millisecondsSinceEpoch}';
   }
 
   @override
@@ -77,255 +90,238 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Scaffold(
         backgroundColor: kBackground,
         body: SafeArea(
-          child: Column(
-            children: [
-              // ========== HEADER ==========
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                child: Row(
-                  children: [
-                    // صورة البروفايل (أقصى اليمين)
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: kGrey400,
-                      ),
-                      child: const Icon(
-                        Icons.person,
-                        color: Colors.white,
-                        size: 28,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    // 🔴 changed: was hardcoded 'أحمد'
-                    Text(
-                      'مرحباً، ${_userName.isEmpty ? 'مستخدم' : _userName}',
-                      style: GoogleFonts.tajawal(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black,
-                      ),
-                    ),
-                    const Text('👋', style: TextStyle(fontSize: 20)),
-                    const Spacer(),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 32),
-
-              // ========== أزرار المسح ==========
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
+          child: _isLoading
+              // 🔴 show full loader — prevents مستخدم glitch
+              ? const Center(child: CircularProgressIndicator())
+              : Column(
                   children: [
                     Expanded(
-                      child: AspectRatio(
-                        aspectRatio: 1,
-                        child: _buildScanButton(
-                          title: 'مسح الباركود',
-                          subtitle: 'تحقق سريع من المنتج',
-                          onTap: () {
-                            Get.to(() => const ScanBarcodeScreen());
-                          },
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: AspectRatio(
-                        aspectRatio: 1,
-                        child: _buildScanButton(
-                          title: 'مسح المكونات',
-                          subtitle: 'صورة قائمة المكونات',
-                          onTap: () {
-                            Get.to(() => const ScanIngredientsScreen());
-                          },
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 32),
-
-              // ========== إحصائياتك ==========
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    'إحصائياتك',
-                    style: GoogleFonts.tajawal(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.black,
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              // كارد الإحصائيات
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                      vertical: 20, horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: kCardBg,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: _isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      child: SingleChildScrollView(
+                        // 🔴 scrollable — fixes overflow errors
+                        child: Column(
                           children: [
-                            // 🔴 changed: was hardcoded 24
-                            Text.rich(
-                              TextSpan(
+                            // ========== HEADER ==========
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                              child: Row(
                                 children: [
-                                  TextSpan(
-                                    text: '• إجمالي الفحوصات: ',
-                                    style: GoogleFonts.tajawal(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      color: kGrey900,
+                                  Container(
+                                    width: 48,
+                                    height: 48,
+                                    decoration: const BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: Color(0xFFB3B3B3),
                                     ),
+                                    child: _userPhotoUrl.isNotEmpty
+                                        ? ClipOval(
+                                            child: Image.network(
+                                              _bustCache(_userPhotoUrl), // 🔴 cache bust
+                                              width: 48,
+                                              height: 48,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (context, error, stackTrace) =>
+                                                  const Icon(Icons.person,
+                                                      color: Colors.white, size: 28),
+                                            ),
+                                          )
+                                        : const Icon(Icons.person,
+                                            color: Colors.white, size: 28),
                                   ),
-                                  TextSpan(
-                                    text: '$_totalScans',
-                                    style: GoogleFonts.tajawal(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      color: kGrey900,
+                                  const SizedBox(width: 12),
+                                  Flexible(
+                                    child: Text(
+                                      'مرحباً، $_userName 👋',
+                                      style: GoogleFonts.tajawal(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.black,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
                                 ],
                               ),
-                              textDirection: TextDirection.rtl,
                             ),
-                            const SizedBox(height: 10),
-                            // 🔴 changed: was hardcoded 18 and 6
-                            Text.rich(
-                              TextSpan(
+
+                            const SizedBox(height: 32),
+
+                            // ========== أزرار المسح ==========
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              child: Row(
                                 children: [
-                                  TextSpan(
-                                    text: '• آمن: ',
-                                    style: GoogleFonts.tajawal(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      color: kGrey900,
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text: '$_safeScans',
-                                    style: GoogleFonts.tajawal(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      color: kPrimary,
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text: ' | غير آمن: ',
-                                    style: GoogleFonts.tajawal(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      color: kGrey900,
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text: '$_unsafeScans',
-                                    style: GoogleFonts.tajawal(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      color: kRed,
+                                  Expanded(
+                                    child: AspectRatio(
+                                      aspectRatio: 1,
+                                      child: _buildScanButton(
+                                        title: 'مسح المكونات',
+                                        subtitle: 'صورة قائمة المكونات',
+                                        onTap: () => Get.to(() => const ScanIngredientsScreen()),
+                                      ),
                                     ),
                                   ),
                                 ],
                               ),
-                              textDirection: TextDirection.rtl,
                             ),
+
+                            const SizedBox(height: 32),
+
+                            // ========== إحصائياتك ==========
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: Text(
+                                  'إحصائياتك',
+                                  style: GoogleFonts.tajawal(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 12),
+
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 20, horizontal: 16),
+                                decoration: BoxDecoration(
+                                  color: kCardBg,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text.rich(
+                                      TextSpan(children: [
+                                        TextSpan(
+                                          text: '• إجمالي الفحوصات: ',
+                                          style: GoogleFonts.tajawal(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w700,
+                                            color: kGrey900,
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: '$_totalScans',
+                                          style: GoogleFonts.tajawal(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w700,
+                                            color: kGrey900,
+                                          ),
+                                        ),
+                                      ]),
+                                      textDirection: TextDirection.rtl,
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Text.rich(
+                                      TextSpan(children: [
+                                        TextSpan(
+                                          text: '• آمن: ',
+                                          style: GoogleFonts.tajawal(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w700,
+                                            color: kGrey900,
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: '$_safeScans',
+                                          style: GoogleFonts.tajawal(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w700,
+                                            color: kPrimary,
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: ' | غير آمن: ',
+                                          style: GoogleFonts.tajawal(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w700,
+                                            color: kGrey900,
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: '$_unsafeScans',
+                                          style: GoogleFonts.tajawal(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w700,
+                                            color: kRed,
+                                          ),
+                                        ),
+                                      ]),
+                                      textDirection: TextDirection.rtl,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 32),
+
+                            // ========== آخر فحص ==========
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: Text(
+                                  'آخر فحص',
+                                  style: GoogleFonts.tajawal(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 12),
+
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              child: _buildLastScanSection(),
+                            ),
+
+                            const SizedBox(height: 20),
                           ],
                         ),
-                ),
-              ),
-
-              const SizedBox(height: 32),
-
-              // ========== آخر فحص ==========
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    'آخر فحص',
-                    style: GoogleFonts.tajawal(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.black,
+                      ),
                     ),
-                  ),
-                ),
-              ),
 
-              const SizedBox(height: 12),
-
-              // ========== كارد المنتج ==========
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _buildLastScanSection(),
-              ),
-
-              const Spacer(),
-
-              // ========== BOTTOM NAVIGATION ==========
-              Container(
-                height: 70,
-                decoration: const BoxDecoration(
-                  color: kBackground,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _buildNavItem(Icons.home, 'الرئيسية', true, () {
-                      // already on home
-                    }),
-                    _buildNavItem(Icons.history, 'السجل', false, () {
-                      Get.to(() => const HistoryScreen());
-                    }),
-                    _buildNavItem(
-                        Icons.description_outlined, 'محتوى توعوي', false,
-                        () {
-                      Get.to(() => const ArticlesListScreen());
-                    }),
-                    _buildNavItem(
-                        Icons.person_outline, 'الملف الشخصي', false, () {
-                      Get.to(() => const ProfileScreen());
-                    }),
+                    // ========== BOTTOM NAVIGATION ==========
+                    Container(
+                      height: 70,
+                      decoration: const BoxDecoration(color: kBackground),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _buildNavItem(Icons.home, 'الرئيسية', true, () {}),
+                          _buildNavItem(Icons.history, 'السجل', false, () {
+                            Get.to(() => const HistoryScreen());
+                          }),
+                          _buildNavItem(
+                              Icons.description_outlined, 'محتوى توعوي', false, () {
+                            Get.to(() => const ArticlesListScreen());
+                          }),
+                          _buildNavItem(
+                              Icons.person_outline, 'الملف الشخصي', false, () {
+                            Get.to(() => const ProfileScreen());
+                          }),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
-              ),
-            ],
-          ),
         ),
       ),
     );
   }
 
-  // ========== WIDGETS ==========
-
-  // 🔴 changed: was hardcoded, now shows real last scan
   Widget _buildLastScanSection() {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
     if (_lastScan == null) {
       return Container(
         width: double.infinity,
@@ -333,10 +329,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Center(
           child: Text(
             'لا توجد فحوصات بعد!',
-            style: GoogleFonts.tajawal(
-              fontSize: 14,
-              color: kGrey900,
-            ),
+            style: GoogleFonts.tajawal(fontSize: 14, color: kGrey900),
           ),
         ),
       );
@@ -347,8 +340,29 @@ class _HomeScreenState extends State<HomeScreen> {
       imageUrl: _lastScan!['product_image_url'] ?? '',
       isSafe: _lastScan!['safety_status'] == 'safe',
       onTap: () {
-        debugPrint('Product card tapped!');
-      },
+  final allergensJson = _lastScan!['found_allergens'] ?? '[]';
+  final allergens = List<String>.from(jsonDecode(allergensJson));
+
+  final isSafe = _lastScan!['safety_status'] == 'safe';
+
+  final ingredients = [];
+
+  if (isSafe) {
+    Get.to(() => SafeResultScreen(
+          productName: _lastScan!['product_name'] ?? '',
+          ingredients: ingredients,
+          allergens: allergens,
+          imageUrl: _lastScan!['product_image_url'],
+        ));
+  } else {
+    Get.to(() => UnsafeResultScreen(
+          productName: _lastScan!['product_name'] ?? '',
+          ingredients: ingredients,
+          detectedAllergens: allergens,
+          imageUrl: _lastScan!['product_image_url'],
+        ));
+  }
+},
     );
   }
 
@@ -367,11 +381,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
-              Icons.camera_alt_outlined,
-              size: 56,
-              color: Colors.white,
-            ),
+            const Icon(Icons.camera_alt_outlined, size: 56, color: Colors.white),
             const SizedBox(height: 16),
             Text(
               title,
@@ -412,11 +422,7 @@ class _HomeScreenState extends State<HomeScreen> {
             SizedBox(
               width: 28,
               height: 28,
-              child: Icon(
-                icon,
-                color: isActive ? kPrimary : kGrey900,
-                size: 26,
-              ),
+              child: Icon(icon, color: isActive ? kPrimary : kGrey900, size: 26),
             ),
             const SizedBox(height: 4),
             Text(

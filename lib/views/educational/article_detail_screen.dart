@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:webview_flutter/webview_flutter.dart'; // 🔴 added
-import '../../models/article_model.dart'; // 🔴 added
+import 'package:webview_flutter/webview_flutter.dart';
+import '../../models/article_model.dart';
+import '../../services/articles_service.dart';
 
 class ArticleDetailScreen extends StatefulWidget {
-  final ArticleModel article; // 🔴 added
+  final ArticleModel article;
 
   const ArticleDetailScreen({
     super.key,
-    required this.article, // 🔴 added
+    required this.article,
   });
 
   @override
@@ -21,25 +22,61 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
   static const Color kFieldBg = Color(0xFFFAF6E9);
   static const Color kGrey900 = Color(0xFF818898);
 
-  late final WebViewController _webViewController; // 🔴 added
-  bool _isLoading = true; // 🔴 added
+  late final WebViewController _webViewController;
+  bool _isLoading = true;
+  final bool _isPdf = false;
 
   @override
   void initState() {
     super.initState();
-    // 🔴 initialize WebView controller
-    _webViewController = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(NavigationDelegate(
-        onPageFinished: (url) {
-          if (mounted) setState(() => _isLoading = false);
-        },
-      ))
-      ..loadRequest(Uri.parse(widget.article.link));
+
+    // ✅ If PDF → open in external browser immediately
+    if (ArticlesService.isPdf(widget.article.link)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await ArticlesService.openPdf(widget.article.link);
+        if (mounted) Navigator.pop(context);
+      });
+    } else {
+      // ✅ Web page → load in WebView
+      _webViewController = WebViewController()
+        ..setJavaScriptMode(JavaScriptMode.unrestricted)
+        ..setNavigationDelegate(NavigationDelegate(
+          onPageFinished: (url) {
+            if (mounted) setState(() => _isLoading = false);
+          },
+        ))
+        ..loadRequest(Uri.parse(widget.article.link));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Show loading while PDF opens in external browser
+    if (ArticlesService.isPdf(widget.article.link)) {
+      return Directionality(
+        textDirection: TextDirection.rtl,
+        child: Scaffold(
+          backgroundColor: kBackground,
+          body: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: 16),
+                Text(
+                  'جاري فتح الملف...',
+                  style: GoogleFonts.tajawal(
+                    fontSize: 14,
+                    color: kGrey900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -69,7 +106,6 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                       ),
                     ),
                     const Spacer(),
-                    // 🔴 show source badge (SFDA or MOH)
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
@@ -114,9 +150,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
               Expanded(
                 child: Stack(
                   children: [
-                    // 🔴 real website loaded inside app
                     WebViewWidget(controller: _webViewController),
-                    // 🔴 loading spinner while page loads
                     if (_isLoading)
                       const Center(
                         child: CircularProgressIndicator(),

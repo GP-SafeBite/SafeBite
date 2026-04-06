@@ -1,42 +1,163 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:get/get.dart';
+import 'package:camera/camera.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 import 'safe_result_screen.dart';
 import 'unsafe_result_screen.dart';
+import 'package:provider/provider.dart';
+import '../../controllers/scan_controller.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ScanIngredientsScreen extends StatefulWidget {
   const ScanIngredientsScreen({super.key});
 
   @override
-  State<ScanIngredientsScreen> createState() =>
-      _ScanIngredientsScreenState();
+  State<ScanIngredientsScreen> createState() => _ScanIngredientsScreenState();
 }
 
-class _ScanIngredientsScreenState
-    extends State<ScanIngredientsScreen> {
+class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
   static const Color kPrimary = Color(0xFF9CCB7A);
   static const Color kBackground = Color(0xFFFFFDF6);
   static const Color kGrey900 = Color(0xFF818898);
 
   bool _isFlashOn = false;
   bool _isScanning = false;
+  bool _isCameraReady = false;
 
-  void _simulateScan() {
-    setState(() {
-      _isScanning = true;
-    });
+  CameraController? _cameraController;
+  final ImagePicker _imagePicker = ImagePicker();
 
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        setState(() {
-          _isScanning = false;
-        });
+  @override
+  void initState() {
+    super.initState();
+    _initCamera();
+  }
 
-        Get.off(() => SafeResultScreen(
-              productName: 'منتج تجريبي',
-            ));
+  Future<void> _initCamera() async {
+    try {
+      final cameras = await availableCameras();
+      print('عدد الكاميرات: ${cameras.length}');
+
+      if (cameras.isEmpty) {
+        print('ما في كاميرات!');
+        return;
       }
-    });
+
+      final backCamera = cameras.firstWhere(
+        (cam) => cam.lensDirection == CameraLensDirection.back,
+        orElse: () => cameras.first,
+      );
+
+      print('الكاميرا: ${backCamera.name}');
+
+      _cameraController = CameraController(
+        backCamera,
+        ResolutionPreset.medium,
+        enableAudio: false,
+      );
+
+      await _cameraController!.initialize();
+      print('الكاميرا جاهزة ✅');
+
+      if (mounted) {
+        setState(() => _isCameraReady = true);
+      }
+    } catch (e) {
+      print('خطأ في الكاميرا: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _cameraController?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _captureImage() async {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) return;
+    if (_isScanning) return;
+
+    setState(() => _isScanning = true);
+
+    try {
+      final XFile image = await _cameraController!.takePicture();
+      await _processImage(File(image.path));
+    } catch (e) {
+      print('خطأ في التقاط الصورة: $e');
+      setState(() => _isScanning = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('حدث خطأ أثناء التقاط الصورة')),
+      );
+    }
+  }
+
+  Future<void> _pickFromGallery() async {
+    final XFile? image = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 90,
+    );
+
+    if (image == null) return;
+
+    setState(() => _isScanning = true);
+    await _processImage(File(image.path));
+  }
+
+  Future<void> _processImage(File imageFile) async {
+  try {
+    final controller =
+        context.read<ScanController>();
+
+    final userId =
+        Supabase.instance.client.auth.currentUser!.id;
+
+    // 🔥 تحليل الصورة
+    await controller.analyzeImage(imageFile, userId);
+
+    final result = controller.result;
+
+    if (result == null) {
+      throw Exception("مافي نتيجة");
+    }
+
+    final isSafe = result["is_safe"] == true;
+
+    if (isSafe) {
+      Get.off(() => SafeResultScreen(
+            productName: "منتج من صورة",
+            ingredients: result["ingredients"],
+            allergens: result["allergens"],
+          ));
+    } else {
+      Get.off(() => UnsafeResultScreen(
+            productName: "منتج من صورة",
+            ingredients: result["ingredients"],
+            detectedAllergens: List<String>.from(result["allergens"]),
+          ));
+    }
+
+  } catch (e) {
+    print("🔥 Error: $e");
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('فشل تحليل الصورة')),
+    );
+  } finally {
+    if (mounted) {
+      setState(() => _isScanning = false);
+    }
+  }
+}
+
+  Future<void> _toggleFlash() async {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) return;
+
+    setState(() => _isFlashOn = !_isFlashOn);
+    await _cameraController!.setFlashMode(
+      _isFlashOn ? FlashMode.torch : FlashMode.off,
+    );
   }
 
   @override
@@ -62,11 +183,7 @@ class _ScanIngredientsScreenState
                           color: Color(0xFFFAF6E9),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(
-                          Icons.arrow_back,
-                          color: Colors.black,
-                          size: 20,
-                        ),
+                        child: const Icon(Icons.arrow_back, color: Colors.black, size: 20),
                       ),
                     ),
                     const Spacer(),
@@ -89,24 +206,50 @@ class _ScanIngredientsScreenState
               // ========== CAMERA VIEW ==========
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: AspectRatio(
-                  aspectRatio: 1,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.black,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: MediaQuery.of(context).size.width - 40,
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        if (_isScanning)
-                          const CircularProgressIndicator(
-                              color: Colors.white)
+                        // 🔴 الكاميرا ممتدة بالكامل
+                        if (_isCameraReady)
+                          SizedBox.expand(
+                            child: FittedBox(
+                              fit: BoxFit.cover,
+                              child: SizedBox(
+                                width: _cameraController!.value.previewSize!.height,
+                                height: _cameraController!.value.previewSize!.width,
+                                child: CameraPreview(_cameraController!),
+                              ),
+                            ),
+                          )
                         else
-                          const Icon(
-                            Icons.camera_alt_outlined,
-                            size: 64,
-                            color: Colors.white,
+                          Container(
+                            color: Colors.black,
+                            child: const Center(
+                              child: CircularProgressIndicator(color: Colors.white),
+                            ),
+                          ),
+
+                        if (_isScanning)
+                          Container(
+                            color: Colors.black54,
+                            child: Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const CircularProgressIndicator(color: Colors.white),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'جاري تحليل المكونات...',
+                                    style: GoogleFonts.tajawal(color: Colors.white),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                       ],
                     ),
@@ -137,50 +280,61 @@ class _ScanIngredientsScreenState
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
+                    // زر الألبوم
                     SizedBox(
                       width: 48,
                       child: GestureDetector(
-                        onTap: () {},
+                        onTap: _isScanning ? null : _pickFromGallery,
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
                               Icons.image_outlined,
-                              color: kGrey900,
+                              color: _isScanning ? kGrey900.withOpacity(0.4) : kGrey900,
                               size: 32,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'الألبوم',
+                              style: GoogleFonts.tajawal(
+                                fontSize: 12,
+                                color: _isScanning ? kGrey900.withOpacity(0.4) : kGrey900,
+                              ),
                             ),
                           ],
                         ),
                       ),
                     ),
+
+                    // زر التقاط
                     GestureDetector(
-                      onTap: _simulateScan,
+                      onTap: _isScanning ? null : _captureImage,
                       child: Container(
                         width: 100,
                         height: 100,
                         decoration: BoxDecoration(
-                          color: kPrimary,
+                          color: _isScanning ? kGrey900 : kPrimary,
                           shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.camera_alt,
+                          color: Colors.white,
+                          size: 40,
                         ),
                       ),
                     ),
+
+                    // زر الفلاش
                     SizedBox(
                       width: 48,
                       child: GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _isFlashOn = !_isFlashOn;
-                          });
-                        },
+                        onTap: _toggleFlash,
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              _isFlashOn
-                                  ? Icons.flash_on
-                                  : Icons.flash_off,
-                              color:
-                                  _isFlashOn ? Colors.amber : kGrey900,
+                              _isFlashOn ? Icons.flash_on : Icons.flash_off,
+                              color: _isFlashOn ? Colors.amber : kGrey900,
                               size: 32,
                             ),
                             const SizedBox(height: 4),
@@ -189,8 +343,7 @@ class _ScanIngredientsScreenState
                               style: GoogleFonts.tajawal(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
-                                color:
-                                    _isFlashOn ? Colors.amber : kGrey900,
+                                color: _isFlashOn ? Colors.amber : kGrey900,
                               ),
                             ),
                           ],
@@ -206,17 +359,13 @@ class _ScanIngredientsScreenState
               // ========== BOTTOM NAVIGATION ==========
               Container(
                 height: 70,
-                decoration: const BoxDecoration(
-                  color: kBackground,
-                ),
+                decoration: const BoxDecoration(color: kBackground),
                 child: Row(
                   children: [
                     _buildNavItem(Icons.home, 'الرئيسية', true),
                     _buildNavItem(Icons.history, 'السجل', false),
-                    _buildNavItem(Icons.description_outlined,
-                        'محتوى توعوي', false),
-                    _buildNavItem(
-                        Icons.person_outline, 'الملف الشخصي', false),
+                    _buildNavItem(Icons.description_outlined, 'محتوى توعوي', false),
+                    _buildNavItem(Icons.person_outline, 'الملف الشخصي', false),
                   ],
                 ),
               ),
@@ -234,11 +383,7 @@ class _ScanIngredientsScreenState
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              color: isActive ? kPrimary : kGrey900,
-              size: 26,
-            ),
+            Icon(icon, color: isActive ? kPrimary : kGrey900, size: 26),
             const SizedBox(height: 4),
             Text(
               label,

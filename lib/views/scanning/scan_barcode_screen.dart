@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
+/*import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:get/get.dart';
-import 'package:mobile_scanner/mobile_scanner.dart'; // 🔴 added
-import '../../services/auth_service.dart'; // 🔴 added
-import '../../services/scan_service.dart'; // 🔴 added
+import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:image_picker/image_picker.dart';
+import '../../services/auth_service.dart';
+import '../../services/scan_service.dart';
 import 'safe_result_screen.dart';
 import 'unsafe_result_screen.dart';
 
@@ -21,45 +22,83 @@ class _ScanBarcodeScreenState extends State<ScanBarcodeScreen> {
 
   bool _isFlashOn = false;
   bool _isScanning = false;
-  bool _barcodeDetected = false; // 🔴 prevents scanning same barcode twice
+  bool _barcodeDetected = false;
 
-  // 🔴 added: real camera controller
   final MobileScannerController _cameraController = MobileScannerController();
+  final ImagePicker _imagePicker = ImagePicker(); // 🔴 added
 
   @override
   void dispose() {
-    _cameraController.dispose(); // 🔴 added: cleanup camera
+    _cameraController.dispose();
     super.dispose();
   }
 
-  // 🔴 changed: now calls real API instead of simulation
   Future<void> _onBarcodeDetected(BarcodeCapture capture) async {
     if (_barcodeDetected || _isScanning) return;
 
     final barcode = capture.barcodes.firstOrNull?.rawValue;
     if (barcode == null) return;
 
+    await _processBarcode(barcode);
+  }
+
+  // 🔴 added: جيب صورة من الألبوم واقرأ الباركود منها
+  Future<void> _pickFromGallery() async {
+    if (_isScanning) return;
+
+    final XFile? image = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+    );
+
+    if (image == null) return;
+
+    setState(() => _isScanning = true);
+    await _cameraController.stop();
+
+    // 🔴 mobile_scanner يقدر يقرأ باركود من صورة
+    final result = await MobileScannerController().analyzeImage(image.path);
+
+    if (result == null || result.barcodes.isEmpty) {
+      if (mounted) {
+        setState(() => _isScanning = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ما في باركود في الصورة')),
+        );
+        await _cameraController.start();
+      }
+      return;
+    }
+
+    final barcode = result.barcodes.firstOrNull?.rawValue;
+    if (barcode == null) return;
+
+    await _processBarcode(barcode);
+  }
+
+  // 🔴 added: منطق مشترك بين الكاميرا والألبوم
+  Future<void> _processBarcode(String barcode) async {
     setState(() {
       _barcodeDetected = true;
       _isScanning = true;
     });
 
-    // 🔴 stop camera while processing
     await _cameraController.stop();
 
-    // 🔴 get current user
     final user = await AuthService.getCurrentUser();
     if (user == null) {
       if (mounted) {
-        setState(() => _isScanning = false);
+        setState(() {
+          _isScanning = false;
+          _barcodeDetected = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('يرجى تسجيل الدخول أولاً')),
         );
+        await _cameraController.start();
       }
       return;
     }
 
-    // 🔴 fetch product from Open Food Facts + check allergens
     final result = await ScanService.fetchProductByBarcode(
       barcode: barcode,
       userId: user['user_id'],
@@ -79,20 +118,19 @@ class _ScanBarcodeScreenState extends State<ScanBarcodeScreen> {
 
     final scanData = result.data as ProductScanData;
 
-    // 🔴 changed: pass imageUrl to both result screens
-if (scanData.safetyStatus == 'safe') {
-  Get.off(() => SafeResultScreen(
-        productName: scanData.productName,
-        barcode: barcode,
-        imageUrl: scanData.imageUrl, // 🔴 added
-      ));
-} else {
-  Get.off(() => UnsafeResultScreen(
-        productName: scanData.productName,
-        detectedAllergens: scanData.detectedAllergens,
-        imageUrl: scanData.imageUrl, // 🔴 added
-      ));
-}
+    if (scanData.safetyStatus == 'safe') {
+      Get.off(() => SafeResultScreen(
+            productName: scanData.productName,
+            barcode: barcode,
+            imageUrl: scanData.imageUrl,
+          ));
+    } else {
+      Get.off(() => UnsafeResultScreen(
+            productName: scanData.productName,
+            detectedAllergens: scanData.detectedAllergens,
+            imageUrl: scanData.imageUrl,
+          ));
+    }
   }
 
   @override
@@ -155,7 +193,6 @@ if (scanData.safetyStatus == 'safe') {
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        // 🔴 changed: real camera instead of icon
                         ClipRRect(
                           borderRadius: BorderRadius.circular(20),
                           child: MobileScanner(
@@ -167,8 +204,7 @@ if (scanData.safetyStatus == 'safe') {
                           Container(
                             color: Colors.black54,
                             child: const Center(
-                              child: CircularProgressIndicator(
-                                  color: Colors.white),
+                              child: CircularProgressIndicator(color: Colors.white),
                             ),
                           )
                         else
@@ -198,16 +234,38 @@ if (scanData.safetyStatus == 'safe') {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const SizedBox(width: 48),
-                    // 🔴 removed scan button — scanning is automatic
-                    // when barcode enters camera frame
+                    // 🔴 added: زر الألبوم
+                    SizedBox(
+                      width: 48,
+                      child: GestureDetector(
+                        onTap: _isScanning ? null : _pickFromGallery,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.image_outlined,
+                              color: _isScanning ? kGrey900.withOpacity(0.4) : kGrey900,
+                              size: 32,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'الألبوم',
+                              style: GoogleFonts.tajawal(
+                                fontSize: 12,
+                                color: _isScanning ? kGrey900.withOpacity(0.4) : kGrey900,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // زر المسح
                     Container(
                       width: 100,
                       height: 100,
                       decoration: BoxDecoration(
-                        color: _isScanning
-                            ? kGrey900
-                            : kPrimary,
+                        color: _isScanning ? kGrey900 : kPrimary,
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -216,25 +274,21 @@ if (scanData.safetyStatus == 'safe') {
                         size: 40,
                       ),
                     ),
+
+                    // زر الفلاش
                     SizedBox(
                       width: 48,
                       child: GestureDetector(
                         onTap: () {
-                          setState(() {
-                            _isFlashOn = !_isFlashOn;
-                          });
-                          // 🔴 toggle real flash
+                          setState(() => _isFlashOn = !_isFlashOn);
                           _cameraController.toggleTorch();
                         },
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              _isFlashOn
-                                  ? Icons.flash_on
-                                  : Icons.flash_off,
-                              color:
-                                  _isFlashOn ? Colors.amber : kGrey900,
+                              _isFlashOn ? Icons.flash_on : Icons.flash_off,
+                              color: _isFlashOn ? Colors.amber : kGrey900,
                               size: 32,
                             ),
                             const SizedBox(height: 4),
@@ -243,9 +297,7 @@ if (scanData.safetyStatus == 'safe') {
                               style: GoogleFonts.tajawal(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
-                                color: _isFlashOn
-                                    ? Colors.amber
-                                    : kGrey900,
+                                color: _isFlashOn ? Colors.amber : kGrey900,
                               ),
                             ),
                           ],
@@ -261,17 +313,13 @@ if (scanData.safetyStatus == 'safe') {
               // ========== BOTTOM NAVIGATION ==========
               Container(
                 height: 70,
-                decoration: const BoxDecoration(
-                  color: kBackground,
-                ),
+                decoration: const BoxDecoration(color: kBackground),
                 child: Row(
                   children: [
                     _buildNavItem(Icons.home, 'الرئيسية', true),
                     _buildNavItem(Icons.history, 'السجل', false),
-                    _buildNavItem(
-                        Icons.description_outlined, 'محتوى توعوي', false),
-                    _buildNavItem(
-                        Icons.person_outline, 'الملف الشخصي', false),
+                    _buildNavItem(Icons.description_outlined, 'محتوى توعوي', false),
+                    _buildNavItem(Icons.person_outline, 'الملف الشخصي', false),
                   ],
                 ),
               ),
@@ -297,18 +345,13 @@ if (scanData.safetyStatus == 'safe') {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              color: isActive ? kPrimary : kGrey900,
-              size: 26,
-            ),
+            Icon(icon, color: isActive ? kPrimary : kGrey900, size: 26),
             const SizedBox(height: 4),
             Text(
               label,
               style: GoogleFonts.tajawal(
                 fontSize: 11,
-                fontWeight:
-                    isActive ? FontWeight.w700 : FontWeight.w500,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
                 color: isActive ? kPrimary : kGrey900,
               ),
               textAlign: TextAlign.center,
@@ -330,20 +373,15 @@ class _ScanFramePainter extends CustomPainter {
     const cornerSize = 20.0;
     canvas.drawLine(Offset(0, cornerSize), const Offset(0, 0), paint);
     canvas.drawLine(const Offset(0, 0), Offset(cornerSize, 0), paint);
-    canvas.drawLine(Offset(size.width - cornerSize, 0),
-        Offset(size.width, 0), paint);
-    canvas.drawLine(Offset(size.width, 0),
-        Offset(size.width, cornerSize), paint);
-    canvas.drawLine(Offset(0, size.height - cornerSize),
-        Offset(0, size.height), paint);
-    canvas.drawLine(
-        Offset(0, size.height), Offset(cornerSize, size.height), paint);
-    canvas.drawLine(Offset(size.width - cornerSize, size.height),
-        Offset(size.width, size.height), paint);
-    canvas.drawLine(Offset(size.width, size.height - cornerSize),
-        Offset(size.width, size.height), paint);
+    canvas.drawLine(Offset(size.width - cornerSize, 0), Offset(size.width, 0), paint);
+    canvas.drawLine(Offset(size.width, 0), Offset(size.width, cornerSize), paint);
+    canvas.drawLine(Offset(0, size.height - cornerSize), Offset(0, size.height), paint);
+    canvas.drawLine(Offset(0, size.height), Offset(cornerSize, size.height), paint);
+    canvas.drawLine(Offset(size.width - cornerSize, size.height), Offset(size.width, size.height), paint);
+    canvas.drawLine(Offset(size.width, size.height - cornerSize), Offset(size.width, size.height), paint);
   }
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+*/

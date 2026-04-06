@@ -2,16 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:safebite/views/home/home_screen.dart';
-import '../../services/auth_service.dart'; // 🔴 added
-import '../../services/profile_service.dart'; // 🔴 added
+import 'package:safebite/views/profile/about_app.dart';
+import '../../services/auth_service.dart';
+import '../../services/profile_service.dart';
 import '../history/history_screen.dart';
 import '../educational/articles_list_screen.dart';
 import '../onboarding/get_started_screen.dart';
 import '../profile/edit_allergies_screen.dart';
 import '../profile/edit_profile_screen.dart';
+import '../profile/about_app.dart';
 
-
-// 🔴 changed: StatelessWidget → StatefulWidget to load real data
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -24,13 +24,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   static const Color kBackground = Color(0xFFFFFDF6);
   static const Color kGrey900 = Color(0xFF818898);
 
-  // 🔴 added: real user data
   String _userName = '';
   String _userEmail = '';
   Set<String> _userAllergyIds = {};
   bool _isLoading = true;
 
-  // 🔴 added: needed to map allergy id → name and icon for preview
   final List<Map<String, dynamic>> _allAllergies = [
     {'name': 'الحليب', 'icon': 'assets/allergies14/milk.png', 'id': 'milk'},
     {'name': 'البيض', 'icon': 'assets/allergies14/eggs.png', 'id': 'eggs'},
@@ -51,10 +49,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _loadUserData(); // 🔴 added
+    _loadUserData();
   }
 
-  // 🔴 added: loads real name, email, and allergy preview
   Future<void> _loadUserData() async {
     final user = await AuthService.getCurrentUser();
     if (user == null) {
@@ -86,7 +83,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         backgroundColor: kBackground,
         body: SafeArea(
           child: _isLoading
-              // 🔴 added: show spinner while loading
               ? const Center(child: CircularProgressIndicator())
               : Column(
                   children: [
@@ -116,14 +112,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                                 const SizedBox(width: 16),
                                 Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    // 🔴 changed: was hardcoded 'أحمد'
                                     Text(
-                                      _userName.isEmpty
-                                          ? 'مستخدم'
-                                          : _userName,
+                                      _userName.isEmpty ? 'مستخدم' : _userName,
                                       style: GoogleFonts.tajawal(
                                         fontSize: 20,
                                         fontWeight: FontWeight.w700,
@@ -131,7 +123,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       ),
                                     ),
                                     const SizedBox(height: 4),
-                                    // 🔴 changed: was hardcoded email
                                     Text(
                                       _userEmail,
                                       style: GoogleFonts.tajawal(
@@ -159,15 +150,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                             const SizedBox(height: 20),
 
-_buildSettingItem(
-  icon: Icons.person_outline,
-  label: 'تعديل الملف الشخصي',
-  // 🔴 changed: navigate to real screen and reload on return
-  onTap: () async {
-    await Get.to(() => const EditProfileScreen());
-    _loadUserData(); // reload name after editing
-  },
-),
+                            _buildSettingItem(
+                              icon: Icons.person_outline,
+                              label: 'تعديل الملف الشخصي',
+                              onTap: () async {
+                                await Get.to(() => const EditProfileScreen());
+                                _loadUserData();
+                              },
+                            ),
 
                             const SizedBox(height: 16),
 
@@ -202,9 +192,6 @@ _buildSettingItem(
                             Row(
                               mainAxisAlignment: MainAxisAlignment.start,
                               children: [
-
-                                // 🔴 changed: was hardcoded eggs + milk
-                                // now shows real selected allergies (max 3)
                                 if (_userAllergyIds.isEmpty)
                                   Text(
                                     'لم تختر أي حساسية بعد',
@@ -215,23 +202,19 @@ _buildSettingItem(
                                   )
                                 else
                                   ..._allAllergies
-                                      .where((a) => _userAllergyIds
-                                          .contains(a['id']))
+                                      .where((a) => _userAllergyIds.contains(a['id']))
                                       .take(3)
                                       .map((a) => Padding(
-                                            padding: const EdgeInsets
-                                                .only(left: 6),
+                                            padding: const EdgeInsets.only(left: 6),
                                             child: _buildAllergyIcon(
                                               a['icon'],
                                               a['name'],
                                             ),
                                           )),
 
-                                // 🔴 added: +N badge if more than 3
                                 if (_userAllergyIds.length > 3)
                                   Padding(
-                                    padding:
-                                        const EdgeInsets.only(left: 6),
+                                    padding: const EdgeInsets.only(left: 6),
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 10,
@@ -239,8 +222,7 @@ _buildSettingItem(
                                       ),
                                       decoration: BoxDecoration(
                                         color: const Color(0xFFFAF6E9),
-                                        borderRadius:
-                                            BorderRadius.circular(16),
+                                        borderRadius: BorderRadius.circular(16),
                                       ),
                                       child: Text(
                                         '+${_userAllergyIds.length - 3}',
@@ -255,12 +237,9 @@ _buildSettingItem(
 
                                 const Spacer(),
 
-                                // 🔴 changed: reloads data when returning
-                                // from EditAllergiesScreen
                                 GestureDetector(
                                   onTap: () async {
-                                    await Get.to(
-                                        () => const EditAllergiesScreen());
+                                    await Get.to(() => const EditAllergiesScreen());
                                     _loadUserData();
                                   },
                                   child: Container(
@@ -270,15 +249,13 @@ _buildSettingItem(
                                     ),
                                     decoration: BoxDecoration(
                                       color: kPrimary,
-                                      borderRadius:
-                                          BorderRadius.circular(14),
+                                      borderRadius: BorderRadius.circular(14),
                                     ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         const Icon(Icons.edit,
-                                            size: 16,
-                                            color: Colors.white),
+                                            size: 16, color: Colors.white),
                                         const SizedBox(width: 4),
                                         Text(
                                           'تعديل',
@@ -300,19 +277,19 @@ _buildSettingItem(
                             _buildSettingItem(
                               icon: Icons.info_outline,
                               label: 'حول التطبيق',
-                              onTap: () {},
+                              onTap: () {
+                                Get.to(() => const AboutAppScreen());
+                              },
                             ),
 
                             const SizedBox(height: 16),
 
-                            // 🔴 changed: now calls AuthService.logout()
                             _buildSettingItem(
                               icon: Icons.logout,
                               label: 'تسجيل الخروج',
                               onTap: () async {
                                 await AuthService.logout();
-                                Get.offAll(
-                                    () => const GetStartedScreen());
+                                Get.offAll(() => const GetStartedScreen());
                               },
                             ),
 
@@ -329,23 +306,18 @@ _buildSettingItem(
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
-                          _buildNavItem(
-                              Icons.home, 'الرئيسية', false, () {
+                          _buildNavItem(Icons.home, 'الرئيسية', false, () {
                             Get.offAll(() => HomeScreen());
                           }),
-                          _buildNavItem(
-                              Icons.history, 'السجل', false, () {
+                          _buildNavItem(Icons.history, 'السجل', false, () {
                             Get.offAll(() => HistoryScreen());
                           }),
                           _buildNavItem(
-                              Icons.description_outlined,
-                              'محتوى تعليمي',
-                              false, () {
-                            Get.offAll(
-                                () => const ArticlesListScreen());
+                              Icons.description_outlined, 'محتوى تعليمي', false, () {
+                            Get.offAll(() => const ArticlesListScreen());
                           }),
-                          _buildNavItem(Icons.person_outline,
-                              'الملف الشخصي', true, () {}),
+                          _buildNavItem(
+                              Icons.person_outline, 'الملف الشخصي', true, () {}),
                         ],
                       ),
                     ),
@@ -364,8 +336,7 @@ _buildSettingItem(
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         decoration: BoxDecoration(
           color: const Color(0xFFFAF6E9),
           borderRadius: BorderRadius.circular(12),
@@ -397,8 +368,7 @@ _buildSettingItem(
 
   Widget _buildAllergyIcon(String assetPath, String label) {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: const Color(0xFFFAF6E9),
         borderRadius: BorderRadius.circular(16),
@@ -450,8 +420,7 @@ _buildSettingItem(
               label,
               style: GoogleFonts.tajawal(
                 fontSize: 11,
-                fontWeight:
-                    isActive ? FontWeight.w700 : FontWeight.w500,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
                 color: isActive ? kPrimary : kGrey900,
               ),
             ),
