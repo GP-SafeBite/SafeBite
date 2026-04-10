@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
+import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../database/local_db.dart';
 import 'profile_service.dart';
@@ -10,217 +12,218 @@ class ScanResult {
   final String message;
   final dynamic data;
 
-  ScanResult({
-    required this.success,
-    required this.message,
-    this.data,
-  });
+  ScanResult({required this.success, required this.message, this.data});
 }
 
 class ProductScanData {
   final String productName;
-  final String barcode;
-  final String imageUrl;
   final List<String> ingredients;
   final List<String> detectedAllergens;
   final String safetyStatus;
+  final String? localImagePath;
 
   ProductScanData({
     required this.productName,
-    required this.barcode,
-    required this.imageUrl,
     required this.ingredients,
     required this.detectedAllergens,
     required this.safetyStatus,
+    this.localImagePath,
   });
 }
 
 class ScanService {
   static final _supabase = Supabase.instance.client;
 
-  // ===================================================
-  // 📸 MAIN FUNCTION: SCAN FROM IMAGE ONLY (Gemini)
-  // ===================================================
   static Future<ScanResult> scanFromImage({
     required Uint8List imageBytes,
     required String userId,
+    String productName = 'منتج من صورة',
   }) async {
     try {
-      // 🤖 1. قراءة الصورة باستخدام Gemini
+      // 1. Save image locally
+      final localImagePath = await _saveImageLocally(imageBytes);
+
+      // 2. Analyze with Gemini
       final gemini = GeminiService();
+      final aiResult = await gemini.analyzeProductImage(imageBytes);
+      print("🧠 AI RESULT: $aiResult");
 
-      final aiResult =
-          await gemini.analyzeProductImage(imageBytes);
+      // 3. Extract detected allergens from Gemini
+// ✅ FIX - Extract ingredient strings from each allergen map
+final List<String> geminiAllergens = [];
 
-// 🧠 اطبع رد Gemini
-print("🧠 AI RESULT: $aiResult");
+final rawAllergens = aiResult["detected_allergens"] ?? [];
+for (final allergenGroup in rawAllergens) {
+  if (allergenGroup is Map) {
+    final ingredients = allergenGroup["ingredients"];
+    if (ingredients is List) {
+      for (final ingredient in ingredients) {
+        if (ingredient is String && ingredient.trim().isNotEmpty) {
+          geminiAllergens.add(ingredient.trim());
+        }
+      }
+    }
+  }
+};
 
-// 🔥 خذ أي نوع رد ممكن
-final ingredientsText =
-    (aiResult["ingredients_text"] ??
-     aiResult["text"] ??
-     aiResult["result"] ??
-     aiResult.toString())
-    .toLowerCase();
+      // 4. Build ingredients list cleanly
+      final List<String> ingredientsList = geminiAllergens.isNotEmpty
+          ? geminiAllergens
+          : [];
 
-// تحقق
-if (ingredientsText.isEmpty || ingredientsText == "{}") {
-  return ScanResult(
-    success: false,
-    message: "ما تم التعرف على المكونات",
-  );
-}
+      final ingredientsText = ingredientsList.join(', ');
 
-      // 👤 2. جلب حساسية المستخدم
-      final userAllergyIds =
-          await LocalDB.getUserAllergies(userId: userId);
+      if (ingredientsList.isEmpty) {
+        return ScanResult(success: false, message: "ما تم التعرف على المكونات");
+      }
 
+      // 5. Get user allergies
+      final userAllergyIds = await LocalDB.getUserAllergies(userId: userId);
       final userAllergyStrings = userAllergyIds
           .map((id) => ProfileService.allergyReverseMap[id])
-          .where((id) => id != null)
-          .cast<String>()
+          .whereType<String>()
           .toSet();
 
-      // ⚠️ 3. تحليل الحساسية
+      // 6. Detect allergens by cross-referencing Gemini output with user allergies
       final List<String> detectedAllergens = [];
 
-      for (final allergyId in userAllergyStrings) {
-        final keywords = _allergyKeywords[allergyId] ?? [];
-
-        for (final keyword in keywords) {
-          if (ingredientsText.contains(keyword)) {
-            final arabicName =
-                _allergyArabicNames[allergyId] ?? allergyId;
-
-            if (!detectedAllergens.contains(arabicName)) {
-              detectedAllergens.add(arabicName);
+      for (final geminiAllergen in geminiAllergens) {
+        final lower = geminiAllergen.toLowerCase();
+        for (final userAllergy in userAllergyStrings) {
+          final keywords = _allergyKeywords[userAllergy] ?? [];
+          for (final keyword in keywords) {
+            if (lower.contains(keyword)) {
+              final arabicName = _allergyArabicNames[userAllergy] ?? userAllergy;
+              if (!detectedAllergens.contains(arabicName)) {
+                detectedAllergens.add(arabicName);
+              }
+              break;
             }
-            break;
           }
         }
       }
 
-      final safetyStatus =
-          detectedAllergens.isEmpty ? 'safe' : 'unsafe';
+      final safetyStatus = detectedAllergens.isEmpty ? 'safe' : 'unsafe';
 
-      // 📦 4. تجهيز البيانات
       final scanData = ProductScanData(
-        productName: "منتج من صورة",
-        barcode: '',
-        imageUrl: '',
-        ingredients: ingredientsText.split(','),
+        productName: productName,
+        ingredients: ingredientsList,
         detectedAllergens: detectedAllergens,
         safetyStatus: safetyStatus,
+        localImagePath: localImagePath,
       );
 
-      // 💾 5. حفظ في Supabase + SQLite
-      await _saveScanToHistory(
-        userId: userId,
-        scanData: scanData,
-      );
+      // 7. Save to history
+      await _saveScanToHistory(userId: userId, scanData: scanData, ingredientsText: ingredientsText);
 
       return ScanResult(
         success: true,
-        message: safetyStatus == 'safe'
-            ? 'المنتج آمن'
-            : 'المنتج غير آمن',
+        message: safetyStatus == 'safe' ? 'المنتج آمن' : 'المنتج غير آمن',
         data: scanData,
       );
-
     } catch (e) {
-      print("🔥 ERROR: $e"); // 👈 أضف هذا
-      return ScanResult(
-        success: false,
-        message: "فشل تحليل الصورة",
-      );
+      print("🔥 ScanService ERROR: $e");
+      return ScanResult(success: false, message: "فشل تحليل الصورة");
     }
   }
 
-// ===================================================
-// 📜 GET SCAN HISTORY
-// ===================================================
-static Future<ScanResult> getScanHistory({
-  required String userId,
-}) async {
-  try {
-    final data = await _supabase
-        .from('scanhistory')
-        .select()
-        .eq('user_id', userId)
-        .order('scan_date', ascending: false);
-
-    return ScanResult(
-      success: true,
-      message: 'تم جلب السجل',
-      data: data,
-    );
-  } catch (e) {
-    return ScanResult(
-      success: false,
-      message: 'فشل جلب السجل',
-    );
+  static Future<String?> _saveImageLocally(Uint8List imageBytes) async {
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final scansDir = Directory('${dir.path}/scans');
+      if (!await scansDir.exists()) await scansDir.create(recursive: true);
+      final fileName = 'scan_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final file = File('${scansDir.path}/$fileName');
+      await file.writeAsBytes(imageBytes);
+      print('✅ Image saved: ${file.path}');
+      return file.path;
+    } catch (e) {
+      print('⚠️ Image save failed: $e');
+      return null;
+    }
   }
-}
 
-  // ===================================================
-  // 💾 SAVE HISTORY
-  // ===================================================
+  static Future<ScanResult> getScanHistory({required String userId}) async {
+    try {
+      final data = await _supabase
+          .from('scanhistory')
+          .select()
+          .eq('user_id', userId)
+          .order('scan_date', ascending: false);
+      return ScanResult(success: true, message: 'تم جلب السجل', data: data);
+    } catch (e) {
+      try {
+        final localData = await LocalDB.getScanHistory(userId: userId);
+        return ScanResult(success: true, message: 'تم جلب السجل محلياً', data: localData);
+      } catch (_) {
+        return ScanResult(success: false, message: 'فشل جلب السجل');
+      }
+    }
+  }
+
   static Future<void> _saveScanToHistory({
     required String userId,
     required ProductScanData scanData,
+    required String ingredientsText,
   }) async {
     try {
-      final foundAllergensJson =
-          jsonEncode(scanData.detectedAllergens);
+      final foundAllergensJson = jsonEncode(scanData.detectedAllergens);
 
+      // Save to Supabase — only columns that exist
       await _supabase.from('scanhistory').insert({
         'user_id': userId,
-        'product_id': 'image_${DateTime.now().millisecondsSinceEpoch}',
         'product_name': scanData.productName,
-        'product_image_url': scanData.imageUrl,
         'found_allergens': foundAllergensJson,
         'safety_status': scanData.safetyStatus,
+        'ingredients_text': ingredientsText,
         'scan_date': DateTime.now().toIso8601String(),
       });
 
+      // Save to SQLite with local image path
       await LocalDB.saveScanHistory(
         userId: userId,
-        productId: 'image_${DateTime.now().millisecondsSinceEpoch}',
         productName: scanData.productName,
-        productImageUrl: scanData.imageUrl,
+        ingredientsText: ingredientsText,
         foundAllergens: foundAllergensJson,
         safetyStatus: scanData.safetyStatus,
+        localImagePath: scanData.localImagePath,
       );
     } catch (e) {
       print('⚠️ History save failed: $e');
     }
   }
 
-  // ===================================================
-  // 🔍 ALLERGY KEYWORDS
-  // ===================================================
   static const Map<String, List<String>> _allergyKeywords = {
-    'milk': ['milk', 'dairy', 'lactose', 'whey', 'casein'],
-    'eggs': ['egg', 'eggs', 'albumin'],
-    'gluten': ['wheat', 'gluten', 'barley', 'rye', 'flour'],
-    'fish': ['fish', 'salmon', 'tuna'],
-    'peanuts': ['peanut'],
-    'soybeans': ['soy', 'soya'],
-    'treenuts': ['almond', 'cashew', 'walnut'],
-    'sesame': ['sesame', 'tahini'],
+    'milk': ['milk', 'dairy', 'lactose', 'whey', 'casein', 'حليب', 'لاكتوز', 'كازين'],
+    'eggs': ['egg', 'eggs', 'albumin', 'بيض', 'ألبومين'],
+    'gluten': ['wheat', 'gluten', 'barley', 'rye', 'flour', 'قمح', 'جلوتين', 'شعير', 'دقيق'],
+    'fish': ['fish', 'salmon', 'tuna', 'سمك', 'سلمون', 'تونة'],
+    'peanuts': ['peanut', 'فول سوداني'],
+    'soybeans': ['soy', 'soya', 'صويا'],
+    'treenuts': ['almond', 'cashew', 'walnut', 'pistachio', 'hazelnut', 'لوز', 'كاجو', 'جوز', 'فستق', 'بندق'],
+    'sesame': ['sesame', 'tahini', 'سمسم', 'طحينة'],
+    'crustaceans': ['shrimp', 'crab', 'lobster', 'روبيان', 'كركند'],
+    'celery': ['celery', 'كرفس'],
+    'mustard': ['mustard', 'خردل'],
+    'sulfur': ['sulphite', 'sulfite', 'e220', 'e221', 'e222', 'كبريتيت'],
+    'lupin': ['lupin', 'lupine', 'ترمس'],
+    'mollusks': ['mollusc', 'mollusk', 'squid', 'oyster', 'رخويات', 'حبار'],
   };
 
-  // ===================================================
-  // 🌍 ARABIC NAMES
-  // ===================================================
   static const Map<String, String> _allergyArabicNames = {
-    'milk': 'الحليب',
+    'milk': 'الحليب ومشتقاته',
     'eggs': 'البيض',
-    'gluten': 'الجلوتين',
-    'fish': 'السمك',
+    'gluten': 'القمح / الجلوتين',
+    'fish': 'الأسماك',
     'peanuts': 'الفول السوداني',
-    'soybeans': 'الصويا',
+    'soybeans': 'فول الصويا',
     'treenuts': 'المكسرات',
     'sesame': 'السمسم',
+    'crustaceans': 'القشريات',
+    'celery': 'الكرفس',
+    'mustard': 'الخردل',
+    'sulfur': 'ثاني أكسيد الكبريت',
+    'lupin': 'الترمس',
+    'mollusks': 'الرخويات',
   };
 }

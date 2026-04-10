@@ -122,7 +122,7 @@ class ProfileService {
         // Convert int ids back to string ids
         final stringIds = localIds
             .map((id) => allergyReverseMap[id])
-            .where((id) => id != null)
+            .whereType<String>()
             .cast<String>()
             .toSet();
 
@@ -152,7 +152,7 @@ class ProfileService {
       // Convert to string ids
       final stringIds = supabaseIds
           .map((id) => allergyReverseMap[id])
-          .where((id) => id != null)
+          .whereType<String>()
           .cast<String>()
           .toSet();
 

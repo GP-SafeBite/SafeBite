@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import '../services/scan_service.dart';
 
 class ScanController extends ChangeNotifier {
-
   bool _isLoading = false;
   Map<String, dynamic>? _result;
   String? _error;
@@ -12,10 +11,7 @@ class ScanController extends ChangeNotifier {
   Map<String, dynamic>? get result => _result;
   String? get error => _error;
 
-  // ===================================================
-  // 📸 تحليل الصورة (Gemini + Allergy Detection)
-  // ===================================================
-  Future<void> analyzeImage(File imageFile, String userId) async {
+  Future<void> analyzeImage(File imageFile, String userId, {String productName = 'منتج من صورة'}) async {
     try {
       _isLoading = true;
       _error = null;
@@ -24,27 +20,25 @@ class ScanController extends ChangeNotifier {
       print("📸 Reading image...");
       final bytes = await imageFile.readAsBytes();
 
-      // 🔥 استدعاء ScanService (مو Gemini مباشرة)
       final scanResult = await ScanService.scanFromImage(
         imageBytes: bytes,
         userId: userId,
+        productName: productName,
       );
 
-      if (!scanResult.success) {
-        throw Exception(scanResult.message);
-      }
+      if (!scanResult.success) throw Exception(scanResult.message);
 
-      final data = scanResult.data;
+      final data = scanResult.data as ProductScanData;
 
-      // 📦 النتيجة النهائية للـ UI
       _result = {
         "ingredients": data.ingredients,
         "allergens": data.detectedAllergens,
         "is_safe": data.safetyStatus == 'safe',
+        "local_image_path": data.localImagePath ?? '',
+        "product_name": data.productName,
       };
 
       print("✅ Final Result: $_result");
-
     } catch (e) {
       print("🔥 Error: $e");
       _error = e.toString();
@@ -54,12 +48,10 @@ class ScanController extends ChangeNotifier {
     }
   }
 
-  // ===================================================
-  // 🧹 تنظيف النتائج
-  // ===================================================
   void clearResult() {
     _result = null;
     _error = null;
     notifyListeners();
   }
+  
 }

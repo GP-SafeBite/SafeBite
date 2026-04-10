@@ -1,19 +1,19 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class SafeResultScreen extends StatelessWidget {
   final String productName;
-  final String? barcode;
   final String? imageUrl;
-
+  final String? localImagePath;
   final List ingredients;
   final List allergens;
 
   const SafeResultScreen({
     super.key,
     required this.productName,
-    this.barcode,
     this.imageUrl,
+    this.localImagePath,
     required this.ingredients,
     required this.allergens,
   });
@@ -29,7 +29,7 @@ class SafeResultScreen extends StatelessWidget {
       child: Scaffold(
         backgroundColor: kBackground,
         body: SafeArea(
-          child: SingleChildScrollView( // 🔥 حل overflow
+          child: SingleChildScrollView(
             child: Column(
               children: [
                 // HEADER
@@ -40,163 +40,109 @@ class SafeResultScreen extends StatelessWidget {
                       GestureDetector(
                         onTap: () => Navigator.pop(context),
                         child: Container(
-                          width: 40,
-                          height: 40,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFFAF6E9),
-                            shape: BoxShape.circle,
-                          ),
+                          width: 40, height: 40,
+                          decoration: const BoxDecoration(color: Color(0xFFFAF6E9), shape: BoxShape.circle),
                           child: const Icon(Icons.arrow_back, size: 20),
                         ),
                       ),
                       const Spacer(),
-                      Text(
-                        'نتيجة الفحص',
-                        style: GoogleFonts.tajawal(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+                      Text('نتيجة الفحص', style: GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w700)),
                       const Spacer(),
                       const SizedBox(width: 40),
                     ],
                   ),
                 ),
 
-                const SizedBox(height: 20),
-
-                // صورة المنتج
+                // ✅ Scanned image
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: AspectRatio(
-                    aspectRatio: 1,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
                     child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade200,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(20),
-                        child: imageUrl != null && imageUrl!.isNotEmpty
-                            ? Image.network(
-                                imageUrl!,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) =>
-                                    const Icon(Icons.image_not_supported, size: 80),
-                              )
-                            : const Icon(Icons.image_not_supported, size: 80),
-                      ),
+                      width: double.infinity,
+                      height: 250,
+                      color: Colors.grey.shade200,
+                      child: _buildImage(),
                     ),
                   ),
                 ),
 
                 const SizedBox(height: 24),
 
-                // النتيجة
+                // Product name
+                if (productName.isNotEmpty && productName != 'منتج من صورة')
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Text(productName, style: GoogleFonts.tajawal(fontSize: 16, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                  ),
+
+                const SizedBox(height: 12),
+
+                // Result
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const Icon(Icons.check_circle, color: Colors.green, size: 32),
                     const SizedBox(width: 8),
-                    Text(
-                      'المنتج آمن',
-                      style: GoogleFonts.tajawal(
-                        fontSize: 18,
-                        color: kPrimary,
-                      ),
-                    ),
+                    Text('المنتج آمن ✅', style: GoogleFonts.tajawal(fontSize: 20, fontWeight: FontWeight.bold, color: kPrimary)),
                   ],
                 ),
 
+                const SizedBox(height: 20),
+
+                // ✅ Ingredients as chips
+                if (ingredients.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(color: const Color(0xFFFAF6E9), borderRadius: BorderRadius.circular(16)),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('المواد المكتشفة:', style: GoogleFonts.tajawal(fontSize: 15, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: ingredients.map((e) => Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: kPrimary.withOpacity(0.4)),
+                              ),
+                              child: Text(e.toString(), style: GoogleFonts.tajawal(fontSize: 13)),
+                            )).toList(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
                 const SizedBox(height: 16),
 
-                // اسم المنتج
-                Text(
-                  'اسم المنتج: $productName',
-                  style: GoogleFonts.tajawal(
-                    fontSize: 15,
-                    color: kGrey900,
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-
-                // 🔥 المكونات
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'المكونات:',
-                        style: GoogleFonts.tajawal(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-
-                      ingredients.isEmpty
-                          ? Text(
-                              'لا توجد مكونات',
-                              style: GoogleFonts.tajawal(fontSize: 14),
-                            )
-                          : Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: ingredients
-                                  .map((e) => Text(
-                                        "• $e",
-                                        style: GoogleFonts.tajawal(fontSize: 14),
-                                      ))
-                                  .toList(),
-                            ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-
-                // 🔥 مسببات الحساسية
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'مسببات الحساسية:',
-                        style: GoogleFonts.tajawal(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-
-                      allergens.isEmpty
-                          ? Text(
-                              'لا يوجد',
-                              style: GoogleFonts.tajawal(fontSize: 14),
-                            )
-                          : Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: allergens
-                                  .map((e) => Text(
-                                        "• $e",
-                                        style: GoogleFonts.tajawal(
-                                          fontSize: 14,
-                                          color: Colors.red,
-                                        ),
-                                      ))
-                                  .toList(),
-                            ),
-                    ],
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(color: kPrimary.withOpacity(0.1), borderRadius: BorderRadius.circular(16)),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.check_circle, color: Colors.green),
+                        const SizedBox(width: 8),
+                        Text('لا يحتوي على مسببات حساسيتك', style: GoogleFonts.tajawal(fontSize: 14, color: Colors.green.shade700)),
+                      ],
+                    ),
                   ),
                 ),
 
                 const SizedBox(height: 30),
 
-                // زر
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 40),
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -204,14 +150,9 @@ class SafeResultScreen extends StatelessWidget {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: kPrimary,
                         padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: Text(
-                        'فحص منتج آخر',
-                        style: GoogleFonts.tajawal(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      child: Text('فحص منتج آخر', style: GoogleFonts.tajawal(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
                     ),
                   ),
                 ),
@@ -224,4 +165,16 @@ class SafeResultScreen extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildImage() {
+    if (localImagePath != null && localImagePath!.isNotEmpty) {
+      return Image.file(File(localImagePath!), fit: BoxFit.cover, errorBuilder: (_, __, ___) => _placeholder());
+    }
+    if (imageUrl != null && imageUrl!.isNotEmpty) {
+      return Image.network(imageUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _placeholder());
+    }
+    return _placeholder();
+  }
+
+  Widget _placeholder() => const Center(child: Icon(Icons.image_not_supported, size: 60, color: Colors.grey));
 }

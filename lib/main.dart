@@ -1,23 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:supabase_flutter/supabase_flutter.dart'; // ← added
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'views/onboarding/splash_screen.dart';
-import 'package:provider/provider.dart'; // 🔥 مهم
-import 'controllers/scan_controller.dart'; // 🔥 مهم
+import 'package:provider/provider.dart';
+import 'controllers/scan_controller.dart';
 
-final supabase = Supabase.instance.client; // ← added: global Supabase client accessor
+final supabase = Supabase.instance.client;
 
-void main() async { // ← added: async
-  WidgetsFlutterBinding.ensureInitialized(); // ← added: required before any async setup
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
 
-  await Supabase.initialize( // ← added: initialize Supabase before app starts
+  // ✅ Catch ALL flutter errors with full stack trace
+  FlutterError.onError = (FlutterErrorDetails details) {
+    print('🔴 FLUTTER ERROR: ${details.exception}');
+    print('🔴 STACK TRACE:\n${details.stack}');
+    FlutterError.presentError(details); // still show red screen
+  };
+
+  await Supabase.initialize(
     url: 'https://itwukjsvoihnewnbmgso.supabase.co',
     anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml0d3VranN2b2lobmV3bmJtZ3NvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU2MTk5NjEsImV4cCI6MjA4MTE5NTk2MX0.zXLxXDqBXwnghJWFi1WW1qHBRnS6-pKkK3bcV3avJOI',
   );
 
   runApp(
-    ChangeNotifierProvider( // 🔥 هنا الحل
+    ChangeNotifierProvider(
       create: (_) => ScanController(),
       child: const SafeBiteApp(),
     ),

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -8,7 +9,6 @@ import '../history/history_screen.dart';
 import '../educational/articles_list_screen.dart';
 import '../profile/profile_screen.dart';
 import '../scanning/scan_ingredients_screen.dart';
-import 'dart:convert';
 import '../scanning/safe_result_screen.dart';
 import '../scanning/unsafe_result_screen.dart';
 
@@ -24,7 +24,6 @@ class _HomeScreenState extends State<HomeScreen> {
   static const Color kBackground = Color(0xFFFFFDF6);
   static const Color kCardBg = Color(0xFFFAF6E9);
   static const Color kGrey900 = Color(0xFF818898);
-  static const Color kGrey400 = Color(0xFFB3B3B3);
   static const Color kRed = Color(0xFFD32F2F);
 
   String _userName = '';
@@ -41,13 +40,6 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadData();
   }
 
-  // 🔴 reload when returning from any screen
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _loadData();
-  }
-
   Future<void> _loadData() async {
     final user = await AuthService.getCurrentUser();
     if (user == null) {
@@ -55,13 +47,9 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    final result = await ScanService.getScanHistory(
-      userId: user['user_id'],
-    );
-
-    final history = result.success
-        ? List<Map<String, dynamic>>.from(result.data ?? [])
-        : <Map<String, dynamic>>[];
+    final result = await ScanService.getScanHistory(userId: user['user_id']);
+    final raw = result.success ? (result.data as List? ?? []) : [];
+    final history = raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
 
     if (mounted) {
       setState(() {
@@ -76,7 +64,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // 🔴 cache busting helper
   String _bustCache(String url) {
     if (url.isEmpty) return url;
     final base = url.split('?').first;
@@ -91,53 +78,30 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: kBackground,
         body: SafeArea(
           child: _isLoading
-              // 🔴 show full loader — prevents مستخدم glitch
               ? const Center(child: CircularProgressIndicator())
               : Column(
                   children: [
                     Expanded(
                       child: SingleChildScrollView(
-                        // 🔴 scrollable — fixes overflow errors
                         child: Column(
                           children: [
-                            // ========== HEADER ==========
+                            // HEADER
                             Padding(
                               padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                               child: Row(
                                 children: [
                                   Container(
-                                    width: 48,
-                                    height: 48,
-                                    decoration: const BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: Color(0xFFB3B3B3),
-                                    ),
+                                    width: 48, height: 48,
+                                    decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFFB3B3B3)),
                                     child: _userPhotoUrl.isNotEmpty
-                                        ? ClipOval(
-                                            child: Image.network(
-                                              _bustCache(_userPhotoUrl), // 🔴 cache bust
-                                              width: 48,
-                                              height: 48,
-                                              fit: BoxFit.cover,
-                                              errorBuilder: (context, error, stackTrace) =>
-                                                  const Icon(Icons.person,
-                                                      color: Colors.white, size: 28),
-                                            ),
-                                          )
-                                        : const Icon(Icons.person,
-                                            color: Colors.white, size: 28),
+                                        ? ClipOval(child: Image.network(_bustCache(_userPhotoUrl), fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.person, color: Colors.white, size: 28)))
+                                        : const Icon(Icons.person, color: Colors.white, size: 28),
                                   ),
                                   const SizedBox(width: 12),
                                   Flexible(
-                                    child: Text(
-                                      'مرحباً، $_userName 👋',
-                                      style: GoogleFonts.tajawal(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.black,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
+                                    child: Text('مرحباً، $_userName 👋',
+                                      style: GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.black),
+                                      overflow: TextOverflow.ellipsis),
                                   ),
                                 ],
                               ),
@@ -145,117 +109,55 @@ class _HomeScreenState extends State<HomeScreen> {
 
                             const SizedBox(height: 32),
 
-                            // ========== أزرار المسح ==========
+                            // SCAN BUTTON
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 20),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: AspectRatio(
-                                      aspectRatio: 1,
-                                      child: _buildScanButton(
-                                        title: 'مسح المكونات',
-                                        subtitle: 'صورة قائمة المكونات',
-                                        onTap: () => Get.to(() => const ScanIngredientsScreen()),
-                                      ),
+                              child: AspectRatio(
+                                aspectRatio: 1,
+                                child: GestureDetector(
+                                  onTap: () => Get.to(() => const ScanIngredientsScreen())?.then((_) => _loadData()),
+                                  child: Container(
+                                    decoration: BoxDecoration(color: kPrimary, borderRadius: BorderRadius.circular(20)),
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(Icons.camera_alt_outlined, size: 56, color: Colors.white),
+                                        const SizedBox(height: 16),
+                                        Text('مسح المكونات', style: GoogleFonts.tajawal(fontSize: 17, fontWeight: FontWeight.w700, color: Colors.white)),
+                                        const SizedBox(height: 6),
+                                        Text('صورة قائمة المكونات', style: GoogleFonts.tajawal(fontSize: 14, color: Colors.white)),
+                                      ],
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            const SizedBox(height: 32),
-
-                            // ========== إحصائياتك ==========
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 20),
-                              child: Align(
-                                alignment: Alignment.centerRight,
-                                child: Text(
-                                  'إحصائياتك',
-                                  style: GoogleFonts.tajawal(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.black,
                                   ),
                                 ),
                               ),
                             ),
 
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 32),
 
+                            // STATS
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              child: Align(alignment: Alignment.centerRight, child: Text('إحصائياتك', style: GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w700))),
+                            ),
+                            const SizedBox(height: 12),
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 20),
                               child: Container(
                                 width: double.infinity,
-                                padding: const EdgeInsets.symmetric(
-                                    vertical: 20, horizontal: 16),
-                                decoration: BoxDecoration(
-                                  color: kCardBg,
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(color: kCardBg, borderRadius: BorderRadius.circular(16)),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text.rich(
-                                      TextSpan(children: [
-                                        TextSpan(
-                                          text: '• إجمالي الفحوصات: ',
-                                          style: GoogleFonts.tajawal(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w700,
-                                            color: kGrey900,
-                                          ),
-                                        ),
-                                        TextSpan(
-                                          text: '$_totalScans',
-                                          style: GoogleFonts.tajawal(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w700,
-                                            color: kGrey900,
-                                          ),
-                                        ),
-                                      ]),
-                                      textDirection: TextDirection.rtl,
-                                    ),
-                                    const SizedBox(height: 10),
-                                    Text.rich(
-                                      TextSpan(children: [
-                                        TextSpan(
-                                          text: '• آمن: ',
-                                          style: GoogleFonts.tajawal(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w700,
-                                            color: kGrey900,
-                                          ),
-                                        ),
-                                        TextSpan(
-                                          text: '$_safeScans',
-                                          style: GoogleFonts.tajawal(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w700,
-                                            color: kPrimary,
-                                          ),
-                                        ),
-                                        TextSpan(
-                                          text: ' | غير آمن: ',
-                                          style: GoogleFonts.tajawal(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w700,
-                                            color: kGrey900,
-                                          ),
-                                        ),
-                                        TextSpan(
-                                          text: '$_unsafeScans',
-                                          style: GoogleFonts.tajawal(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w700,
-                                            color: kRed,
-                                          ),
-                                        ),
-                                      ]),
-                                      textDirection: TextDirection.rtl,
-                                    ),
+                                    Text('• إجمالي الفحوصات: $_totalScans', style: GoogleFonts.tajawal(fontSize: 14, fontWeight: FontWeight.w600)),
+                                    const SizedBox(height: 8),
+                                    Row(children: [
+                                      Text('• آمن: ', style: GoogleFonts.tajawal(fontSize: 14)),
+                                      Text('$_safeScans', style: GoogleFonts.tajawal(fontSize: 14, color: kPrimary, fontWeight: FontWeight.bold)),
+                                      Text('  |  غير آمن: ', style: GoogleFonts.tajawal(fontSize: 14)),
+                                      Text('$_unsafeScans', style: GoogleFonts.tajawal(fontSize: 14, color: kRed, fontWeight: FontWeight.bold)),
+                                    ]),
                                   ],
                                 ),
                               ),
@@ -263,36 +165,23 @@ class _HomeScreenState extends State<HomeScreen> {
 
                             const SizedBox(height: 32),
 
-                            // ========== آخر فحص ==========
+                            // LAST SCAN
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 20),
-                              child: Align(
-                                alignment: Alignment.centerRight,
-                                child: Text(
-                                  'آخر فحص',
-                                  style: GoogleFonts.tajawal(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.black,
-                                  ),
-                                ),
-                              ),
+                              child: Align(alignment: Alignment.centerRight, child: Text('آخر فحص', style: GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w700))),
                             ),
-
                             const SizedBox(height: 12),
-
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 20),
                               child: _buildLastScanSection(),
                             ),
-
                             const SizedBox(height: 20),
                           ],
                         ),
                       ),
                     ),
 
-                    // ========== BOTTOM NAVIGATION ==========
+                    // BOTTOM NAV
                     Container(
                       height: 70,
                       decoration: const BoxDecoration(color: kBackground),
@@ -300,17 +189,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
                           _buildNavItem(Icons.home, 'الرئيسية', true, () {}),
-                          _buildNavItem(Icons.history, 'السجل', false, () {
-                            Get.to(() => const HistoryScreen());
-                          }),
-                          _buildNavItem(
-                              Icons.description_outlined, 'محتوى توعوي', false, () {
-                            Get.to(() => const ArticlesListScreen());
-                          }),
-                          _buildNavItem(
-                              Icons.person_outline, 'الملف الشخصي', false, () {
-                            Get.to(() => const ProfileScreen());
-                          }),
+                          _buildNavItem(Icons.history, 'السجل', false, () => Get.to(() => const HistoryScreen())?.then((_) => _loadData())),
+                          _buildNavItem(Icons.description_outlined, 'محتوى توعوي', false, () => Get.to(() => const ArticlesListScreen())),
+                          _buildNavItem(Icons.person_outline, 'الملف الشخصي', false, () => Get.to(() => const ProfileScreen())),
                         ],
                       ),
                     ),
@@ -323,117 +204,54 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildLastScanSection() {
     if (_lastScan == null) {
-      return Container(
-        width: double.infinity,
+      return Center(child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 20),
-        child: Center(
-          child: Text(
-            'لا توجد فحوصات بعد!',
-            style: GoogleFonts.tajawal(fontSize: 14, color: kGrey900),
-          ),
-        ),
-      );
+        child: Text('لا توجد فحوصات بعد!', style: GoogleFonts.tajawal(fontSize: 14, color: kGrey900)),
+      ));
     }
 
+    List<String> allergens = [];
+    try { allergens = List<String>.from(jsonDecode(_lastScan!['found_allergens'] ?? '[]')); } catch (_) {}
+
+    final isSafe = _lastScan!['safety_status'] == 'safe';
+    final localImagePath = _lastScan!['local_image_path'] ?? '';
+    final productName = _lastScan!['product_name'] ?? 'فحص مكونات';
+    final ingredientsText = (_lastScan!['ingredients_text'] ?? '') as String;
+
+    // ✅ Fixed: explicit typed map and where
+    final List<String> ingredients = ingredientsText.isNotEmpty
+        ? ingredientsText
+            .split(',')
+            .map<String>((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList()
+        : <String>[];
+
     return ProductCard(
-      productName: _lastScan!['product_name'] ?? 'منتج غير معروف',
-      imageUrl: _lastScan!['product_image_url'] ?? '',
-      isSafe: _lastScan!['safety_status'] == 'safe',
+      productName: productName,
+      imageUrl: '',
+      localImagePath: localImagePath,
+      isSafe: isSafe,
       onTap: () {
-  final allergensJson = _lastScan!['found_allergens'] ?? '[]';
-  final allergens = List<String>.from(jsonDecode(allergensJson));
-
-  final isSafe = _lastScan!['safety_status'] == 'safe';
-
-  final ingredients = [];
-
-  if (isSafe) {
-    Get.to(() => SafeResultScreen(
-          productName: _lastScan!['product_name'] ?? '',
-          ingredients: ingredients,
-          allergens: allergens,
-          imageUrl: _lastScan!['product_image_url'],
-        ));
-  } else {
-    Get.to(() => UnsafeResultScreen(
-          productName: _lastScan!['product_name'] ?? '',
-          ingredients: ingredients,
-          detectedAllergens: allergens,
-          imageUrl: _lastScan!['product_image_url'],
-        ));
-  }
-},
+        if (isSafe) {
+          Get.to(() => SafeResultScreen(productName: productName, ingredients: ingredients, allergens: allergens, localImagePath: localImagePath));
+        } else {
+          Get.to(() => UnsafeResultScreen(productName: productName, ingredients: ingredients, detectedAllergens: allergens, localImagePath: localImagePath));
+        }
+      },
     );
   }
 
-  Widget _buildScanButton({
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: kPrimary,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.camera_alt_outlined, size: 56, color: Colors.white),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              textDirection: TextDirection.rtl,
-              style: GoogleFonts.tajawal(
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              textDirection: TextDirection.rtl,
-              style: GoogleFonts.tajawal(
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-                height: 1.4,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavItem(
-      IconData icon, String label, bool isActive, VoidCallback onTap) {
+  Widget _buildNavItem(IconData icon, String label, bool isActive, VoidCallback onTap) {
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            SizedBox(
-              width: 28,
-              height: 28,
-              child: Icon(icon, color: isActive ? kPrimary : kGrey900, size: 26),
-            ),
+            Icon(icon, color: isActive ? kPrimary : kGrey900, size: 26),
             const SizedBox(height: 4),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.tajawal(
-                fontSize: 11,
-                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                color: isActive ? kPrimary : kGrey900,
-              ),
-            ),
+            Text(label, textAlign: TextAlign.center, style: GoogleFonts.tajawal(fontSize: 11, fontWeight: isActive ? FontWeight.w700 : FontWeight.w500, color: isActive ? kPrimary : kGrey900)),
           ],
         ),
       ),

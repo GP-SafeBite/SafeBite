@@ -26,6 +26,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   String _userName = '';
   String _userEmail = '';
+  String _userPhotoUrl = ''; // ✅ Added photo URL
   Set<String> _userAllergyIds = {};
   bool _isLoading = true;
 
@@ -67,12 +68,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() {
         _userName = user['name'] ?? '';
         _userEmail = user['email'] ?? '';
+        _userPhotoUrl = user['photo_url'] ?? ''; // ✅ Load photo URL
         if (allergyResult.success && allergyResult.data != null) {
           _userAllergyIds = allergyResult.data as Set<String>;
         }
         _isLoading = false;
       });
     }
+  }
+
+  // ✅ Cache bust helper for profile photo
+  String _bustCache(String url) {
+    if (url.isEmpty) return url;
+    final base = url.split('?').first;
+    return '$base?t=${DateTime.now().millisecondsSinceEpoch}';
   }
 
   @override
@@ -97,6 +106,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             // ===== PROFILE HEADER =====
                             Row(
                               children: [
+                                // ✅ Fixed: show actual photo if available
                                 Container(
                                   width: 80,
                                   height: 80,
@@ -104,11 +114,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     shape: BoxShape.circle,
                                     color: Color(0xFFB3B3B3),
                                   ),
-                                  child: const Icon(
-                                    Icons.person,
-                                    size: 40,
-                                    color: Colors.white,
-                                  ),
+                                  child: _userPhotoUrl.isNotEmpty
+                                      ? ClipOval(
+                                          child: Image.network(
+                                            _bustCache(_userPhotoUrl),
+                                            width: 80,
+                                            height: 80,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (_, __, ___) => const Icon(
+                                              Icons.person,
+                                              size: 40,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        )
+                                      : const Icon(
+                                          Icons.person,
+                                          size: 40,
+                                          color: Colors.white,
+                                        ),
                                 ),
                                 const SizedBox(width: 16),
                                 Column(
@@ -201,8 +225,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     ),
                                   )
                                 else
+                                  // ✅ FIX: cast a['id'] to String to match Set<String>
                                   ..._allAllergies
-                                      .where((a) => _userAllergyIds.contains(a['id']))
+                                      .where((a) => _userAllergyIds.contains(a['id'] as String))
                                       .take(3)
                                       .map((a) => Padding(
                                             padding: const EdgeInsets.only(left: 6),
@@ -254,8 +279,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        const Icon(Icons.edit,
-                                            size: 16, color: Colors.white),
+                                        const Icon(Icons.edit, size: 16, color: Colors.white),
                                         const SizedBox(width: 4),
                                         Text(
                                           'تعديل',
@@ -312,12 +336,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           _buildNavItem(Icons.history, 'السجل', false, () {
                             Get.offAll(() => HistoryScreen());
                           }),
-                          _buildNavItem(
-                              Icons.description_outlined, 'محتوى تعليمي', false, () {
+                          _buildNavItem(Icons.description_outlined, 'محتوى تعليمي', false, () {
                             Get.offAll(() => const ArticlesListScreen());
                           }),
-                          _buildNavItem(
-                              Icons.person_outline, 'الملف الشخصي', true, () {}),
+                          _buildNavItem(Icons.person_outline, 'الملف الشخصي', true, () {}),
                         ],
                       ),
                     ),
@@ -355,11 +377,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
             ),
-            const Icon(
-              Icons.chevron_right,
-              size: 20,
-              color: Color(0xFF818898),
-            ),
+            const Icon(Icons.chevron_right, size: 20, color: Color(0xFF818898)),
           ],
         ),
       ),
@@ -381,11 +399,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             width: 35,
             height: 35,
             errorBuilder: (context, error, stackTrace) {
-              return const Icon(
-                Icons.image_outlined,
-                size: 28,
-                color: Color(0xFFD1D1D1),
-              );
+              return const Icon(Icons.image_outlined, size: 28, color: Color(0xFFD1D1D1));
             },
           ),
           const SizedBox(width: 10),
@@ -402,19 +416,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildNavItem(
-      IconData icon, String label, bool isActive, VoidCallback onTap) {
+  Widget _buildNavItem(IconData icon, String label, bool isActive, VoidCallback onTap) {
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              color: isActive ? kPrimary : kGrey900,
-              size: 26,
-            ),
+            Icon(icon, color: isActive ? kPrimary : kGrey900, size: 26),
             const SizedBox(height: 4),
             Text(
               label,

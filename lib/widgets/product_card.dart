@@ -1,10 +1,11 @@
-// lib/widgets/product_card.dart
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class ProductCard extends StatelessWidget {
   final String productName;
   final String imageUrl;
+  final String? localImagePath;
   final bool isSafe;
   final String? time;
   final VoidCallback? onTap;
@@ -13,6 +14,7 @@ class ProductCard extends StatelessWidget {
     super.key,
     required this.productName,
     this.imageUrl = '',
+    this.localImagePath,
     required this.isSafe,
     this.time,
     this.onTap,
@@ -29,103 +31,49 @@ class ProductCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         width: double.infinity,
-        decoration: BoxDecoration(
-          color: kCardBg,
-          borderRadius: BorderRadius.circular(16),
-        ),
+        decoration: BoxDecoration(color: kCardBg, borderRadius: BorderRadius.circular(16)),
         clipBehavior: Clip.hardEdge,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            // صورة المنتج (فوق)
             Container(
               width: double.infinity,
               height: 120,
               color: Colors.white,
-              child: imageUrl.isEmpty
-                  ? const Center(
-                      child: Icon(
-                        Icons.image_outlined,
-                        size: 40,
-                        color: Color(0xFFD1D1D1),
-                      ),
-                    )
-                  : Image.network(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return const Center(
-                          child: Icon(
-                            Icons.image_outlined,
-                            size: 40,
-                            color: Color(0xFFD1D1D1),
-                          ),
-                        );
-                      },
-                    ),
+              child: _buildImage(),
             ),
-
-            // تفاصيل المنتج (تحت)
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 12, 12, 12),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // اسم المنتج والبادج (على اليسار)
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // اسم المنتج
                         Text(
-                          productName,
-                          textAlign: TextAlign.left,
+                          productName.isNotEmpty ? productName : 'فحص مكونات',
+                          textAlign: TextAlign.right,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.tajawal(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black,
-                          ),
+                          style: GoogleFonts.tajawal(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.black),
                         ),
                         const SizedBox(height: 8),
-                        // Badge آمن/غير آمن
                         Row(
                           mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.start,
                           children: [
-                            Icon(
-                              isSafe ? Icons.check_circle : Icons.cancel,
-                              size: 20,
-                              color: isSafe ? kGreen : kRed,
-                            ),
+                            Icon(isSafe ? Icons.check_circle : Icons.cancel, size: 20, color: isSafe ? kGreen : kRed),
                             const SizedBox(width: 6),
-                            Text(
-                              isSafe ? 'آمن' : 'غير آمن',
-                              style: GoogleFonts.tajawal(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: isSafe ? kGreen : kRed,
-                              ),
-                            ),
+                            Text(isSafe ? 'آمن' : 'غير آمن', style: GoogleFonts.tajawal(fontSize: 13, fontWeight: FontWeight.w600, color: isSafe ? kGreen : kRed)),
                           ],
                         ),
                       ],
                     ),
                   ),
-                  
-                  // الوقت على اليمين
                   if (time != null) ...[
                     const SizedBox(width: 8),
-                    Text(
-                      time!,
-                      style: GoogleFonts.tajawal(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: kGrey900,
-                      ),
-                    ),
+                    Text(time!, style: GoogleFonts.tajawal(fontSize: 13, fontWeight: FontWeight.w500, color: kGrey900)),
                   ],
                 ],
               ),
@@ -135,4 +83,16 @@ class ProductCard extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildImage() {
+    if (localImagePath != null && localImagePath!.isNotEmpty) {
+      return Image.file(File(localImagePath!), fit: BoxFit.cover, width: double.infinity, height: 120, errorBuilder: (_, __, ___) => _placeholder());
+    }
+    if (imageUrl.isNotEmpty) {
+      return Image.network(imageUrl, fit: BoxFit.cover, width: double.infinity, height: 120, errorBuilder: (_, __, ___) => _placeholder());
+    }
+    return _placeholder();
+  }
+
+  Widget _placeholder() => Center(child: Icon(isSafe ? Icons.check_circle_outline : Icons.warning_amber_rounded, size: 40, color: isSafe ? kGreen : kRed));
 }

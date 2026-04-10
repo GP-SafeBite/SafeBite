@@ -1,14 +1,13 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'dart:convert'; // 🔴 added
 import 'package:safebite/views/home/home_screen.dart';
-import '../../services/auth_service.dart'; // 🔴 added
-import '../../services/scan_service.dart'; // 🔴 added
+import '../../services/auth_service.dart';
+import '../../services/scan_service.dart';
 import '../../widgets/product_card.dart';
 import '../educational/articles_list_screen.dart';
 import '../profile/profile_screen.dart';
-import 'dart:convert';
 import '../scanning/safe_result_screen.dart';
 import '../scanning/unsafe_result_screen.dart';
 
@@ -27,8 +26,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
   static const Color kGrey400 = Color(0xFFB3B3B3);
 
   final TextEditingController _searchController = TextEditingController();
-
-  // 🔴 added: real data variables
   List<Map<String, dynamic>> _allHistory = [];
   List<Map<String, dynamic>> _filteredHistory = [];
   bool _isLoading = true;
@@ -36,8 +33,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   void initState() {
     super.initState();
-    _loadHistory(); // 🔴 added
-    // 🔴 added: filter when search changes
+    _loadHistory();
     _searchController.addListener(_filterHistory);
   }
 
@@ -47,59 +43,50 @@ class _HistoryScreenState extends State<HistoryScreen> {
     super.dispose();
   }
 
-  // 🔴 added: load real history from SQLite
   Future<void> _loadHistory() async {
     final user = await AuthService.getCurrentUser();
-    if (user == null) {
-      setState(() => _isLoading = false);
-      return;
-    }
+    if (user == null) { setState(() => _isLoading = false); return; }
 
-    final result = await ScanService.getScanHistory(
-      userId: user['user_id'],
-    );
+    final result = await ScanService.getScanHistory(userId: user['user_id']);
+
+    // ✅ Fixed: proper casting from Supabase response
+    final raw = result.success ? (result.data as List? ?? []) : [];
+    final history = raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
 
     if (mounted) {
       setState(() {
-        _allHistory = result.success
-            ? List<Map<String, dynamic>>.from(result.data ?? [])
-            : [];
-        _filteredHistory = _allHistory;
+        _allHistory = history;
+        _filteredHistory = history;
         _isLoading = false;
       });
     }
   }
 
-  // 🔴 added: filter history by product name
   void _filterHistory() {
     final query = _searchController.text.trim().toLowerCase();
     setState(() {
       _filteredHistory = query.isEmpty
           ? _allHistory
           : _allHistory.where((item) {
-              final name =
-                  (item['product_name'] ?? '').toString().toLowerCase();
-              return name.contains(query);
+              final name = (item['product_name'] ?? '').toString().toLowerCase();
+              final allergens = (item['found_allergens'] ?? '').toString().toLowerCase();
+              return name.contains(query) || allergens.contains(query);
             }).toList();
     });
   }
 
-  // 🔴 added: group history by date section
   String _getDateLabel(String scanDate) {
     final date = DateTime.tryParse(scanDate);
     if (date == null) return 'قبل ذلك';
-
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
     final itemDate = DateTime(date.year, date.month, date.day);
-
     if (itemDate == today) return 'اليوم';
     if (itemDate == yesterday) return 'أمس';
     return '${date.day}/${date.month}/${date.year}';
   }
 
-  // 🔴 added: format time from scan_date
   String _formatTime(String scanDate) {
     final date = DateTime.tryParse(scanDate);
     if (date == null) return '';
@@ -119,73 +106,37 @@ class _HistoryScreenState extends State<HistoryScreen> {
         body: SafeArea(
           child: Column(
             children: [
-              // ========== HEADER ==========
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
                 child: Row(
                   children: [
                     GestureDetector(
-                      onTap: () {
-                        Get.back();
-                      },
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: kFieldBg,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.arrow_back,
-                          color: Colors.black,
-                          size: 20,
-                        ),
-                      ),
+                      onTap: () => Get.back(),
+                      child: Container(width: 40, height: 40, decoration: BoxDecoration(color: kFieldBg, shape: BoxShape.circle), child: const Icon(Icons.arrow_back, color: Colors.black, size: 20)),
                     ),
                     const Spacer(),
-                    Text(
-                      'سجل الفحوصات',
-                      style: GoogleFonts.tajawal(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.black,
-                      ),
-                    ),
+                    Text('سجل الفحوصات', style: GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.black)),
                     const Spacer(),
                     const SizedBox(width: 40),
                   ],
                 ),
               ),
 
-              // ========== SEARCH BAR ==========
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Container(
                   height: 50,
-                  decoration: BoxDecoration(
-                    color: kFieldBg,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                  decoration: BoxDecoration(color: kFieldBg, borderRadius: BorderRadius.circular(12)),
                   child: TextField(
                     controller: _searchController,
                     textAlign: TextAlign.right,
-                    style: GoogleFonts.tajawal(
-                      fontSize: 14,
-                      color: Colors.black,
-                    ),
+                    style: GoogleFonts.tajawal(fontSize: 14, color: Colors.black),
                     decoration: InputDecoration(
                       hintText: 'ابحث في السجل',
-                      hintStyle: GoogleFonts.tajawal(
-                        fontSize: 14,
-                        color: kGrey400,
-                      ),
-                      prefixIcon:
-                          Icon(Icons.search, color: kGrey400, size: 22),
+                      hintStyle: GoogleFonts.tajawal(fontSize: 14, color: kGrey400),
+                      prefixIcon: Icon(Icons.search, color: kGrey400, size: 22),
                       border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                     ),
                   ),
                 ),
@@ -193,50 +144,24 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
               const SizedBox(height: 24),
 
-              // ========== HISTORY LIST ==========
               Expanded(
                 child: _isLoading
-                    // 🔴 added: show spinner while loading
                     ? const Center(child: CircularProgressIndicator())
                     : _filteredHistory.isEmpty
-                        // 🔴 added: show empty state
-                        ? Center(
-                            child: Text(
-                              'لا توجد فحوصات بعد!',
-                              style: GoogleFonts.tajawal(
-                                fontSize: 14,
-                                color: kGrey900,
-                              ),
-                            ),
-                          )
-                        // 🔴 changed: show real history grouped by date
+                        ? Center(child: Text('لا توجد فحوصات بعد!', style: GoogleFonts.tajawal(fontSize: 14, color: kGrey900)))
                         : _buildHistoryList(),
               ),
 
-              // ========== BOTTOM NAVIGATION ==========
               Container(
                 height: 70,
-                decoration: const BoxDecoration(
-                  color: kBackground,
-                ),
+                decoration: const BoxDecoration(color: kBackground),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    _buildNavItem(Icons.home, 'الرئيسية', false, () {
-                      Get.offAll(() => HomeScreen());
-                    }),
-                    _buildNavItem(Icons.history, 'السجل', true, () {
-                      // already here
-                    }),
-                    _buildNavItem(
-                        Icons.description_outlined, 'محتوى توعوي', false,
-                        () {
-                      Get.offAll(() => ArticlesListScreen());
-                    }),
-                    _buildNavItem(
-                        Icons.person_outline, 'الملف الشخصي', false, () {
-                      Get.offAll(() => ProfileScreen());
-                    }),
+                    _buildNavItem(Icons.home, 'الرئيسية', false, () => Get.offAll(() => HomeScreen())),
+                    _buildNavItem(Icons.history, 'السجل', true, () {}),
+                    _buildNavItem(Icons.description_outlined, 'محتوى توعوي', false, () => Get.offAll(() => ArticlesListScreen())),
+                    _buildNavItem(Icons.person_outline, 'الملف الشخصي', false, () => Get.offAll(() => ProfileScreen())),
                   ],
                 ),
               ),
@@ -247,11 +172,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
-  // 🔴 added: builds history list grouped by date
   Widget _buildHistoryList() {
-    // Group items by date label
     final Map<String, List<Map<String, dynamic>>> grouped = {};
-
     for (final item in _filteredHistory) {
       final label = _getDateLabel(item['scan_date'] ?? '');
       grouped.putIfAbsent(label, () => []);
@@ -262,7 +184,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       children: [
         for (final entry in grouped.entries) ...[
-          _buildDateSection(entry.key),
+          Align(alignment: Alignment.centerRight, child: Text('${entry.key}:', style: GoogleFonts.tajawal(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.black))),
           const SizedBox(height: 12),
           for (final item in entry.value) ...[
             _buildHistoryItem(item: item),
@@ -275,91 +197,50 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
-  // ========== WIDGETS ==========
+  Widget _buildHistoryItem({required Map<String, dynamic> item}) {
+    List<String> allergens = [];
+    try { allergens = List<String>.from(jsonDecode(item['found_allergens'] ?? '[]')); } catch (_) {}
 
-  Widget _buildDateSection(String title) {
-    return Align(
-      alignment: Alignment.centerRight,
-      child: Text(
-        '$title:',
-        style: GoogleFonts.tajawal(
-          fontSize: 16,
-          fontWeight: FontWeight.w700,
-          color: Colors.black,
-        ),
-      ),
-    );
-  }
+    final isSafe = item['safety_status'] == 'safe';
+    final localImagePath = (item['local_image_path'] ?? '') as String;
+    final productName = (item['product_name'] ?? 'فحص مكونات') as String;
+    final ingredientsText = (item['ingredients_text'] ?? '') as String;
 
-Widget _buildHistoryItem({
-  required Map<String, dynamic> item, // 🔥 مهم
-}) {
-  final allergensJson = item['found_allergens'] ?? '[]';
-  final allergens = List<String>.from(jsonDecode(allergensJson));
+    // ✅ Fixed: explicit typed map and where
+    final List<String> ingredients = ingredientsText.isNotEmpty
+        ? ingredientsText
+            .split(',')
+            .map<String>((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList()
+        : <String>[];
 
-  final isSafe = item['safety_status'] == 'safe';
-
-  final ingredients = [];
-
-  return Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 5),
-    child: ProductCard(
-      productName: item['product_name'] ?? '',
-      imageUrl: item['product_image_url'] ?? '',
+    return ProductCard(
+      productName: productName,
+      imageUrl: '',
+      localImagePath: localImagePath,
       isSafe: isSafe,
       time: _formatTime(item['scan_date'] ?? ''),
       onTap: () {
         if (isSafe) {
-          Get.to(() => SafeResultScreen(
-                productName: item['product_name'] ?? '',
-                ingredients: ingredients,
-                allergens: allergens,
-                imageUrl: item['product_image_url'],
-              ));
+          Get.to(() => SafeResultScreen(productName: productName, ingredients: ingredients, allergens: allergens, localImagePath: localImagePath));
         } else {
-          Get.to(() => UnsafeResultScreen(
-                productName: item['product_name'] ?? '',
-                ingredients: ingredients,
-                detectedAllergens: allergens,
-                imageUrl: item['product_image_url'],
-              ));
+          Get.to(() => UnsafeResultScreen(productName: productName, ingredients: ingredients, detectedAllergens: allergens, localImagePath: localImagePath));
         }
       },
-    ),
-  );
-}
+    );
+  }
 
-  Widget _buildNavItem(
-    IconData icon,
-    String label,
-    bool isActive,
-    VoidCallback onTap,
-  ) {
+  Widget _buildNavItem(IconData icon, String label, bool isActive, VoidCallback onTap) {
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            SizedBox(
-              width: 28,
-              height: 28,
-              child: Icon(
-                icon,
-                color: isActive ? kPrimary : kGrey900,
-                size: 26,
-              ),
-            ),
+            Icon(icon, color: isActive ? kPrimary : kGrey900, size: 26),
             const SizedBox(height: 4),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.tajawal(
-                fontSize: 11,
-                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                color: isActive ? kPrimary : kGrey900,
-              ),
-            ),
+            Text(label, textAlign: TextAlign.center, style: GoogleFonts.tajawal(fontSize: 11, fontWeight: isActive ? FontWeight.w700 : FontWeight.w500, color: isActive ? kPrimary : kGrey900)),
           ],
         ),
       ),
