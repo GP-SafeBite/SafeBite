@@ -19,7 +19,6 @@ class ScanIngredientsScreen extends StatefulWidget {
 
 class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
   static const Color kPrimary = Color(0xFF9CCB7A);
-  static const Color kBackground = Color(0xFFFFFDF6);
   static const Color kGrey900 = Color(0xFF818898);
 
   bool _isFlashOn = false;
@@ -106,50 +105,44 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
   }
 
   Future<void> _processImage(File imageFile) async {
-  try {
-    final controller =
-        context.read<ScanController>();
+    try {
+      final controller = context.read<ScanController>();
+      final userId = Supabase.instance.client.auth.currentUser!.id;
 
-    final userId =
-        Supabase.instance.client.auth.currentUser!.id;
+      await controller.analyzeImage(imageFile, userId);
 
-    // 🔥 تحليل الصورة
-    await controller.analyzeImage(imageFile, userId);
+      final result = controller.result;
 
-    final result = controller.result;
+      if (result == null) {
+        throw Exception("مافي نتيجة");
+      }
 
-    if (result == null) {
-      throw Exception("مافي نتيجة");
-    }
+      final isSafe = result["is_safe"] == true;
 
-    final isSafe = result["is_safe"] == true;
-
-    if (isSafe) {
-      Get.off(() => SafeResultScreen(
-            productName: "منتج من صورة",
-            ingredients: result["ingredients"],
-            allergens: result["allergens"],
-          ));
-    } else {
-      Get.off(() => UnsafeResultScreen(
-            productName: "منتج من صورة",
-            ingredients: result["ingredients"],
-            detectedAllergens: List<String>.from(result["allergens"]),
-          ));
-    }
-
-  } catch (e) {
-    print("🔥 Error: $e");
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('فشل تحليل الصورة')),
-    );
-  } finally {
-    if (mounted) {
-      setState(() => _isScanning = false);
+      if (isSafe) {
+        Get.off(() => SafeResultScreen(
+              productName: "منتج من صورة",
+              ingredients: result["ingredients"],
+              allergens: result["allergens"],
+            ));
+      } else {
+        Get.off(() => UnsafeResultScreen(
+              productName: "منتج من صورة",
+              ingredients: result["ingredients"],
+              detectedAllergens: List<String>.from(result["allergens"]),
+            ));
+      }
+    } catch (e) {
+      print("🔥 Error: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('فشل تحليل الصورة')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isScanning = false);
+      }
     }
   }
-}
 
   Future<void> _toggleFlash() async {
     if (_cameraController == null || !_cameraController!.value.isInitialized) return;
@@ -162,6 +155,10 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // ✅ [Added] Dynamic colors from Theme
+    final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
+    final Color kCardBg = Theme.of(context).cardColor;
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -179,11 +176,11 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
                       child: Container(
                         width: 40,
                         height: 40,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFFAF6E9),
+                        decoration: BoxDecoration(
+                          color: kCardBg, // ✅ [Added]
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.arrow_back, color: Colors.black, size: 20),
+                        child: const Icon(Icons.arrow_back, size: 20),
                       ),
                     ),
                     const Spacer(),
@@ -192,7 +189,7 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
                       style: GoogleFonts.tajawal(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
-                        color: Colors.black,
+                        color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                       ),
                     ),
                     const Spacer(),
@@ -214,7 +211,6 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        // 🔴 الكاميرا ممتدة بالكامل
                         if (_isCameraReady)
                           SizedBox.expand(
                             child: FittedBox(
@@ -280,7 +276,6 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // زر الألبوم
                     SizedBox(
                       width: 48,
                       child: GestureDetector(
@@ -306,7 +301,6 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
                       ),
                     ),
 
-                    // زر التقاط
                     GestureDetector(
                       onTap: _isScanning ? null : _captureImage,
                       child: Container(
@@ -324,7 +318,6 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
                       ),
                     ),
 
-                    // زر الفلاش
                     SizedBox(
                       width: 48,
                       child: GestureDetector(
@@ -359,7 +352,7 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
               // ========== BOTTOM NAVIGATION ==========
               Container(
                 height: 70,
-                decoration: const BoxDecoration(color: kBackground),
+                decoration: BoxDecoration(color: kBackground), // ✅ [Added]
                 child: Row(
                   children: [
                     _buildNavItem(Icons.home, 'الرئيسية', true),

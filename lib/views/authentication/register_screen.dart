@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
 import '../../widgets/custom_text_field.dart';
-import '../../services/auth_service.dart'; // 🔴 added
+import '../../services/auth_service.dart';
 import 'login_screen.dart';
 import 'verification_screen.dart';
 
@@ -17,11 +16,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _fullNameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  bool _isLoading = false; // ✅ added
+  bool _isLoading = false;
 
   static const Color kPrimary = Color(0xFFA0C878);
-  static const Color kBackground = Color(0xFFFFFDF6);
-  static const Color kFieldBg = Color(0xFFFAF6E9);
   static const Color kGrey900 = Color(0xFF818898);
   static const Color kGrey400 = Color(0xFFB3B3B3);
   static const Color kGrey300 = Color(0xFFD1D1D1);
@@ -34,38 +31,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  // 🔴 changed: now async and calls AuthService.register()
   void _goToVerification() async {
-    if (_isLoading) return; // ✅ added
+    if (_isLoading) return;
 
     final name = _fullNameController.text.trim();
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
-    setState(() => _isLoading = true); // ✅ added
+    setState(() => _isLoading = true);
 
-    // 🔴 added: show loading spinner while waiting
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
 
-    // 🔴 added: call AuthService instead of just navigating
     final result = await AuthService.register(
       name: name,
       email: email,
       password: password,
     );
 
-    // 🔴 added: hide loading spinner
     if (mounted) Navigator.of(context).pop();
     if (!mounted) return;
 
-    setState(() => _isLoading = false); // ✅ added
+    setState(() => _isLoading = false);
 
     if (result.success) {
-      // 🔴 added: go to OTP screen only if registration succeeded
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -73,7 +65,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
       );
     } else {
-      // 🔴 added: show error from AuthService (wrong email, already exists etc)
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(result.message, style: GoogleFonts.tajawal()),
@@ -84,10 +75,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // ✅ [Added] Dynamic colors from Theme
+    final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
+    final Color kFieldBg = Theme.of(context).cardColor;
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: kBackground,
+        backgroundColor: kBackground, // ✅ [Added]
         body: SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -95,19 +90,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 48),
-
                 Text(
                   'إنشاء حساب جديد',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.tajawal(
                     fontSize: 26,
                     fontWeight: FontWeight.w700,
-                    color: Colors.black,
+                    color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                   ),
                 ),
-
                 const SizedBox(height: 32),
-
                 Text(
                   'الاسم الكامل',
                   textAlign: TextAlign.right,
@@ -121,13 +113,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 CustomTextField(
                   hint: 'أحمد',
                   controller: _fullNameController,
-                  fieldBg: kFieldBg,
+                  fieldBg: kFieldBg, // ✅ [Added]
                   grey900: kGrey900,
                   grey300: kGrey300,
                 ),
-
                 const SizedBox(height: 20),
-
                 Text(
                   'البريد الإلكتروني',
                   textAlign: TextAlign.right,
@@ -141,13 +131,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 CustomTextField(
                   hint: 'aaronramsdale@gmail.com',
                   controller: _emailController,
-                  fieldBg: kFieldBg,
+                  fieldBg: kFieldBg, // ✅ [Added]
                   grey900: kGrey900,
                   grey300: kGrey300,
                 ),
-
                 const SizedBox(height: 20),
-
                 Text(
                   'كلمة المرور',
                   textAlign: TextAlign.right,
@@ -162,17 +150,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   hint: '************',
                   controller: _passwordController,
                   isPassword: true,
-                  fieldBg: kFieldBg,
+                  fieldBg: kFieldBg, // ✅ [Added]
                   grey900: kGrey900,
                   grey300: kGrey300,
                 ),
-
                 const SizedBox(height: 28),
-
                 SizedBox(
                   height: 56,
                   child: ElevatedButton(
-                    onPressed: _isLoading ? null : _goToVerification, // ✅ changed
+                    onPressed: _isLoading ? null : _goToVerification,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: kPrimary,
                       elevation: 0,
@@ -190,9 +176,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 18),
-
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [

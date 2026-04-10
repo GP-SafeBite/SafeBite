@@ -7,7 +7,6 @@ import '../../services/scan_service.dart';
 import '../history/history_screen.dart';
 import '../educational/articles_list_screen.dart';
 import '../profile/profile_screen.dart';
-// ✅ [Removed] import scan_barcode_screen.dart — barcode feature removed
 import '../scanning/scan_ingredients_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -19,8 +18,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   static const Color kPrimary = Color(0xFF9CCB7A);
-  static const Color kBackground = Color(0xFFFFFDF6);
-  static const Color kCardBg = Color(0xFFFAF6E9);
   static const Color kGrey900 = Color(0xFF818898);
   static const Color kGrey400 = Color(0xFFB3B3B3);
   static const Color kRed = Color(0xFFD32F2F);
@@ -39,7 +36,6 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadData();
   }
 
-  // 🔴 reload when returning from any screen
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -74,7 +70,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // 🔴 cache busting helper
   String _bustCache(String url) {
     if (url.isEmpty) return url;
     final base = url.split('?').first;
@@ -83,19 +78,21 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // ✅ [Added] Dynamic colors from Theme
+    final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
+    final Color kCardBg = Theme.of(context).cardColor;
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: kBackground,
         body: SafeArea(
           child: _isLoading
-              // 🔴 show full loader — prevents مستخدم glitch
               ? const Center(child: CircularProgressIndicator())
               : Column(
                   children: [
                     Expanded(
                       child: SingleChildScrollView(
-                        // 🔴 scrollable — fixes overflow errors
                         child: Column(
                           children: [
                             // ========== HEADER ==========
@@ -113,7 +110,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     child: _userPhotoUrl.isNotEmpty
                                         ? ClipOval(
                                             child: Image.network(
-                                              _bustCache(_userPhotoUrl), // 🔴 cache bust
+                                              _bustCache(_userPhotoUrl),
                                               width: 48,
                                               height: 48,
                                               fit: BoxFit.cover,
@@ -132,7 +129,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       style: GoogleFonts.tajawal(
                                         fontSize: 18,
                                         fontWeight: FontWeight.w600,
-                                        color: Colors.black,
+                                        color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                                       ),
                                       overflow: TextOverflow.ellipsis,
                                     ),
@@ -144,7 +141,6 @@ class _HomeScreenState extends State<HomeScreen> {
                             const SizedBox(height: 32),
 
                             // ========== زر المسح ==========
-                            // ✅ [Removed] barcode scan button — ingredients scan only
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 20),
                               child: GestureDetector(
@@ -200,7 +196,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   style: GoogleFonts.tajawal(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w700,
-                                    color: Colors.black,
+                                    color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                                   ),
                                 ),
                               ),
@@ -215,7 +211,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 padding: const EdgeInsets.symmetric(
                                     vertical: 20, horizontal: 16),
                                 decoration: BoxDecoration(
-                                  color: kCardBg,
+                                  color: kCardBg, // ✅ [Added]
                                   borderRadius: BorderRadius.circular(16),
                                 ),
                                 child: Column(
@@ -297,7 +293,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   style: GoogleFonts.tajawal(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w700,
-                                    color: Colors.black,
+                                    color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                                   ),
                                 ),
                               ),
@@ -319,7 +315,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     // ========== BOTTOM NAVIGATION ==========
                     Container(
                       height: 70,
-                      decoration: const BoxDecoration(color: kBackground),
+                      decoration: BoxDecoration(color: kBackground), // ✅ [Added]
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
