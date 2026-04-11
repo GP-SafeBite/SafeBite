@@ -77,10 +77,8 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
     await _showProductNameDialog(File(image.path));
   }
 
-  // ✅ Ask user for product name before processing
   Future<void> _showProductNameDialog(File imageFile) async {
     final controller = TextEditingController();
-
     final productName = await showDialog<String>(
       context: context,
       barrierDismissible: false,
@@ -120,7 +118,6 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
         ),
       ),
     );
-
     await _processImage(imageFile, productName ?? 'منتج من صورة');
   }
 
@@ -135,30 +132,28 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
       if (result == null) throw Exception("مافي نتيجة");
 
       final isSafe = result["is_safe"] == true;
-      final localImagePath = result["local_image_path"] as String? ?? '';
+      final localImagePath = (result["local_image_path"] as String?) ?? '';
 
       if (isSafe) {
         Get.off(() => SafeResultScreen(
               productName: productName,
-              ingredients: result["ingredients"] ?? [],
-              allergens: result["allergens"] ?? [],
+              ingredients: List<String>.from(result["ingredients"] ?? []),
+              allergens: List<String>.from(result["allergens"] ?? []),
               localImagePath: localImagePath,
             ));
       } else {
         Get.off(() => UnsafeResultScreen(
               productName: productName,
-              ingredients: result["ingredients"] ?? [],
+              ingredients: List<String>.from(result["ingredients"] ?? []),
               detectedAllergens: List<String>.from(result["allergens"] ?? []),
+              detectedAllergenTypes: List<String>.from(result["allergen_types"] ?? []),
+              llmSuggestedAlternatives: List<String>.from(result["llm_alternatives"] ?? []),
               localImagePath: localImagePath,
             ));
       }
     } catch (e) {
       print("Error: $e");
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('فشل تحليل الصورة')),
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('فشل تحليل الصورة')));
     } finally {
       if (mounted) setState(() => _isScanning = false);
     }
@@ -185,11 +180,7 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
                   children: [
                     GestureDetector(
                       onTap: () => Get.back(),
-                      child: Container(
-                        width: 40, height: 40,
-                        decoration: const BoxDecoration(color: Color(0xFFFAF6E9), shape: BoxShape.circle),
-                        child: const Icon(Icons.arrow_back, color: Colors.black, size: 20),
-                      ),
+                      child: Container(width: 40, height: 40, decoration: const BoxDecoration(color: Color(0xFFFAF6E9), shape: BoxShape.circle), child: const Icon(Icons.arrow_back, color: Colors.black, size: 20)),
                     ),
                     const Spacer(),
                     Text('مسح المكونات', style: GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w700)),
@@ -234,7 +225,7 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
                                 children: [
                                   const CircularProgressIndicator(color: Colors.white),
                                   const SizedBox(height: 12),
-                                  Text('جاري تحليل المكونات بالذكاء الاصطناعي...', style: GoogleFonts.tajawal(color: Colors.white), textAlign: TextAlign.center),
+                                  Text('جاري تحليل المكونات...', style: GoogleFonts.tajawal(color: Colors.white), textAlign: TextAlign.center),
                                 ],
                               ),
                             ),
@@ -246,11 +237,7 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
               ),
 
               const SizedBox(height: 24),
-
-              Text('صوّر قائمة المكونات المكتوبة على العبوة',
-                style: GoogleFonts.tajawal(fontSize: 14, fontWeight: FontWeight.w500, color: kGrey900),
-                textAlign: TextAlign.center),
-
+              Text('صوّر قائمة المكونات المكتوبة على العبوة', style: GoogleFonts.tajawal(fontSize: 14, color: kGrey900), textAlign: TextAlign.center),
               const Spacer(),
 
               Padding(
@@ -258,16 +245,13 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    SizedBox(
-                      width: 48,
-                      child: GestureDetector(
-                        onTap: _isScanning ? null : _pickFromGallery,
-                        child: Column(mainAxisSize: MainAxisSize.min, children: [
-                          Icon(Icons.image_outlined, color: _isScanning ? kGrey900.withOpacity(0.4) : kGrey900, size: 32),
-                          const SizedBox(height: 4),
-                          Text('الألبوم', style: GoogleFonts.tajawal(fontSize: 12, color: _isScanning ? kGrey900.withOpacity(0.4) : kGrey900)),
-                        ]),
-                      ),
+                    GestureDetector(
+                      onTap: _isScanning ? null : _pickFromGallery,
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.image_outlined, color: _isScanning ? kGrey900.withOpacity(0.4) : kGrey900, size: 32),
+                        const SizedBox(height: 4),
+                        Text('الألبوم', style: GoogleFonts.tajawal(fontSize: 12, color: _isScanning ? kGrey900.withOpacity(0.4) : kGrey900)),
+                      ]),
                     ),
                     GestureDetector(
                       onTap: _isScanning ? null : _captureImage,
@@ -277,21 +261,17 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
                         child: const Icon(Icons.camera_alt, color: Colors.white, size: 40),
                       ),
                     ),
-                    SizedBox(
-                      width: 48,
-                      child: GestureDetector(
-                        onTap: _toggleFlash,
-                        child: Column(mainAxisSize: MainAxisSize.min, children: [
-                          Icon(_isFlashOn ? Icons.flash_on : Icons.flash_off, color: _isFlashOn ? Colors.amber : kGrey900, size: 32),
-                          const SizedBox(height: 4),
-                          Text(_isFlashOn ? 'مضيء' : 'مغلق', style: GoogleFonts.tajawal(fontSize: 12, color: _isFlashOn ? Colors.amber : kGrey900)),
-                        ]),
-                      ),
+                    GestureDetector(
+                      onTap: _toggleFlash,
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(_isFlashOn ? Icons.flash_on : Icons.flash_off, color: _isFlashOn ? Colors.amber : kGrey900, size: 32),
+                        const SizedBox(height: 4),
+                        Text(_isFlashOn ? 'مضيء' : 'مغلق', style: GoogleFonts.tajawal(fontSize: 12, color: _isFlashOn ? Colors.amber : kGrey900)),
+                      ]),
                     ),
                   ],
                 ),
               ),
-
               const SizedBox(height: 40),
             ],
           ),

@@ -3,21 +3,15 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 class GeminiService {
-  static const String _apiKey = "AIzaSyDu25Y6HwBlNJ4CUAm4GE_Tp_SUG9s_DSc";
-
+  static const String _apiKey = "AIzaSyCtJbiIuu_eK8_YmBcGWK22Sw81Sk3vNq0";
   final String _baseUrl =
-"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
- // 🔥 تنظيف JSON من ```json
   String _cleanJson(String text) {
-    return text
-        .replaceAll("```json", "")
-        .replaceAll("```", "")
-        .trim();
+    return text.replaceAll("```json", "").replaceAll("```", "").trim();
   }
 
-  Future<Map<String, dynamic>> analyzeProductImage(
-      Uint8List imageBytes) async {
+  Future<Map<String, dynamic>> analyzeProductImage(Uint8List imageBytes) async {
     final url = Uri.parse("$_baseUrl?key=$_apiKey");
 
     const prompt = """
@@ -28,7 +22,12 @@ class GeminiService {
 
 التعليمات:
 1. اقرأ النص الظاهر في الصورة فقط (لا تخمّن مكونات غير موجودة).
-2. استخرج مسببات الحساسية التالية إن وُجدت ,لا تكتب اسم الفئة فقط (مثل: الحليب),بل اكتب المكون الفعلي كما هو مكتوب في الصورةوادرجة تحت اي فئة,إذا كان المكون باللغة الإنجليزية أعده كما هو,إذا كان بالعربية أعده كما هو, لا تترجم,لا تلخص :
+2. استخرج مسببات الحساسية التالية إن وُجدت. لكل مكون:
+- إذا كان مكتوباً بالعربية والإنجليزية معاً في الصورة → ادمجهما في نص واحد بهذا الشكل: "العربي (English)"
+- إذا كان مكتوباً بالعربية فقط → اكتبه كما هو
+- إذا كان مكتوباً بالإنجليزية فقط → اكتبه كما هو
+- لا تفصل العربي والإنجليزي في عنصرين منفصلين، ادمجهما دائماً في عنصر واحد
+- لا تترجم، لا تلخص، لا تضف شيئاً غير موجود في الصورة:
 - الحليب ومشتقاته (Milk & Dairy)
 - البيض (Eggs)
 - الفول السوداني (Peanuts)
@@ -74,14 +73,35 @@ Sulphur Dioxide (E220)
 اعرض كل مسبب حساسية بصيغة:
 "العربية (English)"
 
+5. اقترح بدائل تجارية متاحة في السوق لكل مسبب حساسية تم اكتشافه:
+- اذكر أنواع المنتجات التجارية البديلة من نفس الفئة (مثلاً: بدل حليب البقر → حليب الشوفان، حليب اللوز، حليب جوز الهند)
+- اذكر أمثلة على ماركات أو علامات تجارية معروفة ومتاحة في الأسواق
+- إذا لم يُكتشف أي مسبب حساسية، اترك alternatives فارغة []
+
 المخرجات يجب أن تكون بصيغة JSON فقط بدون شرح وبالشكل التالي:
 
 {
-  "detected_allergens": [],
+  "detected_allergens": [
+    {
+      "allergen_type": "milk",
+      "allergen_ar": "الحليب ومشتقاته",
+      "ingredients": ["حليب مقشود مجفف (Skim Milk Powder)", "دهن الحليب (Milk Fat)"]
+    }
+  ],
   "hidden_sources": [],
   "warning_statements": [],
+  "suggested_alternatives": [
+    {
+      "allergen_type": "milk",
+      "alternatives_ar": ["بديل تجاري 1", "بديل تجاري 2", "بديل تجاري 3"]
+    }
+  ],
   "confidence": "high | medium | low | - "
 }
+
+قيم allergen_type المسموح بها فقط (بالإنجليزية الصغيرة):
+milk, eggs, gluten, fish, peanuts, soybeans, treenuts, sesame, crustaceans, celery, mustard, sulfur, lupin, mollusks
+
 Do not add explanations.
 Do not wrap with ```json.
 """;
@@ -105,30 +125,27 @@ Do not wrap with ```json.
         ],
         "generationConfig": {"temperature": 0}
       }),
-    ).timeout(const Duration(seconds: 20));
+    ).timeout(const Duration(seconds: 30));
 
-    if (response.statusCode != 200) {
-      throw Exception(response.body);
-    }
+    if (response.statusCode != 200) throw Exception(response.body);
 
     final data = jsonDecode(response.body);
-    final text =
-        data["candidates"]?[0]?["content"]?["parts"]?[0]?["text"] ?? "";
-   print("🧠 RAW AI TEXT: $text");
+    final text = data["candidates"]?[0]?["content"]?["parts"]?[0]?["text"] ?? "";
+    print("🧠 RAW AI TEXT: $text");
 
     final cleaned = _cleanJson(text);
-
     print("🧠 CLEANED TEXT: $cleaned");
 
     try {
       return jsonDecode(cleaned);
     } catch (e) {
       print("❌ JSON ERROR: $e");
-
       return {
+        "product_type_ar": "",
         "detected_allergens": [],
         "hidden_sources": [],
         "warning_statements": [],
+        "suggested_alternatives": [],
         "confidence": "low",
         "raw": cleaned
       };

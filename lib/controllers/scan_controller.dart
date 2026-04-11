@@ -17,7 +17,6 @@ class ScanController extends ChangeNotifier {
       _error = null;
       notifyListeners();
 
-      print("📸 Reading image...");
       final bytes = await imageFile.readAsBytes();
 
       final scanResult = await ScanService.scanFromImage(
@@ -33,6 +32,8 @@ class ScanController extends ChangeNotifier {
       _result = {
         "ingredients": data.ingredients,
         "allergens": data.detectedAllergens,
+        "allergen_types": data.detectedAllergenTypes,
+        "llm_alternatives": data.llmSuggestedAlternatives,
         "is_safe": data.safetyStatus == 'safe',
         "local_image_path": data.localImagePath ?? '',
         "product_name": data.productName,
@@ -53,5 +54,4 @@ class ScanController extends ChangeNotifier {
     _error = null;
     notifyListeners();
   }
-  
 }

@@ -11,7 +11,6 @@ class ScanResult {
   final bool success;
   final String message;
   final dynamic data;
-
   ScanResult({required this.success, required this.message, this.data});
 }
 
@@ -19,6 +18,8 @@ class ProductScanData {
   final String productName;
   final List<String> ingredients;
   final List<String> detectedAllergens;
+  final List<String> detectedAllergenTypes;
+  final List<String> llmSuggestedAlternatives;
   final String safetyStatus;
   final String? localImagePath;
 
@@ -26,6 +27,8 @@ class ProductScanData {
     required this.productName,
     required this.ingredients,
     required this.detectedAllergens,
+    required this.detectedAllergenTypes,
+    required this.llmSuggestedAlternatives,
     required this.safetyStatus,
     this.localImagePath,
   });
@@ -48,32 +51,51 @@ class ScanService {
       final aiResult = await gemini.analyzeProductImage(imageBytes);
       print("🧠 AI RESULT: $aiResult");
 
-      // 3. Extract detected allergens from Gemini
-// ✅ FIX - Extract ingredient strings from each allergen map
-final List<String> geminiAllergens = [];
+      // 3. Extract detected allergens — list of maps with allergen_type + ingredients
+      final List<String> geminiIngredients = [];
+      final List<String> detectedAllergenTypes = [];
+      final rawAllergens = aiResult["detected_allergens"] ?? [];
 
-final rawAllergens = aiResult["detected_allergens"] ?? [];
-for (final allergenGroup in rawAllergens) {
-  if (allergenGroup is Map) {
-    final ingredients = allergenGroup["ingredients"];
-    if (ingredients is List) {
-      for (final ingredient in ingredients) {
-        if (ingredient is String && ingredient.trim().isNotEmpty) {
-          geminiAllergens.add(ingredient.trim());
+      for (final allergenGroup in rawAllergens) {
+        if (allergenGroup is Map) {
+          final type = allergenGroup["allergen_type"]?.toString() ?? '';
+          if (type.isNotEmpty && !detectedAllergenTypes.contains(type)) {
+            detectedAllergenTypes.add(type);
+          }
+          final ingredients = allergenGroup["ingredients"];
+          if (ingredients is List) {
+            for (final ingredient in ingredients) {
+              if (ingredient is String && ingredient.trim().isNotEmpty) {
+                if (!geminiIngredients.contains(ingredient.trim())) {
+                  geminiIngredients.add(ingredient.trim());
+                }
+              }
+            }
+          }
         }
       }
-    }
-  }
-};
 
-      // 4. Build ingredients list cleanly
-      final List<String> ingredientsList = geminiAllergens.isNotEmpty
-          ? geminiAllergens
-          : [];
+      // 4. Extract LLM suggested alternatives (Arabic names)
+      final List<String> llmSuggestedAlternatives = [];
+      final rawSuggestions = aiResult["suggested_alternatives"] ?? [];
+      for (final suggestion in rawSuggestions) {
+        if (suggestion is Map) {
+          // Try Arabic alternatives first
+          final alternativesAr = suggestion["alternatives_ar"];
+          final alternatives = alternativesAr ?? suggestion["alternatives"];
+          if (alternatives is List) {
+            for (final alt in alternatives) {
+              if (alt is String && alt.trim().isNotEmpty) {
+                if (!llmSuggestedAlternatives.contains(alt.trim())) {
+                  llmSuggestedAlternatives.add(alt.trim());
+                }
+              }
+            }
+          }
+        }
+      }
 
-      final ingredientsText = ingredientsList.join(', ');
-
-      if (ingredientsList.isEmpty) {
+      if (geminiIngredients.isEmpty && detectedAllergenTypes.isEmpty) {
         return ScanResult(success: false, message: "ما تم التعرف على المكونات");
       }
 
@@ -84,18 +106,31 @@ for (final allergenGroup in rawAllergens) {
           .whereType<String>()
           .toSet();
 
-      // 6. Detect allergens by cross-referencing Gemini output with user allergies
+      // 6. Cross-reference with user allergies
       final List<String> detectedAllergens = [];
+      final List<String> userDetectedTypes = [];
 
-      for (final geminiAllergen in geminiAllergens) {
-        final lower = geminiAllergen.toLowerCase();
-        for (final userAllergy in userAllergyStrings) {
-          final keywords = _allergyKeywords[userAllergy] ?? [];
+      for (final type in detectedAllergenTypes) {
+        if (userAllergyStrings.contains(type)) {
+          final arabicName = _allergyArabicNames[type] ?? type;
+          if (!detectedAllergens.contains(arabicName)) {
+            detectedAllergens.add(arabicName);
+            userDetectedTypes.add(type);
+          }
+        }
+      }
+
+      // Fallback keyword check
+      if (detectedAllergens.isEmpty && geminiIngredients.isNotEmpty) {
+        final lowerText = geminiIngredients.join(' ').toLowerCase();
+        for (final allergyId in userAllergyStrings) {
+          final keywords = _allergyKeywords[allergyId] ?? [];
           for (final keyword in keywords) {
-            if (lower.contains(keyword)) {
-              final arabicName = _allergyArabicNames[userAllergy] ?? userAllergy;
+            if (lowerText.contains(keyword)) {
+              final arabicName = _allergyArabicNames[allergyId] ?? allergyId;
               if (!detectedAllergens.contains(arabicName)) {
                 detectedAllergens.add(arabicName);
+                userDetectedTypes.add(allergyId);
               }
               break;
             }
@@ -104,17 +139,23 @@ for (final allergenGroup in rawAllergens) {
       }
 
       final safetyStatus = detectedAllergens.isEmpty ? 'safe' : 'unsafe';
+      final ingredientsText = geminiIngredients.join(', ');
 
       final scanData = ProductScanData(
         productName: productName,
-        ingredients: ingredientsList,
+        ingredients: geminiIngredients,
         detectedAllergens: detectedAllergens,
+        detectedAllergenTypes: userDetectedTypes,
+        llmSuggestedAlternatives: llmSuggestedAlternatives,
         safetyStatus: safetyStatus,
         localImagePath: localImagePath,
       );
 
-      // 7. Save to history
-      await _saveScanToHistory(userId: userId, scanData: scanData, ingredientsText: ingredientsText);
+      await _saveScanToHistory(
+        userId: userId,
+        scanData: scanData,
+        ingredientsText: ingredientsText,
+      );
 
       return ScanResult(
         success: true,
@@ -168,8 +209,6 @@ for (final allergenGroup in rawAllergens) {
   }) async {
     try {
       final foundAllergensJson = jsonEncode(scanData.detectedAllergens);
-
-      // Save to Supabase — only columns that exist
       await _supabase.from('scanhistory').insert({
         'user_id': userId,
         'product_name': scanData.productName,
@@ -178,8 +217,6 @@ for (final allergenGroup in rawAllergens) {
         'ingredients_text': ingredientsText,
         'scan_date': DateTime.now().toIso8601String(),
       });
-
-      // Save to SQLite with local image path
       await LocalDB.saveScanHistory(
         userId: userId,
         productName: scanData.productName,
@@ -195,19 +232,19 @@ for (final allergenGroup in rawAllergens) {
 
   static const Map<String, List<String>> _allergyKeywords = {
     'milk': ['milk', 'dairy', 'lactose', 'whey', 'casein', 'حليب', 'لاكتوز', 'كازين'],
-    'eggs': ['egg', 'eggs', 'albumin', 'بيض', 'ألبومين'],
+    'eggs': ['egg', 'eggs', 'albumin', 'بيض'],
     'gluten': ['wheat', 'gluten', 'barley', 'rye', 'flour', 'قمح', 'جلوتين', 'شعير', 'دقيق'],
-    'fish': ['fish', 'salmon', 'tuna', 'سمك', 'سلمون', 'تونة'],
+    'fish': ['fish', 'salmon', 'tuna', 'سمك'],
     'peanuts': ['peanut', 'فول سوداني'],
     'soybeans': ['soy', 'soya', 'صويا'],
-    'treenuts': ['almond', 'cashew', 'walnut', 'pistachio', 'hazelnut', 'لوز', 'كاجو', 'جوز', 'فستق', 'بندق'],
+    'treenuts': ['almond', 'cashew', 'walnut', 'pistachio', 'hazelnut', 'مكسرات', 'لوز'],
     'sesame': ['sesame', 'tahini', 'سمسم', 'طحينة'],
-    'crustaceans': ['shrimp', 'crab', 'lobster', 'روبيان', 'كركند'],
+    'crustaceans': ['shrimp', 'crab', 'lobster', 'روبيان'],
     'celery': ['celery', 'كرفس'],
     'mustard': ['mustard', 'خردل'],
-    'sulfur': ['sulphite', 'sulfite', 'e220', 'e221', 'e222', 'كبريتيت'],
+    'sulfur': ['sulphite', 'sulfite', 'e220', 'كبريتيت'],
     'lupin': ['lupin', 'lupine', 'ترمس'],
-    'mollusks': ['mollusc', 'mollusk', 'squid', 'oyster', 'رخويات', 'حبار'],
+    'mollusks': ['mollusc', 'squid', 'oyster', 'رخويات'],
   };
 
   static const Map<String, String> _allergyArabicNames = {
