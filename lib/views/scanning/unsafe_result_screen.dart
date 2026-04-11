@@ -1,3 +1,4 @@
+// Unsafe.results.screen.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../alternatives/alternatives_screen.dart';
@@ -5,16 +6,21 @@ import '../alternatives/alternatives_screen.dart';
 class UnsafeResultScreen extends StatelessWidget {
   final String productName;
   final List<String> detectedAllergens;
-  final List ingredients; // 🔥 جديد
+final List ingredients;
+
+final List<String> warnings;        // 🔥 جديد
+final List<String> hiddenSources;   // 🔥 جديد
   final String? imageUrl;
 
-  const UnsafeResultScreen({
-    super.key,
-    required this.productName,
-    required this.detectedAllergens,
-    required this.ingredients, // 🔥 جديد
-    this.imageUrl,
-  });
+const UnsafeResultScreen({
+  super.key,
+  required this.productName,
+  required this.detectedAllergens,
+  required this.ingredients,
+  required this.warnings,        // 🔥
+  required this.hiddenSources,   // 🔥
+  this.imageUrl,
+});
 
   static const Color kPrimary = Color(0xFF9CCB7A);
   static const Color kBackground = Color(0xFFFFFDF6);
@@ -132,14 +138,61 @@ class UnsafeResultScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        ingredients.join(', '),
-                        style: GoogleFonts.tajawal(fontSize: 14),
-                      ),
+  ingredients.join(' ، '),
+  style: GoogleFonts.tajawal(fontSize: 14),
+),
                     ],
                   ),
                 ),
 
+
                 const SizedBox(height: 20),
+
+Padding(
+  padding: const EdgeInsets.symmetric(horizontal: 20),
+  child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        'التحذيرات:',
+        style: GoogleFonts.tajawal(
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      const SizedBox(height: 8),
+      Text(
+        (warnings ?? []).join(' ، '),
+        style: GoogleFonts.tajawal(fontSize: 14),
+      ),
+    ],
+  ),
+),
+
+const SizedBox(height: 20),
+
+Padding(
+  padding: const EdgeInsets.symmetric(horizontal: 20),
+  child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        'المصادر المخفية:',
+        style: GoogleFonts.tajawal(
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      const SizedBox(height: 8),
+      Text(
+        (hiddenSources ?? []).join(' ، '),
+        style: GoogleFonts.tajawal(fontSize: 14),
+      ),
+    ],
+  ),
+),
+
+const SizedBox(height: 20),
 
                 // 🔥 مسببات الحساسية
                 Column(

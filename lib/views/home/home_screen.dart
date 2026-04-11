@@ -1,3 +1,4 @@
+// Home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -356,11 +357,13 @@ class _HomeScreenState extends State<HomeScreen> {
         ));
   } else {
     Get.to(() => UnsafeResultScreen(
-          productName: _lastScan!['product_name'] ?? '',
-          ingredients: ingredients,
-          detectedAllergens: allergens,
-          imageUrl: _lastScan!['product_image_url'],
-        ));
+  productName: _lastScan!['product_name'] ?? '',
+  ingredients: ingredients,
+  detectedAllergens: allergens,
+  warnings: [],          // 🔥
+  hiddenSources: [],     // 🔥
+  imageUrl: _lastScan!['product_image_url'],
+));
   }
 },
     );

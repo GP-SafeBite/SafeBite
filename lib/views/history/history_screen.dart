@@ -1,3 +1,4 @@
+// History_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -318,11 +319,13 @@ Widget _buildHistoryItem({
               ));
         } else {
           Get.to(() => UnsafeResultScreen(
-                productName: item['product_name'] ?? '',
-                ingredients: ingredients,
-                detectedAllergens: allergens,
-                imageUrl: item['product_image_url'],
-              ));
+  productName: item['product_name'] ?? '',
+  ingredients: ingredients,
+  detectedAllergens: allergens,
+  warnings: [],          // 🔥 حل
+  hiddenSources: [],     // 🔥 حل
+  imageUrl: item['product_image_url'],
+));
         }
       },
     ),
