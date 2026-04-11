@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:safebite/views/home/home_screen.dart';
-import '../../services/auth_service.dart'; // 🔴 added
-import '../../services/profile_service.dart'; // 🔴 added
+import '../../services/auth_service.dart';
+import '../../services/profile_service.dart';
 import '../../widgets/custom_button.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
@@ -15,9 +15,9 @@ class ProfileSetupScreen extends StatefulWidget {
 
 class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final Set<String> _selectedAllergies = {};
-  bool _isLoading = false; // 🔴 added
+  bool _isLoading = false;
 
- final List<Map<String, dynamic>> _allAllergies = [
+  final List<Map<String, dynamic>> _allAllergies = [
     {'name': 'الحليب', 'icon': 'assets/allergies14/milk.png', 'id': 'milk'},
     {'name': 'البيض', 'icon': 'assets/allergies14/eggs.png', 'id': 'eggs'},
     {'name': 'القشريات', 'icon': 'assets/allergies14/crustaceans.png', 'id': 'crustaceans'},
@@ -34,12 +34,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     {'name': 'الكبريتيت', 'icon': 'assets/allergies14/sulfur.png', 'id': 'sulfur'},
   ];
 
-  // 🔴 added: save allergies and navigate to home
   Future<void> _saveAndContinue() async {
     if (_isLoading) return;
     setState(() => _isLoading = true);
 
-    // 🔴 added: get current logged in user
     final user = await AuthService.getCurrentUser();
     if (user == null) {
       setState(() => _isLoading = false);
@@ -49,7 +47,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       return;
     }
 
-    // 🔴 added: save to Supabase + SQLite
     final result = await ProfileService.saveUserAllergens(
       userId: user['user_id'],
       selectedIds: _selectedAllergies,
@@ -59,7 +56,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     if (!mounted) return;
 
     if (result.success) {
-      // 🔴 added: go to Home after saving
       Get.offAll(() => const HomeScreen());
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -70,8 +66,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // ✅ [Added] Dynamic colors from Theme
+    final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
+    final Color kCardBg = Theme.of(context).cardColor;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFDF6),
+      backgroundColor: kBackground, // ✅ [Added]
       body: SafeArea(
         child: Column(
           children: [
@@ -84,7 +84,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 style: GoogleFonts.tajawal(
                   fontSize: 24,
                   fontWeight: FontWeight.w700,
-                  color: Colors.black,
+                  color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                 ),
               ),
             ),
@@ -111,7 +111,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   style: GoogleFonts.tajawal(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black,
+                    color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                   ),
                 ),
               ),
@@ -145,7 +145,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         decoration: BoxDecoration(
                           color: isSelected
                               ? const Color(0xFFE8F5E9)
-                              : const Color(0xFFFAF6E9),
+                              : kCardBg, // ✅ [Added]
                           borderRadius: BorderRadius.circular(24),
                           border: Border.all(
                             color: isSelected
@@ -162,7 +162,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                               style: GoogleFonts.tajawal(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
-                                color: Colors.black,
+                                color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -186,13 +186,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             ),
             Padding(
               padding: const EdgeInsets.all(24),
-              child: // 🔴 changed: calls _saveAndContinue instead of TODO
-                  _isLoading
-                      ? const CircularProgressIndicator()
-                      : CustomButton(
-                          text: 'متابعة',
-                          onTap: _saveAndContinue,
-                        ),
+              child: _isLoading
+                  ? const CircularProgressIndicator()
+                  : CustomButton(
+                      text: 'متابعة',
+                      onTap: _saveAndContinue,
+                    ),
             ),
           ],
         ),

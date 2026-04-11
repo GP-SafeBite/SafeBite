@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:safebite/views/home/home_screen.dart';
-import 'package:safebite/views/profile/about_app.dart';
+import '../../controllers/theme_controller.dart';
 import '../../services/auth_service.dart';
 import '../../services/profile_service.dart';
 import '../history/history_screen.dart';
@@ -10,7 +10,7 @@ import '../educational/articles_list_screen.dart';
 import '../onboarding/get_started_screen.dart';
 import '../profile/edit_allergies_screen.dart';
 import '../profile/edit_profile_screen.dart';
-import '../profile/about_app.dart';
+import '../profile/about_app.dart'; // ✅ مرة واحدة فقط
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -21,7 +21,6 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   static const Color kPrimary = Color(0xFF9CCB7A);
-  static const Color kBackground = Color(0xFFFFFDF6);
   static const Color kGrey900 = Color(0xFF818898);
 
   String _userName = '';
@@ -77,6 +76,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // ✅ [Added] Dynamic colors from Theme
+    final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
+    final Color kCardBg = Theme.of(context).cardColor;
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -119,7 +122,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       style: GoogleFonts.tajawal(
                                         fontSize: 20,
                                         fontWeight: FontWeight.w700,
-                                        color: Colors.black,
+                                        color: Theme.of(context).colorScheme.onSurface,
                                       ),
                                     ),
                                     const SizedBox(height: 4),
@@ -144,15 +147,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               style: GoogleFonts.tajawal(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w700,
-                                color: Colors.black,
+                                color: Theme.of(context).colorScheme.onSurface,
                               ),
                             ),
 
                             const SizedBox(height: 20),
 
                             _buildSettingItem(
+                              context: context,
                               icon: Icons.person_outline,
                               label: 'تعديل الملف الشخصي',
+                              cardBg: kCardBg,
                               onTap: () async {
                                 await Get.to(() => const EditProfileScreen());
                                 _loadUserData();
@@ -162,18 +167,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             const SizedBox(height: 16),
 
                             _buildSettingItem(
+                              context: context,
                               icon: Icons.language,
                               label: 'اللغة  (عربية)',
+                              cardBg: kCardBg,
                               onTap: () {},
                             ),
 
                             const SizedBox(height: 16),
 
-                            _buildSettingItem(
-                              icon: Icons.wb_sunny_outlined,
-                              label: 'المظهر',
-                              onTap: () {},
-                            ),
+                            _buildThemeToggleItem(context: context, cardBg: kCardBg),
 
                             const SizedBox(height: 40),
 
@@ -183,7 +186,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               style: GoogleFonts.tajawal(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w700,
-                                color: Colors.black,
+                                color: Theme.of(context).colorScheme.onSurface,
                               ),
                             ),
 
@@ -207,8 +210,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       .map((a) => Padding(
                                             padding: const EdgeInsets.only(left: 6),
                                             child: _buildAllergyIcon(
-                                              a['icon'],
-                                              a['name'],
+                                              context: context,
+                                              assetPath: a['icon'],
+                                              label: a['name'],
+                                              cardBg: kCardBg,
                                             ),
                                           )),
 
@@ -221,7 +226,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         vertical: 10,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFFFAF6E9),
+                                        color: kCardBg,
                                         borderRadius: BorderRadius.circular(16),
                                       ),
                                       child: Text(
@@ -275,8 +280,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             const SizedBox(height: 40),
 
                             _buildSettingItem(
+                              context: context,
                               icon: Icons.info_outline,
                               label: 'حول التطبيق',
+                              cardBg: kCardBg,
                               onTap: () {
                                 Get.to(() => const AboutAppScreen());
                               },
@@ -285,8 +292,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             const SizedBox(height: 16),
 
                             _buildSettingItem(
+                              context: context,
                               icon: Icons.logout,
                               label: 'تسجيل الخروج',
+                              cardBg: kCardBg,
                               onTap: () async {
                                 await AuthService.logout();
                                 Get.offAll(() => const GetStartedScreen());
@@ -328,9 +337,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Widget _buildThemeToggleItem({
+    required BuildContext context,
+    required Color cardBg,
+  }) {
+    final themeController = Get.find<ThemeController>();
+    return Obx(() => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.wb_sunny_outlined,
+                size: 22,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'المظهر الداكن',
+                  style: GoogleFonts.tajawal(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+              ),
+              Switch(
+                value: themeController.isDarkMode.value,
+                onChanged: (_) => themeController.toggleTheme(),
+                activeColor: kPrimary,
+              ),
+            ],
+          ),
+        ));
+  }
+
   Widget _buildSettingItem({
+    required BuildContext context,
     required IconData icon,
     required String label,
+    required Color cardBg,
     required VoidCallback onTap,
   }) {
     return GestureDetector(
@@ -338,12 +388,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         decoration: BoxDecoration(
-          color: const Color(0xFFFAF6E9),
+          color: cardBg,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
           children: [
-            Icon(icon, size: 22, color: Colors.black),
+            Icon(
+              icon,
+              size: 22,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
@@ -351,7 +405,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 style: GoogleFonts.tajawal(
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
-                  color: Colors.black,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
             ),
@@ -366,11 +420,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildAllergyIcon(String assetPath, String label) {
+  Widget _buildAllergyIcon({
+    required BuildContext context,
+    required String assetPath,
+    required String label,
+    required Color cardBg,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFFAF6E9),
+        color: cardBg,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -394,7 +453,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             style: GoogleFonts.tajawal(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: Colors.black,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
         ],

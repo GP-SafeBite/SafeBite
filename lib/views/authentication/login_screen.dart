@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
-
-import '../../services/auth_service.dart'; // 🔴 added
+import '../../services/auth_service.dart';
 import '../../widgets/custom_text_field.dart';
-import '../home/home_screen.dart'; // 🔴 added
+import '../home/home_screen.dart';
 import '../onboarding/profile_setup_screen.dart';
 import 'register_screen.dart';
 import 'verification_screen.dart';
@@ -13,8 +12,6 @@ class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
   static const Color kPrimary = Color(0xFFA0C878);
-  static const Color kBg = Color(0xFFFFFDF6);
-  static const Color kField = Color(0xFFFAF6E9);
   static const Color kGrey900 = Color(0xFF818898);
   static const Color kGrey400 = Color(0xFFB3B3B3);
   static const Color kGrey300 = Color(0xFFD1D1D1);
@@ -41,7 +38,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // 🔴 changed: sends login OTP then goes to verification screen
   void _goToVerification() async {
     final email = _emailController.text.trim();
 
@@ -57,28 +53,24 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    // 🔴 added: show loading spinner
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
 
-    // 🔴 added: send login OTP to email
     final result = await AuthService.sendLoginOTP(email: email);
 
-    // 🔴 added: hide loading spinner
     if (mounted) Navigator.of(context).pop();
     if (!mounted) return;
 
     if (result.success) {
-      // 🔴 added: go to OTP screen in login mode
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => VerificationScreen(
             email: email,
-            isLoginMode: true, // 🔴 tells screen this is login not signup
+            isLoginMode: true,
           ),
         ),
       );
@@ -91,7 +83,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // 🔴 changed: now async and calls AuthService.login()
   void _login() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
@@ -108,29 +99,24 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    // 🔴 added: show loading spinner
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
 
-    // 🔴 added: call AuthService instead of TODO
     final result = await AuthService.login(
       email: email,
       password: password,
     );
 
-    // 🔴 added: hide loading spinner
     if (mounted) Navigator.of(context).pop();
     if (!mounted) return;
 
     if (result.success) {
-      // 🔴 added: go to Home on successful login
       Get.offAll(() => const HomeScreen());
     } else if (result.data != null &&
         result.data['needsVerification'] == true) {
-      // 🔴 added: registered but never verified OTP
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -138,7 +124,6 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       );
     } else {
-      // 🔴 added: show error from AuthService
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(result.message, style: GoogleFonts.tajawal()),
@@ -149,10 +134,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // ✅ [Added] Dynamic colors from Theme
+    final Color kBg = Theme.of(context).scaffoldBackgroundColor;
+    final Color kField = Theme.of(context).cardColor;
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: LoginScreen.kBg,
+        backgroundColor: kBg, // ✅ [Added]
         body: SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -166,7 +155,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: GoogleFonts.tajawal(
                     fontSize: 26,
                     fontWeight: FontWeight.w700,
-                    color: Colors.black,
+                    color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                   ),
                 ),
                 const SizedBox(height: 40),
@@ -183,7 +172,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 CustomTextField(
                   hint: 'أدخل بريدك الإلكتروني',
                   controller: _emailController,
-                  fieldBg: LoginScreen.kField,
+                  fieldBg: kField, // ✅ [Added]
                   grey900: LoginScreen.kGrey900,
                   grey300: LoginScreen.kGrey300,
                 ),
@@ -202,7 +191,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   hint: 'أدخل كلمة المرور',
                   controller: _passwordController,
                   isPassword: true,
-                  fieldBg: LoginScreen.kField,
+                  fieldBg: kField, // ✅ [Added]
                   grey900: LoginScreen.kGrey900,
                   grey300: LoginScreen.kGrey300,
                 ),

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-
 import '../../services/auth_service.dart';
 import '../../widgets/custom_button.dart';
 import '../home/home_screen.dart';
@@ -23,9 +22,7 @@ class VerificationScreen extends StatefulWidget {
 }
 
 class _VerificationScreenState extends State<VerificationScreen> {
-  static const Color _bg = Color(0xFFFFFDF6);
   static const Color _primary = Color(0xFFA0C878);
-  static const Color _otpFill = Color(0xFFFAF6E9);
   static const Color _muted = Color(0xFF7C8797);
   static const Color _overlay = Color(0x66222222);
 
@@ -142,7 +139,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
       barrierColor: _overlay,
       builder: (_) {
         return Dialog(
-          backgroundColor: _bg,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor, // ✅ [Added]
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           child: Padding(
@@ -233,7 +230,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
             decoration: InputDecoration(
               counterText: '',
               filled: true,
-              fillColor: _otpFill,
+              fillColor: Theme.of(context).cardColor, // ✅ [Added]
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide.none,
@@ -251,7 +248,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: _bg,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor, // ✅ [Added]
         body: SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),

@@ -12,14 +12,13 @@ class GetStartedScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFDF6),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor, // ✅ [Added]
       body: SafeArea(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Spacer(),
 
-            // 🖼️ الشعار
             SvgPicture.asset(
               'assets/logo/logo_lightmode.svg',
               width: 180,

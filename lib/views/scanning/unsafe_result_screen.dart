@@ -6,29 +6,27 @@ import '../alternatives/alternatives_screen.dart';
 class UnsafeResultScreen extends StatelessWidget {
   final String productName;
   final List<String> detectedAllergens;
-final List ingredients;
-
-final List<String> warnings;        // 🔥 جديد
-final List<String> hiddenSources;   // 🔥 جديد
+  final List ingredients;
   final String? imageUrl;
 
-const UnsafeResultScreen({
-  super.key,
-  required this.productName,
-  required this.detectedAllergens,
-  required this.ingredients,
-  required this.warnings,        // 🔥
-  required this.hiddenSources,   // 🔥
-  this.imageUrl,
-});
+  const UnsafeResultScreen({
+    super.key,
+    required this.productName,
+    required this.detectedAllergens,
+    required this.ingredients,
+    this.imageUrl,
+  });
 
   static const Color kPrimary = Color(0xFF9CCB7A);
-  static const Color kBackground = Color(0xFFFFFDF6);
   static const Color kGrey900 = Color(0xFF818898);
   static const Color kRed = Color(0xFFD32F2F);
 
   @override
   Widget build(BuildContext context) {
+    // ✅ [Added] Dynamic colors from Theme
+    final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
+    final Color kCardBg = Theme.of(context).cardColor;
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -47,8 +45,8 @@ const UnsafeResultScreen({
                         child: Container(
                           width: 40,
                           height: 40,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFFAF6E9),
+                          decoration: BoxDecoration(
+                            color: kCardBg, // ✅ [Added]
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(Icons.arrow_back, size: 20),
@@ -60,6 +58,7 @@ const UnsafeResultScreen({
                         style: GoogleFonts.tajawal(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
+                          color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                         ),
                       ),
                       const Spacer(),
@@ -123,7 +122,7 @@ const UnsafeResultScreen({
 
                 const SizedBox(height: 20),
 
-                // 🔥 المكونات
+                // المكونات
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Column(
@@ -134,6 +133,7 @@ const UnsafeResultScreen({
                         style: GoogleFonts.tajawal(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -148,53 +148,7 @@ const UnsafeResultScreen({
 
                 const SizedBox(height: 20),
 
-Padding(
-  padding: const EdgeInsets.symmetric(horizontal: 20),
-  child: Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(
-        'التحذيرات:',
-        style: GoogleFonts.tajawal(
-          fontSize: 16,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      const SizedBox(height: 8),
-      Text(
-        (warnings ?? []).join(' ، '),
-        style: GoogleFonts.tajawal(fontSize: 14),
-      ),
-    ],
-  ),
-),
-
-const SizedBox(height: 20),
-
-Padding(
-  padding: const EdgeInsets.symmetric(horizontal: 20),
-  child: Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(
-        'المصادر المخفية:',
-        style: GoogleFonts.tajawal(
-          fontSize: 16,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      const SizedBox(height: 8),
-      Text(
-        (hiddenSources ?? []).join(' ، '),
-        style: GoogleFonts.tajawal(fontSize: 14),
-      ),
-    ],
-  ),
-),
-
-const SizedBox(height: 20),
-
-                // 🔥 مسببات الحساسية
+                // مسببات الحساسية
                 Column(
                   children: [
                     Text(
@@ -202,6 +156,7 @@ const SizedBox(height: 20),
                       style: GoogleFonts.tajawal(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                       ),
                     ),
                     const SizedBox(height: 8),
