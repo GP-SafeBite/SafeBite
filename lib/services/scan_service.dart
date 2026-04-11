@@ -1,3 +1,4 @@
+// Scan.service.dart
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -21,8 +22,13 @@ class ProductScanData {
   final String productName;
   final String barcode;
   final String imageUrl;
+
   final List<String> ingredients;
   final List<String> detectedAllergens;
+
+  final List<String> hiddenSources;        // 🔥 جديد
+  final List<String> warningStatements;    // 🔥 جديد
+
   final String safetyStatus;
 
   ProductScanData({
@@ -31,6 +37,8 @@ class ProductScanData {
     required this.imageUrl,
     required this.ingredients,
     required this.detectedAllergens,
+    required this.hiddenSources,        // 🔥
+    required this.warningStatements,    // 🔥
     required this.safetyStatus,
   });
 }
@@ -55,21 +63,49 @@ class ScanService {
 // 🧠 اطبع رد Gemini
 print("🧠 AI RESULT: $aiResult");
 
-// 🔥 خذ أي نوع رد ممكن
-final ingredientsText =
-    (aiResult["ingredients_text"] ??
-     aiResult["text"] ??
-     aiResult["result"] ??
-     aiResult.toString())
-    .toLowerCase();
+//
+final rawAllergens = aiResult["detected_allergens"] ?? [];
 
-// تحقق
-if (ingredientsText.isEmpty || ingredientsText == "{}") {
+final List<String> detectedAllergens = [];
+
+for (final item in rawAllergens) {
+  if (item is Map<String, dynamic>) {
+    final ingredients =
+        item["ingredients"] ?? item["components"] ?? [];
+
+    for (final ing in ingredients) {
+      detectedAllergens.add(ing.toString());
+    }
+  }
+}
+
+print("✅ Extracted Allergens: $detectedAllergens");
+
+final rawHidden = aiResult["hidden_sources"] ?? [];
+
+final List<String> hiddenSources = [];
+
+for (final item in rawHidden) {
+  if (item is Map<String, dynamic>) {
+    final source = item["source"];
+    if (source != null) {
+      hiddenSources.add(source.toString());
+    }
+  }
+}
+
+final List<String> warningStatements =
+    List<String>.from(aiResult["warning_statements"] ?? []);
+
+    if (detectedAllergens.isEmpty &&
+    hiddenSources.isEmpty &&
+    warningStatements.isEmpty) {
   return ScanResult(
     success: false,
     message: "ما تم التعرف على المكونات",
   );
 }
+
 
       // 👤 2. جلب حساسية المستخدم
       final userAllergyIds =
@@ -81,38 +117,39 @@ if (ingredientsText.isEmpty || ingredientsText == "{}") {
           .cast<String>()
           .toSet();
 
-      // ⚠️ 3. تحليل الحساسية
-      final List<String> detectedAllergens = [];
+final List<String> userMatchedAllergens = [];
 
-      for (final allergyId in userAllergyStrings) {
-        final keywords = _allergyKeywords[allergyId] ?? [];
+for (final allergyId in userAllergyStrings) {
+  final keywords = _allergyKeywords[allergyId] ?? [];
 
-        for (final keyword in keywords) {
-          if (ingredientsText.contains(keyword)) {
-            final arabicName =
-                _allergyArabicNames[allergyId] ?? allergyId;
+  for (final allergen in detectedAllergens) {
+    final lowerAllergen = allergen.toLowerCase();
 
-            if (!detectedAllergens.contains(arabicName)) {
-              detectedAllergens.add(arabicName);
-            }
-            break;
-          }
+    for (final keyword in keywords) {
+      if (lowerAllergen.contains(keyword)) {
+        if (!userMatchedAllergens.contains(allergen)) {
+          userMatchedAllergens.add(allergen);
         }
+        break;
       }
+    }
+  }
+}
 
       final safetyStatus =
-          detectedAllergens.isEmpty ? 'safe' : 'unsafe';
+          userMatchedAllergens.isEmpty ? 'safe' : 'unsafe';
 
       // 📦 4. تجهيز البيانات
       final scanData = ProductScanData(
-        productName: "منتج من صورة",
-        barcode: '',
-        imageUrl: '',
-        ingredients: ingredientsText.split(','),
-        detectedAllergens: detectedAllergens,
-        safetyStatus: safetyStatus,
-      );
-
+  productName: "منتج من صورة",
+  barcode: '',
+  imageUrl: '',
+  ingredients: detectedAllergens,
+  detectedAllergens: userMatchedAllergens,
+  hiddenSources: hiddenSources,            // 🔥
+  warningStatements: warningStatements,    // 🔥
+  safetyStatus: safetyStatus,
+);
       // 💾 5. حفظ في Supabase + SQLite
       await _saveScanToHistory(
         userId: userId,
@@ -200,15 +237,43 @@ static Future<ScanResult> getScanHistory({
   // 🔍 ALLERGY KEYWORDS
   // ===================================================
   static const Map<String, List<String>> _allergyKeywords = {
-    'milk': ['milk', 'dairy', 'lactose', 'whey', 'casein'],
-    'eggs': ['egg', 'eggs', 'albumin'],
-    'gluten': ['wheat', 'gluten', 'barley', 'rye', 'flour'],
-    'fish': ['fish', 'salmon', 'tuna'],
-    'peanuts': ['peanut'],
-    'soybeans': ['soy', 'soya'],
-    'treenuts': ['almond', 'cashew', 'walnut'],
-    'sesame': ['sesame', 'tahini'],
-  };
+  'milk': [
+    'milk', 'dairy', 'lactose', 'whey', 'casein',
+    'حليب', 'لبن', 'بودرة حليب', 'مصل الحليب', 'كازين'
+  ],
+
+  'eggs': [
+    'egg', 'eggs', 'albumin',
+    'بيض'
+  ],
+
+  'gluten': [
+    'wheat', 'gluten', 'barley', 'rye', 'flour',
+    'قمح', 'دقيق', 'جلوتين', 'شعير'
+  ],
+
+  'fish': ['fish', 'salmon', 'tuna'],
+
+  'soybeans': [
+    'soy', 'soya',
+    'صويا', 'ليسيثين', 'فول الصويا'
+  ],
+
+  'treenuts': [
+    'almond', 'cashew', 'walnut',
+    'لوز', 'كاجو', 'جوز', 'بندق'
+  ],
+
+  'peanuts': [
+    'peanut',
+    'فول سوداني'
+  ],
+
+  'sesame': [
+    'sesame', 'tahini',
+    'سمسم', 'طحينة'
+  ],
+};
 
   // ===================================================
   // 🌍 ARABIC NAMES

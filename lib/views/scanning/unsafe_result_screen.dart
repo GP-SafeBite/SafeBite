@@ -1,3 +1,4 @@
+// Unsafe.results.screen.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../alternatives/alternatives_screen.dart';
@@ -137,12 +138,13 @@ class UnsafeResultScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        ingredients.join(', '),
-                        style: GoogleFonts.tajawal(fontSize: 14),
-                      ),
+  ingredients.join(' ، '),
+  style: GoogleFonts.tajawal(fontSize: 14),
+),
                     ],
                   ),
                 ),
+
 
                 const SizedBox(height: 20),
 
