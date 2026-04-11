@@ -7,8 +7,10 @@ import '../../services/scan_service.dart';
 import '../history/history_screen.dart';
 import '../educational/articles_list_screen.dart';
 import '../profile/profile_screen.dart';
-import '../scanning/scan_barcode_screen.dart';
 import '../scanning/scan_ingredients_screen.dart';
+import 'dart:convert';
+import '../scanning/safe_result_screen.dart';
+import '../scanning/unsafe_result_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -148,17 +150,6 @@ class _HomeScreenState extends State<HomeScreen> {
                               padding: const EdgeInsets.symmetric(horizontal: 20),
                               child: Row(
                                 children: [
-                                  Expanded(
-                                    child: AspectRatio(
-                                      aspectRatio: 1,
-                                      child: _buildScanButton(
-                                        title: 'مسح الباركود',
-                                        subtitle: 'تحقق سريع من المنتج',
-                                        onTap: () => Get.to(() => const ScanBarcodeScreen()),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
                                   Expanded(
                                     child: AspectRatio(
                                       aspectRatio: 1,
@@ -348,7 +339,30 @@ class _HomeScreenState extends State<HomeScreen> {
       productName: _lastScan!['product_name'] ?? 'منتج غير معروف',
       imageUrl: _lastScan!['product_image_url'] ?? '',
       isSafe: _lastScan!['safety_status'] == 'safe',
-      onTap: () => debugPrint('Product card tapped!'),
+      onTap: () {
+  final allergensJson = _lastScan!['found_allergens'] ?? '[]';
+  final allergens = List<String>.from(jsonDecode(allergensJson));
+
+  final isSafe = _lastScan!['safety_status'] == 'safe';
+
+  final ingredients = [];
+
+  if (isSafe) {
+    Get.to(() => SafeResultScreen(
+          productName: _lastScan!['product_name'] ?? '',
+          ingredients: ingredients,
+          allergens: allergens,
+          imageUrl: _lastScan!['product_image_url'],
+        ));
+  } else {
+    Get.to(() => UnsafeResultScreen(
+          productName: _lastScan!['product_name'] ?? '',
+          ingredients: ingredients,
+          detectedAllergens: allergens,
+          imageUrl: _lastScan!['product_image_url'],
+        ));
+  }
+},
     );
   }
 

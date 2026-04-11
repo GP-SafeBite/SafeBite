@@ -1,139 +1,148 @@
-import 'package:http/http.dart' as http;
-import 'package:dart_rss/dart_rss.dart';
+import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/article_model.dart';
 
 class ArticlesService {
-
-  // 🔴 RSS feed URLs
-  static const String _sfdaFoodUrl =
-      'http://www.sfda.gov.sa/ar/news.xml?tags=1';
-
-  //static const String _mohHealthTipsUrl =
-  //    'https://www.moh.gov.sa/_layouts/15/moh/RssGenerator.aspx?WebSiteUrl=/HealthAwareness/EducationalContent/HealthTips/&ListUrl=/HealthAwareness/EducationalContent/HealthTips/Pages/&ViewName=RSSView&RssTitle=&RssDescription=BriefDesc';
-
-  //static const String _mohBlogUrl =
-      //'https://www.moh.gov.sa/_Layouts/moh/RssGenerator.aspx?WebSiteUrl=/HealthAwareness/EducationalContent/Blog/1439/&ListUrl=/HealthAwareness/EducationalContent/Blog/1439/Pages/&ViewName=RSSView&RssTitle=&RssDescription=';
-
-  // 🔴 allergy/food keywords to filter articles
-  static const List<String> _keywords = [
-  // حساسية
-  'حساسية',
-  'تحسس',
-  'مسببات',
-
-  // غذاء عام - food general
-  'غذاء',
-  'غذائي',
-  'غذائية',
-  'أغذية',
-  'الأغذية',
-  'طعام',
-  'الطعام',
-  'مكونات',
-  'المكونات',
-  'منتج',
-  'منتجات',
-  'سلامة',
-  'تغذية',
-  'صحة',
-  'مستهلك',
-  'ملصق',
-  'عبوة',
-  'food',
-  'safety',
-  'nutrition',
-  'product',
-  'health',
-];
-
-  // 🔴 fetch all articles from all 3 feeds
   static Future<List<ArticleModel>> fetchAllArticles() async {
-    final List<ArticleModel> allArticles = [];
-
-    final results = await Future.wait([
-      _fetchFeed(url: _sfdaFoodUrl, source: 'SFDA'),
-   //   _fetchFeed(url: _mohHealthTipsUrl, source: 'MOH'),
-     // _fetchFeed(url: _mohBlogUrl, source: 'MOH'),
-    ]);
-
-    for (final list in results) {
-      allArticles.addAll(list);
-    }
-
-    // 🔴 sort by date (newest first)
-    allArticles.sort((a, b) => b.pubDate.compareTo(a.pubDate));
-
-    return allArticles;
+    return _hardcodedArticles;
   }
 
-  // 🔴 fetch and parse single RSS feed
-  static Future<List<ArticleModel>> _fetchFeed({
-    required String url,
-    required String source,
-  }) async {
+  static bool isPdf(String url) {
+    return url.toLowerCase().endsWith('.pdf');
+  }
+
+  // ✅ Fixed PDF launcher
+  static Future<void> openPdf(String url) async {
+    final uri = Uri.parse(url);
     try {
-      final response = await http.get(Uri.parse(url)).timeout(
-        const Duration(seconds: 10),
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
       );
-
-      if (response.statusCode != 200) return [];
-
-      // 🔴 parse RSS XML
-      final feed = RssFeed.parse(response.body);
-      final List<ArticleModel> articles = [];
-
-      for (final item in feed.items) {
-        final title = item.title ?? '';
-        final description = item.description ?? '';
-        final link = item.link ?? '';
-        final pubDate = item.pubDate ?? '';
-
-        // 🔴 extract image from media or enclosure
-        String imageUrl = '';
-        if (item.media?.contents?.isNotEmpty == true) {
-          imageUrl = item.media!.contents!.first.url ?? '';
-        } else if (item.enclosure?.url != null) {
-          imageUrl = item.enclosure!.url!;
-        }
-
-        // 🔴 filter: only include allergy/food related
-        if (_isRelevant(title: title, description: description)) {
-          articles.add(ArticleModel(
-            title: title,
-            description: _cleanDescription(description),
-            link: link,
-            imageUrl: imageUrl,
-            pubDate: pubDate,
-            source: source,
-          ));
-        }
+      if (!launched) {
+        // Fallback: try platform default
+        await launchUrl(uri, mode: LaunchMode.platformDefault);
       }
-
-      return articles;
     } catch (e) {
-      print('❌ RSS fetch error ($source): $e');
-      return [];
+      print('❌ Could not open PDF: $e');
     }
   }
 
-  // 🔴 check if article is food/allergy related
-  static bool _isRelevant({
-    required String title,
-    required String description,
-  }) {
-    final text = '$title $description'.toLowerCase();
-    return _keywords.any((keyword) => text.contains(keyword));
-  }
+  static final List<ArticleModel> _hardcodedArticles = [
+    ArticleModel(
+      title: 'الحساسية الغذائية',
+      description:
+          'تعرّف على الحساسية الغذائية وأسبابها وأعراضها وطرق تشخيصها وعلاجها.',
+      link: 'http://www.sfda.gov.sa/ar/awarenessarticle/78126',
+      imageUrl: '',
+      pubDate: '2019-08-18',
+      source: 'SFDA',
+    ),
+    ArticleModel(
+      title: 'الحساسية الغذائية - دليل شامل (PDF)',
+      description:
+          'دليل توعوي شامل من وزارة الصحة حول الحساسية الغذائية وأنواعها.',
+      link:
+          'https://www.moh.gov.sa/awarenessplateform/HealthyLifestyle/Documents/Food-Allergy.pdf',
+      imageUrl: '',
+      pubDate: '2024-01-01',
+      source: 'MOH',
+    ),
+    ArticleModel(
+      title: 'الإسعافات الأولية لحالات الحساسية',
+      description:
+          'تعلّم كيفية التعامل مع ردود الفعل التحسسية في حالات الطوارئ.',
+      link:
+          'https://www.moh.gov.sa/healthawareness/educationalcontent/firstaid/pages/009.aspx',
+      imageUrl: '',
+      pubDate: '2024-01-02',
+      source: 'MOH',
+    ),
+    ArticleModel(
+      title: 'حساسية الفول السوداني',
+      description:
+          'حساسية الفول السوداني من أكثر أنواع الحساسية خطورة. تعرّف على أعراضها وطرق تجنبها.',
+      link:
+          'https://www.moh.gov.sa/awarenessplateform/healthylifestyle/pages/peanutsallergy.aspx',
+      imageUrl: '',
+      pubDate: '2024-01-03',
+      source: 'MOH',
+    ),
+    ArticleModel(
+      title: 'حساسية الفول السوداني - دليل تفصيلي (PDF)',
+      description:
+          'دليل تفصيلي من وزارة الصحة عن حساسية الفول السوداني والبدائل الغذائية الآمنة.',
+      link:
+          'https://www.moh.gov.sa/awarenessplateform/HealthyLifestyle/Documents/Peanuts-Allergy.pdf',
+      imageUrl: '',
+      pubDate: '2024-01-04',
+      source: 'MOH',
+    ),
+    ArticleModel(
+      title: 'مرض السيلياك وحساسية الغلوتين',
+      description:
+          'مرض السيلياك اضطراب مناعي يُصيب الأمعاء عند تناول الغلوتين. تعرّف على أعراضه وعلاجه.',
+      link:
+          'https://www.moh.gov.sa/healthawareness/educationalcontent/diseases/noncommunicable/pages/celiacdisease.aspx',
+      imageUrl: '',
+      pubDate: '2024-01-05',
+      source: 'MOH',
+    ),
+    ArticleModel(
+      title: 'برنامج الغذاء الخالي من الغلوتين (PDF)',
+      description:
+          'تعرّف على برنامج وزارة الصحة للغذاء الخالي من الغلوتين والمنتجات المتاحة في السوق السعودي.',
+      link:
+          'https://www.moh.gov.sa/en/Ministry/MediaCenter/Ads/Documents/Gluten-Free-Food-Program.pdf',
+      imageUrl: '',
+      pubDate: '2024-01-06',
+      source: 'MOH',
+    ),
+    ArticleModel(
+      title: 'عدم تحمل اللاكتوز',
+      description:
+          'عدم تحمل اللاكتوز يختلف عن حساسية الحليب. تعرّف على أعراضه والبدائل الغذائية المناسبة.',
+      link:
+          'https://www.moh.gov.sa/awarenessplateform/healthylifestyle/pages/lactoseintolerance.aspx',
+      imageUrl: '',
+      pubDate: '2024-01-07',
+      source: 'MOH',
+    ),
+    ArticleModel(
+      title: 'مرض السيلياك - دليل شامل (PDF)',
+      description:
+          'دليل شامل من وزارة الصحة عن مرض السيلياك والنصائح الغذائية للمصابين.',
+      link:
+          'https://www.moh.gov.sa/awarenessplateform/HealthyLifestyle/Documents/Celiac-Disease.pdf',
+      imageUrl: '',
+      pubDate: '2024-01-08',
+      source: 'MOH',
+    ),
+  ];
 
-  // 🔴 clean HTML tags from description
-  static String _cleanDescription(String html) {
-    return html
-        .replaceAll(RegExp(r'<[^>]*>'), '')
-        .replaceAll('&nbsp;', ' ')
-        .replaceAll('&amp;', '&')
-        .replaceAll('&lt;', '<')
-        .replaceAll('&gt;', '>')
-        .replaceAll('&quot;', '"')
-        .trim();
-  }
+  // ✅ Emoji for each article (by index)
+  static const List<String> articleEmojis = [
+    '🍽️', // الحساسية الغذائية
+    '📋', // دليل شامل PDF
+    '🚑', // إسعافات أولية
+    '🥜', // الفول السوداني
+    '📄', // الفول السوداني PDF
+    '🌾', // السيلياك
+    '📄', // الغلوتين PDF
+    '🥛', // اللاكتوز
+    '📄', // السيلياك PDF
+  ];
+
+  // ✅ Background color for each article card
+  static const List<Color> articleColors = [
+    Color(0xFFE8F5E9), // green
+    Color(0xFFE3F2FD), // blue
+    Color(0xFFFFEBEE), // red
+    Color(0xFFFFF8E1), // yellow
+    Color(0xFFF3E5F5), // purple
+    Color(0xFFFBE9E7), // orange
+    Color(0xFFE0F7FA), // cyan
+    Color(0xFFF1F8E9), // light green
+    Color(0xFFEDE7F6), // deep purple
+  ];
 }
