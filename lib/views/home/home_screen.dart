@@ -229,8 +229,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return ProductCard(
       productName: productName,
-      imageUrl: '',
-      localImagePath: localImagePath,
+  imageUrl: _lastScan!['local_image_path'] ?? '',  // ✅ Updated
+  localImagePath: '',  // ✅ Updated
       isSafe: isSafe,
       onTap: () {
         if (isSafe) {

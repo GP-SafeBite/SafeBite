@@ -217,8 +217,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
     return ProductCard(
       productName: productName,
-      imageUrl: '',
-      localImagePath: localImagePath,
+// Change to:
+imageUrl: (item['local_image_path'] ?? '') as String,
+localImagePath: '',
       isSafe: isSafe,
       time: _formatTime(item['scan_date'] ?? ''),
       onTap: () {

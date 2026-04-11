@@ -22,6 +22,7 @@ class ProductScanData {
   final List<String> llmSuggestedAlternatives;
   final String safetyStatus;
   final String? localImagePath;
+  final String? remoteImageUrl; // ✅ Supabase Storage URL
 
   ProductScanData({
     required this.productName,
@@ -31,6 +32,7 @@ class ProductScanData {
     required this.llmSuggestedAlternatives,
     required this.safetyStatus,
     this.localImagePath,
+    this.remoteImageUrl,
   });
 }
 
@@ -43,15 +45,16 @@ class ScanService {
     String productName = 'منتج من صورة',
   }) async {
     try {
-      // 1. Save image locally
+      // 1. Save image locally + upload to Supabase Storage
       final localImagePath = await _saveImageLocally(imageBytes);
+      final remoteImageUrl = await _uploadImageToStorage(imageBytes, userId);
 
       // 2. Analyze with Gemini
       final gemini = GeminiService();
       final aiResult = await gemini.analyzeProductImage(imageBytes);
       print("🧠 AI RESULT: $aiResult");
 
-      // 3. Extract detected allergens — list of maps with allergen_type + ingredients
+      // 3. Extract detected allergens
       final List<String> geminiIngredients = [];
       final List<String> detectedAllergenTypes = [];
       final rawAllergens = aiResult["detected_allergens"] ?? [];
@@ -62,6 +65,7 @@ class ScanService {
           if (type.isNotEmpty && !detectedAllergenTypes.contains(type)) {
             detectedAllergenTypes.add(type);
           }
+          // ✅ Extract ALL ingredients listed under this allergen group
           final ingredients = allergenGroup["ingredients"];
           if (ingredients is List) {
             for (final ingredient in ingredients) {
@@ -75,12 +79,23 @@ class ScanService {
         }
       }
 
-      // 4. Extract LLM suggested alternatives (Arabic names)
+      // ✅ Also extract all_ingredients if Gemini provides them
+      final allIngredients = aiResult["all_ingredients"];
+      if (allIngredients is List) {
+        for (final ingredient in allIngredients) {
+          if (ingredient is String && ingredient.trim().isNotEmpty) {
+            if (!geminiIngredients.contains(ingredient.trim())) {
+              geminiIngredients.add(ingredient.trim());
+            }
+          }
+        }
+      }
+
+      // 4. Extract LLM suggested alternatives (Arabic)
       final List<String> llmSuggestedAlternatives = [];
       final rawSuggestions = aiResult["suggested_alternatives"] ?? [];
       for (final suggestion in rawSuggestions) {
         if (suggestion is Map) {
-          // Try Arabic alternatives first
           final alternativesAr = suggestion["alternatives_ar"];
           final alternatives = alternativesAr ?? suggestion["alternatives"];
           if (alternatives is List) {
@@ -149,6 +164,7 @@ class ScanService {
         llmSuggestedAlternatives: llmSuggestedAlternatives,
         safetyStatus: safetyStatus,
         localImagePath: localImagePath,
+        remoteImageUrl: remoteImageUrl,
       );
 
       await _saveScanToHistory(
@@ -168,6 +184,7 @@ class ScanService {
     }
   }
 
+  // ✅ Save image locally for offline use
   static Future<String?> _saveImageLocally(Uint8List imageBytes) async {
     try {
       final dir = await getApplicationDocumentsDirectory();
@@ -176,10 +193,29 @@ class ScanService {
       final fileName = 'scan_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final file = File('${scansDir.path}/$fileName');
       await file.writeAsBytes(imageBytes);
-      print('✅ Image saved: ${file.path}');
+      print('✅ Image saved locally: ${file.path}');
       return file.path;
     } catch (e) {
-      print('⚠️ Image save failed: $e');
+      print('⚠️ Local image save failed: $e');
+      return null;
+    }
+  }
+
+  // ✅ Upload image to Supabase Storage for cross-device access
+  static Future<String?> _uploadImageToStorage(Uint8List imageBytes, String userId) async {
+    try {
+      final fileName = '${userId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final path = 'scans/$fileName';
+
+      await _supabase.storage
+          .from('scans')
+          .uploadBinary(path, imageBytes, fileOptions: const FileOptions(contentType: 'image/jpeg'));
+
+      final url = _supabase.storage.from('scans').getPublicUrl(path);
+      print('✅ Image uploaded to Supabase: $url');
+      return url;
+    } catch (e) {
+      print('⚠️ Supabase image upload failed: $e');
       return null;
     }
   }
@@ -209,6 +245,8 @@ class ScanService {
   }) async {
     try {
       final foundAllergensJson = jsonEncode(scanData.detectedAllergens);
+
+      // ✅ Save remote URL to Supabase so image shows on any device
       await _supabase.from('scanhistory').insert({
         'user_id': userId,
         'product_name': scanData.productName,
@@ -216,7 +254,10 @@ class ScanService {
         'safety_status': scanData.safetyStatus,
         'ingredients_text': ingredientsText,
         'scan_date': DateTime.now().toIso8601String(),
+        'local_image_path': scanData.remoteImageUrl ?? '', // store remote URL here
       });
+
+      // ✅ Save local path to SQLite for offline display
       await LocalDB.saveScanHistory(
         userId: userId,
         productName: scanData.productName,

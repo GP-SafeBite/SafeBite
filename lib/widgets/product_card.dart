@@ -4,8 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 class ProductCard extends StatelessWidget {
   final String productName;
-  final String imageUrl;
-  final String? localImagePath;
+  final String imageUrl;       // remote URL (Supabase Storage)
+  final String? localImagePath; // local file path
   final bool isSafe;
   final String? time;
   final VoidCallback? onTap;
@@ -85,14 +85,45 @@ class ProductCard extends StatelessWidget {
   }
 
   Widget _buildImage() {
+    // ✅ Priority 1: local file (fast, offline)
     if (localImagePath != null && localImagePath!.isNotEmpty) {
-      return Image.file(File(localImagePath!), fit: BoxFit.cover, width: double.infinity, height: 120, errorBuilder: (_, __, ___) => _placeholder());
+      final file = File(localImagePath!);
+      return Image.file(
+        file,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: 120,
+        errorBuilder: (_, __, ___) => _tryRemoteOrPlaceholder(),
+      );
     }
+    return _tryRemoteOrPlaceholder();
+  }
+
+  // ✅ Priority 2: remote URL (works on any device/session)
+  Widget _tryRemoteOrPlaceholder() {
     if (imageUrl.isNotEmpty) {
-      return Image.network(imageUrl, fit: BoxFit.cover, width: double.infinity, height: 120, errorBuilder: (_, __, ___) => _placeholder());
+      return Image.network(
+        imageUrl,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: 120,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Center(child: CircularProgressIndicator(strokeWidth: 2, color: isSafe ? kGreen : kRed));
+        },
+        errorBuilder: (_, __, ___) => _placeholder(),
+      );
     }
     return _placeholder();
   }
 
-  Widget _placeholder() => Center(child: Icon(isSafe ? Icons.check_circle_outline : Icons.warning_amber_rounded, size: 40, color: isSafe ? kGreen : kRed));
+  Widget _placeholder() {
+    return Center(
+      child: Icon(
+        isSafe ? Icons.check_circle_outline : Icons.warning_amber_rounded,
+        size: 40,
+        color: isSafe ? kGreen : kRed,
+      ),
+    );
+  }
 }

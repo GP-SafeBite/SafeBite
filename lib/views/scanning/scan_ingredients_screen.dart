@@ -110,7 +110,10 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
               child: Text('تخطي', style: GoogleFonts.tajawal(color: kGrey900)),
             ),
             ElevatedButton(
-              onPressed: () => Navigator.pop(context, controller.text.trim().isEmpty ? 'منتج من صورة' : controller.text.trim()),
+              onPressed: () => Navigator.pop(
+                context,
+                controller.text.trim().isEmpty ? 'منتج من صورة' : controller.text.trim(),
+              ),
               style: ElevatedButton.styleFrom(backgroundColor: kPrimary),
               child: Text('تأكيد', style: GoogleFonts.tajawal(color: Colors.white)),
             ),
@@ -133,6 +136,7 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
 
       final isSafe = result["is_safe"] == true;
       final localImagePath = (result["local_image_path"] as String?) ?? '';
+      final remoteImageUrl = (result["remote_image_url"] as String?) ?? ''; // ✅
 
       if (isSafe) {
         Get.off(() => SafeResultScreen(
@@ -140,6 +144,7 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
               ingredients: List<String>.from(result["ingredients"] ?? []),
               allergens: List<String>.from(result["allergens"] ?? []),
               localImagePath: localImagePath,
+              imageUrl: remoteImageUrl, // ✅
             ));
       } else {
         Get.off(() => UnsafeResultScreen(
@@ -149,6 +154,7 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
               detectedAllergenTypes: List<String>.from(result["allergen_types"] ?? []),
               llmSuggestedAlternatives: List<String>.from(result["llm_alternatives"] ?? []),
               localImagePath: localImagePath,
+              imageUrl: remoteImageUrl, // ✅
             ));
       }
     } catch (e) {
@@ -180,7 +186,11 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
                   children: [
                     GestureDetector(
                       onTap: () => Get.back(),
-                      child: Container(width: 40, height: 40, decoration: const BoxDecoration(color: Color(0xFFFAF6E9), shape: BoxShape.circle), child: const Icon(Icons.arrow_back, color: Colors.black, size: 20)),
+                      child: Container(
+                        width: 40, height: 40,
+                        decoration: const BoxDecoration(color: Color(0xFFFAF6E9), shape: BoxShape.circle),
+                        child: const Icon(Icons.arrow_back, color: Colors.black, size: 20),
+                      ),
                     ),
                     const Spacer(),
                     Text('مسح المكونات', style: GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w700)),
@@ -237,7 +247,9 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
               ),
 
               const SizedBox(height: 24),
-              Text('صوّر قائمة المكونات المكتوبة على العبوة', style: GoogleFonts.tajawal(fontSize: 14, color: kGrey900), textAlign: TextAlign.center),
+              Text('صوّر قائمة المكونات المكتوبة على العبوة',
+                style: GoogleFonts.tajawal(fontSize: 14, color: kGrey900),
+                textAlign: TextAlign.center),
               const Spacer(),
 
               Padding(

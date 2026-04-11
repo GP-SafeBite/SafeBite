@@ -36,6 +36,7 @@ class ScanController extends ChangeNotifier {
         "llm_alternatives": data.llmSuggestedAlternatives,
         "is_safe": data.safetyStatus == 'safe',
         "local_image_path": data.localImagePath ?? '',
+        "remote_image_url": data.remoteImageUrl ?? '', // ✅ added
         "product_name": data.productName,
       };
 

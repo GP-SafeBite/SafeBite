@@ -67,7 +67,7 @@ class AboutAppScreen extends StatelessWidget {
 
                       // ========== شعار التطبيق ==========
                       SvgPicture.asset(
-                        'Assets/Logo/Logo_LightMode.svg', // ✅ SVG
+                        'assets/Logo/Logo_LightMode.svg', // ✅ SVG
                         width: 200,
                         height: 200,
                       ),
