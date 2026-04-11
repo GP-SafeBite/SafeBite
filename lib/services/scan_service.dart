@@ -1,3 +1,4 @@
+// Scan.service.dart
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -20,6 +21,15 @@ class ProductScanData {
   final List<String> detectedAllergens;
   final List<String> detectedAllergenTypes;
   final List<String> llmSuggestedAlternatives;
+  final String barcode;
+  final String imageUrl;
+
+  final List<String> ingredients;
+  final List<String> detectedAllergens;
+
+  final List<String> hiddenSources;        // 🔥 جديد
+  final List<String> warningStatements;    // 🔥 جديد
+
   final String safetyStatus;
   final String? localImagePath;
   final String? remoteImageUrl; // ✅ Supabase Storage URL
@@ -30,6 +40,8 @@ class ProductScanData {
     required this.detectedAllergens,
     required this.detectedAllergenTypes,
     required this.llmSuggestedAlternatives,
+    required this.hiddenSources,        // 🔥
+    required this.warningStatements,    // 🔥
     required this.safetyStatus,
     this.localImagePath,
     this.remoteImageUrl,
@@ -109,6 +121,59 @@ class ScanService {
           }
         }
       }
+      final aiResult =
+          await gemini.analyzeProductImage(imageBytes);
+
+// 🧠 اطبع رد Gemini
+print("🧠 AI RESULT: $aiResult");
+
+//
+final rawAllergens = aiResult["detected_allergens"] ?? [];
+
+final List<String> detectedAllergens = [];
+
+for (final item in rawAllergens) {
+  if (item is Map<String, dynamic>) {
+    final ingredients =
+        item["ingredients"] ?? item["components"] ?? [];
+
+    for (final ing in ingredients) {
+      detectedAllergens.add(ing.toString());
+    }
+  }
+}
+
+print("✅ Extracted Allergens: $detectedAllergens");
+
+final rawHidden = aiResult["hidden_sources"] ?? [];
+
+final List<String> hiddenSources = [];
+
+for (final item in rawHidden) {
+  if (item is Map<String, dynamic>) {
+    final source = item["source"];
+    if (source != null) {
+      hiddenSources.add(source.toString());
+    }
+  }
+}
+
+final List<String> warningStatements =
+    List<String>.from(aiResult["warning_statements"] ?? []);
+
+    if (detectedAllergens.isEmpty &&
+    hiddenSources.isEmpty &&
+    warningStatements.isEmpty) {
+  return ScanResult(
+    success: false,
+    message: "ما تم التعرف على المكونات",
+  );
+}
+
+
+      // 👤 2. جلب حساسية المستخدم
+      final userAllergyIds =
+          await LocalDB.getUserAllergies(userId: userId);
 
       if (geminiIngredients.isEmpty && detectedAllergenTypes.isEmpty) {
         return ScanResult(success: false, message: "ما تم التعرف على المكونات");
@@ -150,11 +215,29 @@ class ScanService {
               break;
             }
           }
+final List<String> userMatchedAllergens = [];
+
+for (final allergyId in userAllergyStrings) {
+  final keywords = _allergyKeywords[allergyId] ?? [];
+
+  for (final allergen in detectedAllergens) {
+    final lowerAllergen = allergen.toLowerCase();
+
+    for (final keyword in keywords) {
+      if (lowerAllergen.contains(keyword)) {
+        if (!userMatchedAllergens.contains(allergen)) {
+          userMatchedAllergens.add(allergen);
         }
+        break;
       }
+    }
+  }
+}
 
       final safetyStatus = detectedAllergens.isEmpty ? 'safe' : 'unsafe';
       final ingredientsText = geminiIngredients.join(', ');
+      final safetyStatus =
+          userMatchedAllergens.isEmpty ? 'safe' : 'unsafe';
 
       final scanData = ProductScanData(
         productName: productName,
@@ -167,6 +250,16 @@ class ScanService {
         remoteImageUrl: remoteImageUrl,
       );
 
+  productName: "منتج من صورة",
+  barcode: '',
+  imageUrl: '',
+  ingredients: detectedAllergens,
+  detectedAllergens: userMatchedAllergens,
+  hiddenSources: hiddenSources,            // 🔥
+  warningStatements: warningStatements,    // 🔥
+  safetyStatus: safetyStatus,
+);
+      // 💾 5. حفظ في Supabase + SQLite
       await _saveScanToHistory(
         userId: userId,
         scanData: scanData,
@@ -287,6 +380,43 @@ class ScanService {
     'lupin': ['lupin', 'lupine', 'ترمس'],
     'mollusks': ['mollusc', 'squid', 'oyster', 'رخويات'],
   };
+  'milk': [
+    'milk', 'dairy', 'lactose', 'whey', 'casein',
+    'حليب', 'لبن', 'بودرة حليب', 'مصل الحليب', 'كازين'
+  ],
+
+  'eggs': [
+    'egg', 'eggs', 'albumin',
+    'بيض'
+  ],
+
+  'gluten': [
+    'wheat', 'gluten', 'barley', 'rye', 'flour',
+    'قمح', 'دقيق', 'جلوتين', 'شعير'
+  ],
+
+  'fish': ['fish', 'salmon', 'tuna'],
+
+  'soybeans': [
+    'soy', 'soya',
+    'صويا', 'ليسيثين', 'فول الصويا'
+  ],
+
+  'treenuts': [
+    'almond', 'cashew', 'walnut',
+    'لوز', 'كاجو', 'جوز', 'بندق'
+  ],
+
+  'peanuts': [
+    'peanut',
+    'فول سوداني'
+  ],
+
+  'sesame': [
+    'sesame', 'tahini',
+    'سمسم', 'طحينة'
+  ],
+};
 
   static const Map<String, String> _allergyArabicNames = {
     'milk': 'الحليب ومشتقاته',

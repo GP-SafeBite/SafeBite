@@ -54,6 +54,9 @@ class _AlternativesScreenState extends State<AlternativesScreen> {
   Widget build(BuildContext context) {
     final saudiAvailable = _alternatives.where((a) => a.availableInSaudi).toList();
     final llmOnly = _alternatives.where((a) => !a.availableInSaudi).toList();
+    // ✅ [Added] Dynamic colors from Theme
+    final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
+    final Color kCardBg = Theme.of(context).cardColor;
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -77,6 +80,27 @@ class _AlternativesScreenState extends State<AlternativesScreen> {
                     ),
                     const Spacer(),
                     Text('البدائل الآمنة', style: GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.black)),
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: kCardBg, // ✅ [Added]
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.arrow_back,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      'البدائل الآمنة',
+                      style: GoogleFonts.tajawal(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
+                      ),
+                    ),
                     const Spacer(),
                     const SizedBox(width: 40),
                   ],
@@ -96,6 +120,52 @@ class _AlternativesScreenState extends State<AlternativesScreen> {
                       style: GoogleFonts.tajawal(fontSize: 14, color: kRed, fontWeight: FontWeight.w600),
                       textAlign: TextAlign.right,
                     ),
+              const SizedBox(height: 20),
+
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: RichText(
+                  textDirection: TextDirection.rtl,
+                  textAlign: TextAlign.right,
+                  text: TextSpan(
+                    style: GoogleFonts.tajawal(fontSize: 16, height: 1.6),
+                    children: [
+                      TextSpan(
+                        text: 'بدلاً من ',
+                        style: GoogleFonts.tajawal(
+                          fontWeight: FontWeight.w600,
+                          color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
+                        ),
+                      ),
+                      TextSpan(
+                        text: unsafeProductName,
+                        style: GoogleFonts.tajawal(
+                          fontWeight: FontWeight.w700,
+                          color: kRed,
+                        ),
+                      ),
+                      TextSpan(
+                        text: '، جرب هذه الخيارات ',
+                        style: GoogleFonts.tajawal(
+                          fontWeight: FontWeight.w600,
+                          color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
+                        ),
+                      ),
+                      TextSpan(
+                        text: 'الآمنة',
+                        style: GoogleFonts.tajawal(
+                          fontWeight: FontWeight.w700,
+                          color: kPrimary,
+                        ),
+                      ),
+                      TextSpan(
+                        text: ':',
+                        style: GoogleFonts.tajawal(
+                          fontWeight: FontWeight.w600,
+                          color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
+                        ),
+                      ),
+                    ],
                   ),
                 ),
 
@@ -136,6 +206,20 @@ class _AlternativesScreenState extends State<AlternativesScreen> {
                               const SizedBox(height: 40),
                             ],
                           ),
+                child: ListView.separated(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: _alternatives.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final item = _alternatives[index];
+                    return _buildAlternativeCard(
+                      context: context,
+                      title: item['title']!,
+                      imagePath: item['image']!,
+                      cardBg: kCardBg,
+                    );
+                  },
+                ),
               ),
             ],
           ),
@@ -145,6 +229,12 @@ class _AlternativesScreenState extends State<AlternativesScreen> {
   }
 
   Widget _buildSectionHeader(String title, Color color) {
+  Widget _buildAlternativeCard({
+    required BuildContext context,
+    required String title,
+    required String imagePath,
+    required Color cardBg,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -167,6 +257,7 @@ class _AlternativesScreenState extends State<AlternativesScreen> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: kCardBg,
+        color: cardBg, // ✅ [Added]
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: borderColor),
       ),

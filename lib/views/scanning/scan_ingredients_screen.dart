@@ -1,4 +1,5 @@
 import 'dart:io';
+// Scan.ingredients.screen.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:get/get.dart';
@@ -19,7 +20,6 @@ class ScanIngredientsScreen extends StatefulWidget {
 
 class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
   static const Color kPrimary = Color(0xFF9CCB7A);
-  static const Color kBackground = Color(0xFFFFFDF6);
   static const Color kGrey900 = Color(0xFF818898);
 
   bool _isFlashOn = false;
@@ -162,6 +162,43 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('فشل تحليل الصورة')));
     } finally {
       if (mounted) setState(() => _isScanning = false);
+  Future<void> _processImage(File imageFile) async {
+    try {
+      final controller = context.read<ScanController>();
+      final userId = Supabase.instance.client.auth.currentUser!.id;
+
+      await controller.analyzeImage(imageFile, userId);
+
+      final result = controller.result;
+
+      if (result == null) {
+        throw Exception("مافي نتيجة");
+      }
+
+      final isSafe = result["is_safe"] == true;
+
+      if (isSafe) {
+        Get.off(() => SafeResultScreen(
+              productName: "منتج من صورة",
+              ingredients: result["ingredients"],
+              allergens: result["allergens"],
+            ));
+      } else {
+        Get.off(() => UnsafeResultScreen(
+              productName: "منتج من صورة",
+              ingredients: result["ingredients"],
+              detectedAllergens: List<String>.from(result["allergens"]),
+            ));
+      }
+    } catch (e) {
+      print("🔥 Error: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('فشل تحليل الصورة')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isScanning = false);
+      }
     }
   }
 
@@ -173,6 +210,10 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // ✅ [Added] Dynamic colors from Theme
+    final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
+    final Color kCardBg = Theme.of(context).cardColor;
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -194,6 +235,24 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
                     ),
                     const Spacer(),
                     Text('مسح المكونات', style: GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w700)),
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: kCardBg, // ✅ [Added]
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.arrow_back, size: 20),
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      'مسح المكونات',
+                      style: GoogleFonts.tajawal(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
+                      ),
+                    ),
                     const Spacer(),
                     const SizedBox(width: 40),
                   ],
@@ -265,6 +324,31 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
                         Text('الألبوم', style: GoogleFonts.tajawal(fontSize: 12, color: _isScanning ? kGrey900.withOpacity(0.4) : kGrey900)),
                       ]),
                     ),
+                    SizedBox(
+                      width: 48,
+                      child: GestureDetector(
+                        onTap: _isScanning ? null : _pickFromGallery,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.image_outlined,
+                              color: _isScanning ? kGrey900.withOpacity(0.4) : kGrey900,
+                              size: 32,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'الألبوم',
+                              style: GoogleFonts.tajawal(
+                                fontSize: 12,
+                                color: _isScanning ? kGrey900.withOpacity(0.4) : kGrey900,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
                     GestureDetector(
                       onTap: _isScanning ? null : _captureImage,
                       child: Container(
@@ -280,11 +364,50 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
                         const SizedBox(height: 4),
                         Text(_isFlashOn ? 'مضيء' : 'مغلق', style: GoogleFonts.tajawal(fontSize: 12, color: _isFlashOn ? Colors.amber : kGrey900)),
                       ]),
+
+                    SizedBox(
+                      width: 48,
+                      child: GestureDetector(
+                        onTap: _toggleFlash,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _isFlashOn ? Icons.flash_on : Icons.flash_off,
+                              color: _isFlashOn ? Colors.amber : kGrey900,
+                              size: 32,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _isFlashOn ? 'مضيء' : 'مغلق',
+                              style: GoogleFonts.tajawal(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: _isFlashOn ? Colors.amber : kGrey900,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 40),
+
+              // ========== BOTTOM NAVIGATION ==========
+              Container(
+                height: 70,
+                decoration: BoxDecoration(color: kBackground), // ✅ [Added]
+                child: Row(
+                  children: [
+                    _buildNavItem(Icons.home, 'الرئيسية', true),
+                    _buildNavItem(Icons.history, 'السجل', false),
+                    _buildNavItem(Icons.description_outlined, 'محتوى توعوي', false),
+                    _buildNavItem(Icons.person_outline, 'الملف الشخصي', false),
+                  ],
+                ),
+              ),
             ],
           ),
         ),

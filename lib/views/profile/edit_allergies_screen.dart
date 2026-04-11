@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../services/auth_service.dart'; // 🔴 added
-import '../../services/profile_service.dart'; // 🔴 added
+import '../../services/auth_service.dart';
+import '../../services/profile_service.dart';
 import '../../widgets/custom_button.dart';
 
 class EditAllergiesScreen extends StatefulWidget {
@@ -14,7 +14,7 @@ class EditAllergiesScreen extends StatefulWidget {
 
 class _EditAllergiesScreenState extends State<EditAllergiesScreen> {
   Set<String> _selectedAllergies = {};
-  bool _isLoading = true; // 🔴 added: true while loading existing selections
+  bool _isLoading = true;
 
   final List<Map<String, dynamic>> _allergies = [
     {'name': 'الحليب', 'icon': 'assets/allergies14/milk.png', 'id': 'milk'},
@@ -36,10 +36,9 @@ class _EditAllergiesScreenState extends State<EditAllergiesScreen> {
   @override
   void initState() {
     super.initState();
-    _loadExistingSelections(); // 🔴 added: load saved allergies when screen opens
+    _loadExistingSelections();
   }
 
-  // 🔴 added: load user's existing allergy selections
   Future<void> _loadExistingSelections() async {
     final user = await AuthService.getCurrentUser();
     if (user == null) {
@@ -61,7 +60,6 @@ class _EditAllergiesScreenState extends State<EditAllergiesScreen> {
     }
   }
 
-  // 🔴 added: save updated selections
   Future<void> _saveChanges() async {
     setState(() => _isLoading = true);
 
@@ -83,7 +81,7 @@ class _EditAllergiesScreenState extends State<EditAllergiesScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('تم حفظ التغييرات بنجاح ✅')),
       );
-      Get.back(); // 🔴 go back to profile screen
+      Get.back();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(result.message)),
@@ -93,8 +91,12 @@ class _EditAllergiesScreenState extends State<EditAllergiesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // ✅ [Added] Dynamic colors from Theme
+    final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
+    final Color kCardBg = Theme.of(context).cardColor;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFDF6),
+      backgroundColor: kBackground, // ✅ [Added]
       body: SafeArea(
         child: Column(
           children: [
@@ -107,12 +109,11 @@ class _EditAllergiesScreenState extends State<EditAllergiesScreen> {
                   child: Container(
                     width: 40,
                     height: 40,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFFAF6E9),
+                    decoration: BoxDecoration(
+                      color: kCardBg, // ✅ [Added]
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.arrow_forward,
-                        color: Colors.black, size: 20),
+                    child: const Icon(Icons.arrow_forward, size: 20),
                   ),
                 ),
               ),
@@ -126,7 +127,7 @@ class _EditAllergiesScreenState extends State<EditAllergiesScreen> {
                 style: GoogleFonts.tajawal(
                   fontSize: 24,
                   fontWeight: FontWeight.w700,
-                  color: Colors.black,
+                  color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                 ),
               ),
             ),
@@ -153,14 +154,12 @@ class _EditAllergiesScreenState extends State<EditAllergiesScreen> {
                   style: GoogleFonts.tajawal(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black,
+                    color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                   ),
                 ),
               ),
             ),
             const SizedBox(height: 20),
-
-            // 🔴 added: show spinner while loading existing selections
             _isLoading
                 ? const Expanded(
                     child: Center(child: CircularProgressIndicator()))
@@ -192,7 +191,7 @@ class _EditAllergiesScreenState extends State<EditAllergiesScreen> {
                               decoration: BoxDecoration(
                                 color: isSelected
                                     ? const Color(0xFFE8F5E9)
-                                    : const Color(0xFFFAF6E9),
+                                    : kCardBg, // ✅ [Added]
                                 borderRadius: BorderRadius.circular(24),
                                 border: Border.all(
                                   color: isSelected
@@ -209,7 +208,7 @@ class _EditAllergiesScreenState extends State<EditAllergiesScreen> {
                                     style: GoogleFonts.tajawal(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w500,
-                                      color: Colors.black,
+                                      color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                                     ),
                                   ),
                                   const SizedBox(width: 8),
@@ -218,8 +217,7 @@ class _EditAllergiesScreenState extends State<EditAllergiesScreen> {
                                     width: 20,
                                     height: 20,
                                     fit: BoxFit.contain,
-                                    errorBuilder:
-                                        (context, error, stackTrace) {
+                                    errorBuilder: (context, error, stackTrace) {
                                       return const Icon(Icons.error_outline,
                                           size: 20, color: Colors.red);
                                     },
@@ -232,12 +230,11 @@ class _EditAllergiesScreenState extends State<EditAllergiesScreen> {
                       ),
                     ),
                   ),
-
             Padding(
               padding: const EdgeInsets.all(24),
               child: CustomButton(
-                text: 'حفظ التغييرات', // 🔴 changed from متابعة
-                onTap: _saveChanges, // 🔴 changed from TODO
+                text: 'حفظ التغييرات',
+                onTap: _saveChanges,
               ),
             ),
           ],

@@ -1,3 +1,4 @@
+// Scan.controller.dart
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../services/scan_service.dart';
@@ -39,6 +40,15 @@ class ScanController extends ChangeNotifier {
         "remote_image_url": data.remoteImageUrl ?? '', // ✅ added
         "product_name": data.productName,
       };
+      // 📦 النتيجة النهائية للـ UI
+_result = {
+  "ingredients": data.ingredients,
+  "allergens": data.detectedAllergens,
+  "hidden_sources": data.hiddenSources,
+  "warnings": data.warningStatements,
+  "is_safe": data.safetyStatus == 'safe',
+"is_unknown": data.safetyStatus == 'unknown', // 🔥 جديد
+};
 
       print("✅ Final Result: $_result");
     } catch (e) {

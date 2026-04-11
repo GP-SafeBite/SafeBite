@@ -1,4 +1,5 @@
 import 'dart:convert';
+// Home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -21,8 +22,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   static const Color kPrimary = Color(0xFF9CCB7A);
-  static const Color kBackground = Color(0xFFFFFDF6);
-  static const Color kCardBg = Color(0xFFFAF6E9);
   static const Color kGrey900 = Color(0xFF818898);
   static const Color kRed = Color(0xFFD32F2F);
 
@@ -37,6 +36,12 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _loadData();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
     _loadData();
   }
 
@@ -72,6 +77,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // ✅ [Added] Dynamic colors from Theme
+    final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
+    final Color kCardBg = Theme.of(context).cardColor;
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -102,6 +111,31 @@ class _HomeScreenState extends State<HomeScreen> {
                                     child: Text('مرحباً، $_userName 👋',
                                       style: GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.black),
                                       overflow: TextOverflow.ellipsis),
+                                        ? ClipOval(
+                                            child: Image.network(
+                                              _bustCache(_userPhotoUrl),
+                                              width: 48,
+                                              height: 48,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (context, error, stackTrace) =>
+                                                  const Icon(Icons.person,
+                                                      color: Colors.white, size: 28),
+                                            ),
+                                          )
+                                        : const Icon(Icons.person,
+                                            color: Colors.white, size: 28),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Flexible(
+                                    child: Text(
+                                      'مرحباً، $_userName 👋',
+                                      style: GoogleFonts.tajawal(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w600,
+                                        color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -128,6 +162,45 @@ class _HomeScreenState extends State<HomeScreen> {
                                         Text('صورة قائمة المكونات', style: GoogleFonts.tajawal(fontSize: 14, color: Colors.white)),
                                       ],
                                     ),
+                            // ========== زر المسح ==========
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              child: GestureDetector(
+                                onTap: () => Get.to(() => const ScanIngredientsScreen()),
+                                child: Container(
+                                  width: double.infinity,
+                                  height: 160,
+                                  decoration: BoxDecoration(
+                                    color: kPrimary,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(
+                                        Icons.camera_alt_outlined,
+                                        size: 56,
+                                        color: Colors.white,
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        'مسح المكونات',
+                                        style: GoogleFonts.tajawal(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        'صورة قائمة المكونات',
+                                        style: GoogleFonts.tajawal(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w500,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
@@ -139,6 +212,17 @@ class _HomeScreenState extends State<HomeScreen> {
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 20),
                               child: Align(alignment: Alignment.centerRight, child: Text('إحصائياتك', style: GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w700))),
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: Text(
+                                  'إحصائياتك',
+                                  style: GoogleFonts.tajawal(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                    color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
+                                  ),
+                                ),
+                              ),
                             ),
                             const SizedBox(height: 12),
                             Padding(
@@ -147,6 +231,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                 width: double.infinity,
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(color: kCardBg, borderRadius: BorderRadius.circular(16)),
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 20, horizontal: 16),
+                                decoration: BoxDecoration(
+                                  color: kCardBg, // ✅ [Added]
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
@@ -169,6 +259,17 @@ class _HomeScreenState extends State<HomeScreen> {
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 20),
                               child: Align(alignment: Alignment.centerRight, child: Text('آخر فحص', style: GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w700))),
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: Text(
+                                  'آخر فحص',
+                                  style: GoogleFonts.tajawal(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                    color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
+                                  ),
+                                ),
+                              ),
                             ),
                             const SizedBox(height: 12),
                             Padding(
@@ -184,7 +285,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     // BOTTOM NAV
                     Container(
                       height: 70,
-                      decoration: const BoxDecoration(color: kBackground),
+                      decoration: BoxDecoration(color: kBackground), // ✅ [Added]
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
@@ -239,6 +340,11 @@ class _HomeScreenState extends State<HomeScreen> {
           Get.to(() => UnsafeResultScreen(productName: productName, ingredients: ingredients, detectedAllergens: allergens, localImagePath: localImagePath));
         }
       },
+    return ProductCard(
+      productName: _lastScan!['product_name'] ?? 'منتج غير معروف',
+      imageUrl: _lastScan!['product_image_url'] ?? '',
+      isSafe: _lastScan!['safety_status'] == 'safe',
+      onTap: () => debugPrint('Product card tapped!'),
     );
   }
 

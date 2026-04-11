@@ -1,4 +1,5 @@
 import 'dart:io';
+// Safe.result.screen.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -19,11 +20,14 @@ class SafeResultScreen extends StatelessWidget {
   });
 
   static const Color kPrimary = Color(0xFF9CCB7A);
-  static const Color kBackground = Color(0xFFFFFDF6);
   static const Color kGrey900 = Color(0xFF818898);
 
   @override
   Widget build(BuildContext context) {
+    // ✅ [Added] Dynamic colors from Theme
+    final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
+    final Color kCardBg = Theme.of(context).cardColor;
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -42,11 +46,25 @@ class SafeResultScreen extends StatelessWidget {
                         child: Container(
                           width: 40, height: 40,
                           decoration: const BoxDecoration(color: Color(0xFFFAF6E9), shape: BoxShape.circle),
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: kCardBg, // ✅ [Added]
+                            shape: BoxShape.circle,
+                          ),
                           child: const Icon(Icons.arrow_back, size: 20),
                         ),
                       ),
                       const Spacer(),
                       Text('نتيجة الفحص', style: GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w700)),
+                      Text(
+                        'نتيجة الفحص',
+                        style: GoogleFonts.tajawal(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
+                        ),
+                      ),
                       const Spacer(),
                       const SizedBox(width: 40),
                     ],
@@ -119,6 +137,36 @@ class SafeResultScreen extends StatelessWidget {
                         ],
                       ),
                     ),
+                // المكونات
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'المكونات:',
+                        style: GoogleFonts.tajawal(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      ingredients.isEmpty
+                          ? Text(
+                              'لا توجد مكونات',
+                              style: GoogleFonts.tajawal(fontSize: 14),
+                            )
+                          : Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: ingredients
+                                  .map((e) => Text(
+                                        "• $e",
+                                        style: GoogleFonts.tajawal(fontSize: 14),
+                                      ))
+                                  .toList(),
+                            ),
+                    ],
                   ),
 
                 const SizedBox(height: 16),
@@ -136,6 +184,39 @@ class SafeResultScreen extends StatelessWidget {
                         Text('لا يحتوي على مسببات حساسيتك', style: GoogleFonts.tajawal(fontSize: 14, color: Colors.green.shade700)),
                       ],
                     ),
+                // مسببات الحساسية
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'مسببات الحساسية:',
+                        style: GoogleFonts.tajawal(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      allergens.isEmpty
+                          ? Text(
+                              'لا يوجد',
+                              style: GoogleFonts.tajawal(fontSize: 14),
+                            )
+                          : Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: allergens
+                                  .map((e) => Text(
+                                        "• $e",
+                                        style: GoogleFonts.tajawal(
+                                          fontSize: 14,
+                                          color: Colors.red,
+                                        ),
+                                      ))
+                                  .toList(),
+                            ),
+                    ],
                   ),
                 ),
 

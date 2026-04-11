@@ -1,3 +1,4 @@
+// Gemini.service.dart
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
@@ -124,7 +125,13 @@ Do not wrap with backticks.
       }),
     ).timeout(const Duration(seconds: 30));
 
-    if (response.statusCode != 200) throw Exception(response.body);
+    if (response.statusCode == 429) {
+  throw Exception("RATE_LIMIT");
+}
+
+if (response.statusCode != 200) {
+  throw Exception(response.body);
+}
 
     final data = jsonDecode(response.body);
     final text = data["candidates"]?[0]?["content"]?["parts"]?[0]?["text"] ?? "";

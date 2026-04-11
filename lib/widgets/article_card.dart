@@ -1,4 +1,3 @@
-// lib/widgets/article_card.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -14,16 +13,17 @@ class ArticleCard extends StatelessWidget {
     this.onTap,
   });
 
-  static const Color kCardBg = Color(0xFFFAF6E9);
-
   @override
   Widget build(BuildContext context) {
+    // ✅ [Added] Dynamic colors from Theme
+    final Color kCardBg = Theme.of(context).cardColor;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: double.infinity,
         decoration: BoxDecoration(
-          color: kCardBg,
+          color: kCardBg, // ✅ [Added]
           borderRadius: BorderRadius.circular(16),
         ),
         clipBehavior: Clip.hardEdge,
@@ -64,11 +64,11 @@ class ArticleCard extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               child: Text(
                 title,
-                textAlign: TextAlign.right, // ✅ من اليمين
+                textAlign: TextAlign.right,
                 style: GoogleFonts.tajawal(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: Colors.black,
+                  color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                   height: 1.5,
                 ),
               ),
