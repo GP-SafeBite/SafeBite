@@ -2,19 +2,16 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
-// History_screen.dart
-import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'dart:convert';
 import 'package:safebite/views/home/home_screen.dart';
 import '../../services/auth_service.dart';
 import '../../services/scan_service.dart';
+import '../../services/alternatives_service.dart';
 import '../../widgets/product_card.dart';
 import '../educational/articles_list_screen.dart';
 import '../profile/profile_screen.dart';
 import '../scanning/safe_result_screen.dart';
 import '../scanning/unsafe_result_screen.dart';
+import '../alternatives/alternatives_screen.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -25,14 +22,17 @@ class HistoryScreen extends StatefulWidget {
 
 class _HistoryScreenState extends State<HistoryScreen> {
   static const Color kPrimary = Color(0xFF9CCB7A);
+  static const Color kBackground = Color(0xFFFFFDF6);
+  static const Color kFieldBg = Color(0xFFFAF6E9);
   static const Color kGrey900 = Color(0xFF818898);
   static const Color kGrey400 = Color(0xFFB3B3B3);
+  static const Color kRed = Color(0xFFD32F2F);
 
   final TextEditingController _searchController = TextEditingController();
-
   List<Map<String, dynamic>> _allHistory = [];
   List<Map<String, dynamic>> _filteredHistory = [];
   bool _isLoading = true;
+  String? _userId;
 
   @override
   void initState() {
@@ -50,10 +50,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Future<void> _loadHistory() async {
     final user = await AuthService.getCurrentUser();
     if (user == null) { setState(() => _isLoading = false); return; }
+    _userId = user['user_id'];
 
-    final result = await ScanService.getScanHistory(userId: user['user_id']);
-
-    // ✅ Fixed: proper casting from Supabase response
+    final result = await ScanService.getScanHistory(userId: _userId!);
     final raw = result.success ? (result.data as List? ?? []) : [];
     final history = raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
 
@@ -101,12 +100,40 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return '$period$hour12:$minute';
   }
 
+  Future<void> _deleteAll() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          title: Text('حذف السجل', style: GoogleFonts.tajawal(fontWeight: FontWeight.bold)),
+          content: Text('هل تريد حذف جميع الفحوصات؟', style: GoogleFonts.tajawal()),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('إلغاء', style: GoogleFonts.tajawal())),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(backgroundColor: kRed),
+              child: Text('حذف الكل', style: GoogleFonts.tajawal(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirm == true && _userId != null) {
+      await ScanService.deleteAllHistory(userId: _userId!);
+      _loadHistory();
+    }
+  }
+
+  Future<void> _deleteSingle(Map<String, dynamic> item) async {
+    final historyId = item['history_id'] as int?;
+    if (historyId == null || _userId == null) return;
+    await ScanService.deleteSingleScan(userId: _userId!, historyId: historyId);
+    _loadHistory();
+  }
+
   @override
   Widget build(BuildContext context) {
-    // ✅ [Added] Dynamic colors from Theme
-    final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
-    final Color kFieldBg = Theme.of(context).cardColor;
-
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -124,33 +151,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     ),
                     const Spacer(),
                     Text('سجل الفحوصات', style: GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.black)),
-                      onTap: () {
-                        Get.back();
-                      },
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: kFieldBg, // ✅ [Added]
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.arrow_back,
-                          size: 20,
-                        ),
-                      ),
-                    ),
                     const Spacer(),
-                    Text(
-                      'سجل الفحوصات',
-                      style: GoogleFonts.tajawal(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
-                      ),
-                    ),
-                    const Spacer(),
-                    const SizedBox(width: 40),
+                    // ✅ Delete all button
+                    if (_allHistory.isNotEmpty)
+                      GestureDetector(
+                        onTap: _deleteAll,
+                        child: Container(
+                          width: 40, height: 40,
+                          decoration: BoxDecoration(color: kRed.withOpacity(0.1), shape: BoxShape.circle),
+                          child: Icon(Icons.delete_outline, color: kRed, size: 20),
+                        ),
+                      )
+                    else
+                      const SizedBox(width: 40),
                   ],
                 ),
               ),
@@ -167,23 +180,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     decoration: InputDecoration(
                       hintText: 'ابحث في السجل',
                       hintStyle: GoogleFonts.tajawal(fontSize: 14, color: kGrey400),
-                  decoration: BoxDecoration(
-                    color: kFieldBg, // ✅ [Added]
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: TextField(
-                    controller: _searchController,
-                    textAlign: TextAlign.right,
-                    style: GoogleFonts.tajawal(
-                      fontSize: 14,
-                      color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'ابحث في السجل',
-                      hintStyle: GoogleFonts.tajawal(
-                        fontSize: 14,
-                        color: kGrey400,
-                      ),
                       prefixIcon: Icon(Icons.search, color: kGrey400, size: 22),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -199,15 +195,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     ? const Center(child: CircularProgressIndicator())
                     : _filteredHistory.isEmpty
                         ? Center(child: Text('لا توجد فحوصات بعد!', style: GoogleFonts.tajawal(fontSize: 14, color: kGrey900)))
-                        ? Center(
-                            child: Text(
-                              'لا توجد فحوصات بعد!',
-                              style: GoogleFonts.tajawal(
-                                fontSize: 14,
-                                color: kGrey900,
-                              ),
-                            ),
-                          )
                         : _buildHistoryList(),
               ),
 
@@ -221,24 +208,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     _buildNavItem(Icons.history, 'السجل', true, () {}),
                     _buildNavItem(Icons.description_outlined, 'محتوى توعوي', false, () => Get.offAll(() => ArticlesListScreen())),
                     _buildNavItem(Icons.person_outline, 'الملف الشخصي', false, () => Get.offAll(() => ProfileScreen())),
-                decoration: BoxDecoration(
-                  color: kBackground, // ✅ [Added]
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _buildNavItem(Icons.home, 'الرئيسية', false, () {
-                      Get.offAll(() => HomeScreen());
-                    }),
-                    _buildNavItem(Icons.history, 'السجل', true, () {}),
-                    _buildNavItem(
-                        Icons.description_outlined, 'محتوى توعوي', false, () {
-                      Get.offAll(() => ArticlesListScreen());
-                    }),
-                    _buildNavItem(
-                        Icons.person_outline, 'الملف الشخصي', false, () {
-                      Get.offAll(() => ProfileScreen());
-                    }),
                   ],
                 ),
               ),
@@ -280,76 +249,59 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
     final isSafe = item['safety_status'] == 'safe';
     final localImagePath = (item['local_image_path'] ?? '') as String;
+    final remoteImageUrl = (item['remote_image_url'] ?? '') as String;
     final productName = (item['product_name'] ?? 'فحص مكونات') as String;
     final ingredientsText = (item['ingredients_text'] ?? '') as String;
 
-    // ✅ Fixed: explicit typed map and where
     final List<String> ingredients = ingredientsText.isNotEmpty
-        ? ingredientsText
-            .split(',')
-            .map<String>((e) => e.trim())
-            .where((e) => e.isNotEmpty)
-            .toList()
+        ? ingredientsText.split(',').map<String>((e) => e.trim()).where((e) => e.isNotEmpty).toList()
         : <String>[];
 
-    return ProductCard(
-      productName: productName,
-// Change to:
-imageUrl: (item['local_image_path'] ?? '') as String,
-localImagePath: '',
-      isSafe: isSafe,
-      time: _formatTime(item['scan_date'] ?? ''),
-      onTap: () {
-        if (isSafe) {
-          Get.to(() => SafeResultScreen(productName: productName, ingredients: ingredients, allergens: allergens, localImagePath: localImagePath));
-        } else {
-          Get.to(() => UnsafeResultScreen(productName: productName, ingredients: ingredients, detectedAllergens: allergens, localImagePath: localImagePath));
-        }
-      },
-  Widget _buildDateSection(String title) {
-    return Align(
-      alignment: Alignment.centerRight,
-      child: Text(
-        '$title:',
-        style: GoogleFonts.tajawal(
-          fontSize: 16,
-          fontWeight: FontWeight.w700,
-          color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
-        ),
+    // ✅ Load saved alternatives from JSON
+    List<AlternativeProduct> savedAlternatives = [];
+    try {
+      final altJson = item['alternatives_json'] ?? '[]';
+      savedAlternatives = AlternativesService.fromJsonList(altJson);
+    } catch (_) {}
+
+    // ✅ Swipe to delete
+    return Dismissible(
+      key: Key('scan_${item['history_id']}'),
+      direction: DismissDirection.startToEnd,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        decoration: BoxDecoration(color: kRed.withOpacity(0.15), borderRadius: BorderRadius.circular(16)),
+        child: Icon(Icons.delete_outline, color: kRed, size: 28),
       ),
-    );
-  }
-
-  Widget _buildHistoryItem({
-    required Map<String, dynamic> item,
-  }) {
-    final allergensJson = item['found_allergens'] ?? '[]';
-    final allergens = List<String>.from(jsonDecode(allergensJson));
-    final isSafe = item['safety_status'] == 'safe';
-    final ingredients = [];
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 5),
+      confirmDismiss: (_) async {
+        await _deleteSingle(item);
+        return false; // list reloads via _loadHistory
+      },
       child: ProductCard(
-        productName: item['product_name'] ?? '',
-        imageUrl: item['product_image_url'] ?? '',
+        productName: productName,
+        remoteImageUrl: remoteImageUrl,
+        localImagePath: localImagePath,
         isSafe: isSafe,
         time: _formatTime(item['scan_date'] ?? ''),
         onTap: () {
           if (isSafe) {
             Get.to(() => SafeResultScreen(
-                  productName: item['product_name'] ?? '',
-                  ingredients: ingredients,
-                  allergens: allergens,
-                  imageUrl: item['product_image_url'],
-                ));
+              productName: productName,
+              ingredients: ingredients,
+              allergens: allergens,
+              localImagePath: localImagePath,
+              remoteImageUrl: remoteImageUrl,
+            ));
           } else {
             Get.to(() => UnsafeResultScreen(
-                  productName: item['product_name'] ?? '',
-                  ingredients: ingredients,
-                  detectedAllergens: allergens,
-                  imageUrl: item['product_image_url'],
-                ));
+              productName: productName,
+              ingredients: ingredients,
+              detectedAllergens: allergens,
+              localImagePath: localImagePath,
+              remoteImageUrl: remoteImageUrl,
+              savedAlternatives: savedAlternatives.isNotEmpty ? savedAlternatives : null,
+            ));
           }
         },
       ),
@@ -360,14 +312,11 @@ localImagePath: '',
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: isActive ? kPrimary : kGrey900, size: 26),
-            const SizedBox(height: 4),
-            Text(label, textAlign: TextAlign.center, style: GoogleFonts.tajawal(fontSize: 11, fontWeight: isActive ? FontWeight.w700 : FontWeight.w500, color: isActive ? kPrimary : kGrey900)),
-          ],
-        ),
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(icon, color: isActive ? kPrimary : kGrey900, size: 26),
+          const SizedBox(height: 4),
+          Text(label, textAlign: TextAlign.center, style: GoogleFonts.tajawal(fontSize: 11, fontWeight: isActive ? FontWeight.w700 : FontWeight.w500, color: isActive ? kPrimary : kGrey900)),
+        ]),
       ),
     );
   }

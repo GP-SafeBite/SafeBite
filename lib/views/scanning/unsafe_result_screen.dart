@@ -1,17 +1,21 @@
+import 'dart:convert';
 import 'dart:io';
-// Unsafe.results.screen.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../alternatives/alternatives_screen.dart';
+import '../../services/alternatives_service.dart';
 
 class UnsafeResultScreen extends StatelessWidget {
   final String productName;
   final List<String> detectedAllergens;
   final List<String> detectedAllergenTypes;
   final List<String> llmSuggestedAlternatives;
+  final List<Map<String, dynamic>> llmRawAlternatives;
+  final String productTypeAr;
   final List ingredients;
-  final String? imageUrl;
-  final String? localImagePath;
+  final List<AlternativeProduct>? savedAlternatives;
+  final String remoteImageUrl;
+  final String localImagePath;
 
   const UnsafeResultScreen({
     super.key,
@@ -19,22 +23,20 @@ class UnsafeResultScreen extends StatelessWidget {
     required this.detectedAllergens,
     this.detectedAllergenTypes = const [],
     this.llmSuggestedAlternatives = const [],
+    this.llmRawAlternatives = const [],
+    this.productTypeAr = '',
     required this.ingredients,
-    this.imageUrl,
-    this.localImagePath,
+    this.savedAlternatives,
+    this.remoteImageUrl = '',
+    this.localImagePath = '',
   });
 
   static const Color kPrimary = Color(0xFF9CCB7A);
   static const Color kBackground = Color(0xFFFFFDF6);
-  static const Color kGrey900 = Color(0xFF818898);
   static const Color kRed = Color(0xFFD32F2F);
 
   @override
   Widget build(BuildContext context) {
-    // ✅ [Added] Dynamic colors from Theme
-    final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
-    final Color kCardBg = Theme.of(context).cardColor;
-
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -53,37 +55,22 @@ class UnsafeResultScreen extends StatelessWidget {
                       ),
                       const Spacer(),
                       Text('نتيجة الفحص', style: GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w700)),
-                        child: Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: kCardBg, // ✅ [Added]
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.arrow_back, size: 20),
-                        ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        'نتيجة الفحص',
-                        style: GoogleFonts.tajawal(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
-                        ),
-                      ),
                       const Spacer(),
                       const SizedBox(width: 40),
                     ],
                   ),
                 ),
 
-                // Scanned image
+                // ✅ Smart image
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(20),
-                    child: Container(width: double.infinity, height: 250, color: Colors.grey.shade200, child: _buildImage()),
+                    child: Container(
+                      width: double.infinity, height: 250,
+                      color: Colors.grey.shade200,
+                      child: _SmartImage(remoteUrl: remoteImageUrl, localPath: localImagePath),
+                    ),
                   ),
                 ),
 
@@ -97,39 +84,14 @@ class UnsafeResultScreen extends StatelessWidget {
 
                 const SizedBox(height: 12),
 
-                // ✅ FIXED: wrapped in FittedBox to prevent overflow
-                // المكونات
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.cancel, color: Colors.red, size: 32),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          'المنتج غير آمن ⚠️',
-                          style: GoogleFonts.tajawal(fontSize: 20, fontWeight: FontWeight.bold, color: kRed),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      Text(
-                        'المكونات:',
-                        style: GoogleFonts.tajawal(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-  ingredients.join(' ، '),
-  style: GoogleFonts.tajawal(fontSize: 14),
-),
-                    ],
-                  ),
+                  child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    const Icon(Icons.cancel, color: Colors.red, size: 32),
+                    const SizedBox(width: 8),
+                    Flexible(child: Text('المنتج غير آمن', style: GoogleFonts.tajawal(fontSize: 20, fontWeight: FontWeight.bold, color: kRed), overflow: TextOverflow.ellipsis)),
+                  ]),
                 ),
-
 
                 const SizedBox(height: 20),
 
@@ -143,54 +105,28 @@ class UnsafeResultScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // ✅ FIXED: use Flexible inside Row to prevent overflow
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 20),
-                            const SizedBox(width: 6),
-                            Flexible(
-                              child: Text(
-                                'مسببات الحساسية المكتشفة:',
-                                style: GoogleFonts.tajawal(fontSize: 15, fontWeight: FontWeight.bold, color: kRed),
-                              ),
-                            ),
-                          ],
-                        ),
+                        Row(children: [
+                          const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 20),
+                          const SizedBox(width: 6),
+                          Flexible(child: Text('مسببات الحساسية المكتشفة:', style: GoogleFonts.tajawal(fontSize: 15, fontWeight: FontWeight.bold, color: kRed))),
+                        ]),
                         const SizedBox(height: 10),
                         ...detectedAllergens.map((a) => Padding(
                           padding: const EdgeInsets.only(bottom: 6),
                           child: Row(children: [
                             const Icon(Icons.circle, size: 8, color: Colors.red),
                             const SizedBox(width: 8),
-                            Flexible(
-                              child: Text(a, style: GoogleFonts.tajawal(fontSize: 14, color: kRed, fontWeight: FontWeight.w600)),
-                            ),
+                            Flexible(child: Text(a, style: GoogleFonts.tajawal(fontSize: 14, color: kRed, fontWeight: FontWeight.w600))),
                           ]),
                         )),
                       ],
-                // مسببات الحساسية
-                Column(
-                  children: [
-                    Text(
-                      'مسببات الحساسية:',
-                      style: GoogleFonts.tajawal(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    ...detectedAllergens.map(
-                      (a) => Text("• $a",
-                          style: GoogleFonts.tajawal(color: kRed)),
                     ),
                   ),
                 ),
 
                 const SizedBox(height: 16),
 
-                // ✅ Ingredients chips — each ingredient already comes as "عربي (English)" from Gemini
+                // Ingredients chips
                 if (ingredients.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -210,23 +146,14 @@ class UnsafeResultScreen extends StatelessWidget {
                                 e.toString().toLowerCase().contains(a.toLowerCase()) ||
                                 a.toLowerCase().contains(e.toString().toLowerCase()));
                               return Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width - 72),
                                 decoration: BoxDecoration(
                                   color: isAllergen ? kRed.withOpacity(0.1) : Colors.white,
                                   borderRadius: BorderRadius.circular(20),
                                   border: Border.all(color: isAllergen ? kRed.withOpacity(0.5) : Colors.grey.shade300),
                                 ),
-                                // ✅ FIXED: constrain chip width so text wraps instead of overflowing
-                                constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width - 72),
-                                child: Text(
-                                  e.toString(),
-                                  style: GoogleFonts.tajawal(
-                                    fontSize: 13,
-                                    color: isAllergen ? kRed : Colors.black,
-                                    fontWeight: isAllergen ? FontWeight.w600 : FontWeight.normal,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
+                                child: Text(e.toString(), style: GoogleFonts.tajawal(fontSize: 13, color: isAllergen ? kRed : Colors.black, fontWeight: isAllergen ? FontWeight.w600 : FontWeight.normal), textAlign: TextAlign.center),
                               );
                             }).toList(),
                           ),
@@ -237,7 +164,6 @@ class UnsafeResultScreen extends StatelessWidget {
 
                 const SizedBox(height: 24),
 
-                // Buttons
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Column(
@@ -251,6 +177,9 @@ class UnsafeResultScreen extends StatelessWidget {
                               detectedAllergens: detectedAllergens,
                               detectedAllergenTypes: detectedAllergenTypes,
                               llmSuggestedAlternatives: llmSuggestedAlternatives,
+                              llmRawAlternatives: llmRawAlternatives,
+                              productTypeAr: productTypeAr,
+                              savedAlternatives: savedAlternatives,
                             ),
                           )),
                           style: ElevatedButton.styleFrom(backgroundColor: kPrimary, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
@@ -277,13 +206,40 @@ class UnsafeResultScreen extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildImage() {
-    if (localImagePath != null && localImagePath!.isNotEmpty) {
-      return Image.file(File(localImagePath!), fit: BoxFit.cover, errorBuilder: (_, __, ___) => _placeholder());
+class _SmartImage extends StatefulWidget {
+  final String remoteUrl;
+  final String localPath;
+  const _SmartImage({required this.remoteUrl, required this.localPath});
+
+  @override
+  State<_SmartImage> createState() => _SmartImageState();
+}
+
+class _SmartImageState extends State<_SmartImage> {
+  bool get _hasLocalFile =>
+      widget.localPath.isNotEmpty && File(widget.localPath).existsSync();
+
+  @override
+  Widget build(BuildContext context) {
+    if (_hasLocalFile) {
+      return Image.file(File(widget.localPath), fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _tryRemote());
     }
-    if (imageUrl != null && imageUrl!.isNotEmpty) {
-      return Image.network(imageUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _placeholder());
+    return _tryRemote();
+  }
+
+  Widget _tryRemote() {
+    if (widget.remoteUrl.isNotEmpty) {
+      return Image.network(widget.remoteUrl, fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) {
+          if (widget.localPath.isNotEmpty) {
+            final f = File(widget.localPath);
+            if (f.existsSync()) return Image.file(f, fit: BoxFit.cover);
+          }
+          return _placeholder();
+        });
     }
     return _placeholder();
   }

@@ -1,7 +1,7 @@
-// Scan.controller.dart
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../services/scan_service.dart';
+import '../services/alternatives_service.dart';
 
 class ScanController extends ChangeNotifier {
   bool _isLoading = false;
@@ -35,20 +35,15 @@ class ScanController extends ChangeNotifier {
         "allergens": data.detectedAllergens,
         "allergen_types": data.detectedAllergenTypes,
         "llm_alternatives": data.llmSuggestedAlternatives,
+        "llm_raw_alternatives": data.llmRawAlternatives,
+        "product_type_ar": data.productTypeAr,
         "is_safe": data.safetyStatus == 'safe',
         "local_image_path": data.localImagePath ?? '',
-        "remote_image_url": data.remoteImageUrl ?? '', // ✅ added
+        "remote_image_url": data.remoteImageUrl ?? '',
         "product_name": data.productName,
+        // ✅ Issue 3: pass merged alternatives to UI
+        "merged_alternatives": data.mergedAlternatives,
       };
-      // 📦 النتيجة النهائية للـ UI
-_result = {
-  "ingredients": data.ingredients,
-  "allergens": data.detectedAllergens,
-  "hidden_sources": data.hiddenSources,
-  "warnings": data.warningStatements,
-  "is_safe": data.safetyStatus == 'safe',
-"is_unknown": data.safetyStatus == 'unknown', // 🔥 جديد
-};
 
       print("✅ Final Result: $_result");
     } catch (e) {

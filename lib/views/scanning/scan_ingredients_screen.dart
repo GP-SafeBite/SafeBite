@@ -1,5 +1,4 @@
 import 'dart:io';
-// Scan.ingredients.screen.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:get/get.dart';
@@ -8,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../controllers/scan_controller.dart';
+import '../../services/alternatives_service.dart';
 import 'safe_result_screen.dart';
 import 'unsafe_result_screen.dart';
 
@@ -20,6 +20,7 @@ class ScanIngredientsScreen extends StatefulWidget {
 
 class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
   static const Color kPrimary = Color(0xFF9CCB7A);
+  static const Color kBackground = Color(0xFFFFFDF6);
   static const Color kGrey900 = Color(0xFF818898);
 
   bool _isFlashOn = false;
@@ -110,10 +111,8 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
               child: Text('تخطي', style: GoogleFonts.tajawal(color: kGrey900)),
             ),
             ElevatedButton(
-              onPressed: () => Navigator.pop(
-                context,
-                controller.text.trim().isEmpty ? 'منتج من صورة' : controller.text.trim(),
-              ),
+              onPressed: () => Navigator.pop(context,
+                controller.text.trim().isEmpty ? 'منتج من صورة' : controller.text.trim()),
               style: ElevatedButton.styleFrom(backgroundColor: kPrimary),
               child: Text('تأكيد', style: GoogleFonts.tajawal(color: Colors.white)),
             ),
@@ -136,7 +135,19 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
 
       final isSafe = result["is_safe"] == true;
       final localImagePath = (result["local_image_path"] as String?) ?? '';
-      final remoteImageUrl = (result["remote_image_url"] as String?) ?? ''; // ✅
+      final remoteImageUrl = (result["remote_image_url"] as String?) ?? '';
+      final productTypeAr = (result["product_type_ar"] as String?) ?? '';
+
+      final llmRaw = result["llm_raw_alternatives"];
+      final List<Map<String, dynamic>> llmRawAlternatives = llmRaw is List
+          ? llmRaw.map((e) => Map<String, dynamic>.from(e as Map)).toList()
+          : [];
+
+      // ✅ Issue 3: pass already-merged alternatives from scan time
+      final mergedRaw = result["merged_alternatives"];
+      final List<AlternativeProduct> mergedAlternatives = mergedRaw is List
+          ? mergedRaw.cast<AlternativeProduct>()
+          : [];
 
       if (isSafe) {
         Get.off(() => SafeResultScreen(
@@ -144,7 +155,7 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
               ingredients: List<String>.from(result["ingredients"] ?? []),
               allergens: List<String>.from(result["allergens"] ?? []),
               localImagePath: localImagePath,
-              imageUrl: remoteImageUrl, // ✅
+              remoteImageUrl: remoteImageUrl,
             ));
       } else {
         Get.off(() => UnsafeResultScreen(
@@ -153,8 +164,11 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
               detectedAllergens: List<String>.from(result["allergens"] ?? []),
               detectedAllergenTypes: List<String>.from(result["allergen_types"] ?? []),
               llmSuggestedAlternatives: List<String>.from(result["llm_alternatives"] ?? []),
+              llmRawAlternatives: llmRawAlternatives,
+              productTypeAr: productTypeAr,
               localImagePath: localImagePath,
-              imageUrl: remoteImageUrl, // ✅
+              remoteImageUrl: remoteImageUrl,
+              savedAlternatives: mergedAlternatives.isNotEmpty ? mergedAlternatives : null,
             ));
       }
     } catch (e) {
@@ -162,43 +176,6 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('فشل تحليل الصورة')));
     } finally {
       if (mounted) setState(() => _isScanning = false);
-  Future<void> _processImage(File imageFile) async {
-    try {
-      final controller = context.read<ScanController>();
-      final userId = Supabase.instance.client.auth.currentUser!.id;
-
-      await controller.analyzeImage(imageFile, userId);
-
-      final result = controller.result;
-
-      if (result == null) {
-        throw Exception("مافي نتيجة");
-      }
-
-      final isSafe = result["is_safe"] == true;
-
-      if (isSafe) {
-        Get.off(() => SafeResultScreen(
-              productName: "منتج من صورة",
-              ingredients: result["ingredients"],
-              allergens: result["allergens"],
-            ));
-      } else {
-        Get.off(() => UnsafeResultScreen(
-              productName: "منتج من صورة",
-              ingredients: result["ingredients"],
-              detectedAllergens: List<String>.from(result["allergens"]),
-            ));
-      }
-    } catch (e) {
-      print("🔥 Error: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('فشل تحليل الصورة')),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isScanning = false);
-      }
     }
   }
 
@@ -210,10 +187,6 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ [Added] Dynamic colors from Theme
-    final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
-    final Color kCardBg = Theme.of(context).cardColor;
-
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -227,40 +200,16 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
                   children: [
                     GestureDetector(
                       onTap: () => Get.back(),
-                      child: Container(
-                        width: 40, height: 40,
-                        decoration: const BoxDecoration(color: Color(0xFFFAF6E9), shape: BoxShape.circle),
-                        child: const Icon(Icons.arrow_back, color: Colors.black, size: 20),
-                      ),
+                      child: Container(width: 40, height: 40, decoration: const BoxDecoration(color: Color(0xFFFAF6E9), shape: BoxShape.circle), child: const Icon(Icons.arrow_back, color: Colors.black, size: 20)),
                     ),
                     const Spacer(),
                     Text('مسح المكونات', style: GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w700)),
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: kCardBg, // ✅ [Added]
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.arrow_back, size: 20),
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      'مسح المكونات',
-                      style: GoogleFonts.tajawal(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
-                      ),
-                    ),
                     const Spacer(),
                     const SizedBox(width: 40),
                   ],
                 ),
               ),
-
               const SizedBox(height: 20),
-
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: ClipRRect(
@@ -284,130 +233,40 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
                           )
                         else
                           Container(color: Colors.black, child: const Center(child: CircularProgressIndicator(color: Colors.white))),
-
                         if (_isScanning)
-                          Container(
-                            color: Colors.black54,
-                            child: Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const CircularProgressIndicator(color: Colors.white),
-                                  const SizedBox(height: 12),
-                                  Text('جاري تحليل المكونات...', style: GoogleFonts.tajawal(color: Colors.white), textAlign: TextAlign.center),
-                                ],
-                              ),
-                            ),
-                          ),
+                          Container(color: Colors.black54, child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                            const CircularProgressIndicator(color: Colors.white),
+                            const SizedBox(height: 12),
+                            Text('جاري تحليل المكونات...', style: GoogleFonts.tajawal(color: Colors.white), textAlign: TextAlign.center),
+                          ]))),
                       ],
                     ),
                   ),
                 ),
               ),
-
               const SizedBox(height: 24),
-              Text('صوّر قائمة المكونات المكتوبة على العبوة',
-                style: GoogleFonts.tajawal(fontSize: 14, color: kGrey900),
-                textAlign: TextAlign.center),
+              Text('صوّر قائمة المكونات المكتوبة على العبوة', style: GoogleFonts.tajawal(fontSize: 14, color: kGrey900), textAlign: TextAlign.center),
               const Spacer(),
-
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 60),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    GestureDetector(
-                      onTap: _isScanning ? null : _pickFromGallery,
-                      child: Column(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(Icons.image_outlined, color: _isScanning ? kGrey900.withOpacity(0.4) : kGrey900, size: 32),
-                        const SizedBox(height: 4),
-                        Text('الألبوم', style: GoogleFonts.tajawal(fontSize: 12, color: _isScanning ? kGrey900.withOpacity(0.4) : kGrey900)),
-                      ]),
-                    ),
-                    SizedBox(
-                      width: 48,
-                      child: GestureDetector(
-                        onTap: _isScanning ? null : _pickFromGallery,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.image_outlined,
-                              color: _isScanning ? kGrey900.withOpacity(0.4) : kGrey900,
-                              size: 32,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'الألبوم',
-                              style: GoogleFonts.tajawal(
-                                fontSize: 12,
-                                color: _isScanning ? kGrey900.withOpacity(0.4) : kGrey900,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    GestureDetector(
-                      onTap: _isScanning ? null : _captureImage,
-                      child: Container(
-                        width: 100, height: 100,
-                        decoration: BoxDecoration(color: _isScanning ? kGrey900 : kPrimary, shape: BoxShape.circle),
-                        child: const Icon(Icons.camera_alt, color: Colors.white, size: 40),
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: _toggleFlash,
-                      child: Column(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(_isFlashOn ? Icons.flash_on : Icons.flash_off, color: _isFlashOn ? Colors.amber : kGrey900, size: 32),
-                        const SizedBox(height: 4),
-                        Text(_isFlashOn ? 'مضيء' : 'مغلق', style: GoogleFonts.tajawal(fontSize: 12, color: _isFlashOn ? Colors.amber : kGrey900)),
-                      ]),
-
-                    SizedBox(
-                      width: 48,
-                      child: GestureDetector(
-                        onTap: _toggleFlash,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              _isFlashOn ? Icons.flash_on : Icons.flash_off,
-                              color: _isFlashOn ? Colors.amber : kGrey900,
-                              size: 32,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _isFlashOn ? 'مضيء' : 'مغلق',
-                              style: GoogleFonts.tajawal(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: _isFlashOn ? Colors.amber : kGrey900,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                    GestureDetector(onTap: _isScanning ? null : _pickFromGallery, child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.image_outlined, color: _isScanning ? kGrey900.withOpacity(0.4) : kGrey900, size: 32),
+                      const SizedBox(height: 4),
+                      Text('الألبوم', style: GoogleFonts.tajawal(fontSize: 12, color: _isScanning ? kGrey900.withOpacity(0.4) : kGrey900)),
+                    ])),
+                    GestureDetector(onTap: _isScanning ? null : _captureImage, child: Container(width: 100, height: 100, decoration: BoxDecoration(color: _isScanning ? kGrey900 : kPrimary, shape: BoxShape.circle), child: const Icon(Icons.camera_alt, color: Colors.white, size: 40))),
+                    GestureDetector(onTap: _toggleFlash, child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(_isFlashOn ? Icons.flash_on : Icons.flash_off, color: _isFlashOn ? Colors.amber : kGrey900, size: 32),
+                      const SizedBox(height: 4),
+                      Text(_isFlashOn ? 'مضيء' : 'مغلق', style: GoogleFonts.tajawal(fontSize: 12, color: _isFlashOn ? Colors.amber : kGrey900)),
+                    ])),
                   ],
                 ),
               ),
               const SizedBox(height: 40),
-
-              // ========== BOTTOM NAVIGATION ==========
-              Container(
-                height: 70,
-                decoration: BoxDecoration(color: kBackground), // ✅ [Added]
-                child: Row(
-                  children: [
-                    _buildNavItem(Icons.home, 'الرئيسية', true),
-                    _buildNavItem(Icons.history, 'السجل', false),
-                    _buildNavItem(Icons.description_outlined, 'محتوى توعوي', false),
-                    _buildNavItem(Icons.person_outline, 'الملف الشخصي', false),
-                  ],
-                ),
-              ),
             ],
           ),
         ),

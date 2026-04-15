@@ -1,4 +1,3 @@
-// Scan.service.dart
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -7,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../database/local_db.dart';
 import 'profile_service.dart';
 import 'gemini_service.dart';
+import 'alternatives_service.dart';
 
 class ScanResult {
   final bool success;
@@ -21,18 +21,13 @@ class ProductScanData {
   final List<String> detectedAllergens;
   final List<String> detectedAllergenTypes;
   final List<String> llmSuggestedAlternatives;
-  final String barcode;
-  final String imageUrl;
-
-  final List<String> ingredients;
-  final List<String> detectedAllergens;
-
-  final List<String> hiddenSources;        // 🔥 جديد
-  final List<String> warningStatements;    // 🔥 جديد
-
+  final List<Map<String, dynamic>> llmRawAlternatives;
+  final String productTypeAr;
   final String safetyStatus;
   final String? localImagePath;
-  final String? remoteImageUrl; // ✅ Supabase Storage URL
+  final String? remoteImageUrl;
+  // ✅ Issue 3: full merged alternatives saved at scan time
+  final List<AlternativeProduct> mergedAlternatives;
 
   ProductScanData({
     required this.productName,
@@ -40,11 +35,12 @@ class ProductScanData {
     required this.detectedAllergens,
     required this.detectedAllergenTypes,
     required this.llmSuggestedAlternatives,
-    required this.hiddenSources,        // 🔥
-    required this.warningStatements,    // 🔥
+    required this.llmRawAlternatives,
+    required this.productTypeAr,
     required this.safetyStatus,
     this.localImagePath,
     this.remoteImageUrl,
+    this.mergedAlternatives = const [],
   });
 }
 
@@ -57,16 +53,33 @@ class ScanService {
     String productName = 'منتج من صورة',
   }) async {
     try {
-      // 1. Save image locally + upload to Supabase Storage
-      final localImagePath = await _saveImageLocally(imageBytes);
-      final remoteImageUrl = await _uploadImageToStorage(imageBytes, userId);
+      // 1. Save image locally + upload to Supabase Storage in parallel
+      final localPathFuture = _saveImageLocally(imageBytes);
+      final remoteUrlFuture = _uploadImageToStorage(imageBytes, userId);
+      final results = await Future.wait([localPathFuture, remoteUrlFuture]);
+      final localImagePath = results[0];
+      final remoteImageUrl = results[1];
 
-      // 2. Analyze with Gemini
+      // 2. Get user allergies BEFORE calling Gemini
+      final userAllergyIds = await LocalDB.getUserAllergies(userId: userId);
+      final userAllergyStrings = userAllergyIds
+          .map((id) => ProfileService.allergyReverseMap[id])
+          .whereType<String>()
+          .toSet();
+      final userAllergiesAr = userAllergyStrings
+          .map((s) => _allergyArabicNames[s] ?? s)
+          .join('، ');
+
+      // 3. Analyze with Gemini
       final gemini = GeminiService();
-      final aiResult = await gemini.analyzeProductImage(imageBytes);
+      final aiResult = await gemini.analyzeProductImage(
+        imageBytes,
+        productName: productName,
+        userAllergies: userAllergiesAr,
+      );
       print("🧠 AI RESULT: $aiResult");
 
-      // 3. Extract detected allergens
+      // 4. Extract detected allergens
       final List<String> geminiIngredients = [];
       final List<String> detectedAllergenTypes = [];
       final rawAllergens = aiResult["detected_allergens"] ?? [];
@@ -77,7 +90,6 @@ class ScanService {
           if (type.isNotEmpty && !detectedAllergenTypes.contains(type)) {
             detectedAllergenTypes.add(type);
           }
-          // ✅ Extract ALL ingredients listed under this allergen group
           final ingredients = allergenGroup["ingredients"];
           if (ingredients is List) {
             for (final ingredient in ingredients) {
@@ -91,100 +103,24 @@ class ScanService {
         }
       }
 
-      // ✅ Also extract all_ingredients if Gemini provides them
-      final allIngredients = aiResult["all_ingredients"];
-      if (allIngredients is List) {
-        for (final ingredient in allIngredients) {
-          if (ingredient is String && ingredient.trim().isNotEmpty) {
-            if (!geminiIngredients.contains(ingredient.trim())) {
-              geminiIngredients.add(ingredient.trim());
-            }
-          }
-        }
-      }
-
-      // 4. Extract LLM suggested alternatives (Arabic)
+      // 5. Extract LLM suggested alternatives
       final List<String> llmSuggestedAlternatives = [];
+      final List<Map<String, dynamic>> llmRawAlternatives = [];
+      final String productTypeAr = aiResult["product_type_ar"]?.toString() ?? '';
       final rawSuggestions = aiResult["suggested_alternatives"] ?? [];
       for (final suggestion in rawSuggestions) {
         if (suggestion is Map) {
-          final alternativesAr = suggestion["alternatives_ar"];
-          final alternatives = alternativesAr ?? suggestion["alternatives"];
-          if (alternatives is List) {
-            for (final alt in alternatives) {
-              if (alt is String && alt.trim().isNotEmpty) {
-                if (!llmSuggestedAlternatives.contains(alt.trim())) {
-                  llmSuggestedAlternatives.add(alt.trim());
-                }
-              }
-            }
+          final name = suggestion["name"]?.toString() ?? '';
+          if (name.isNotEmpty && !llmSuggestedAlternatives.contains(name)) {
+            llmSuggestedAlternatives.add(name);
+            llmRawAlternatives.add(Map<String, dynamic>.from(suggestion));
           }
         }
       }
-      final aiResult =
-          await gemini.analyzeProductImage(imageBytes);
-
-// 🧠 اطبع رد Gemini
-print("🧠 AI RESULT: $aiResult");
-
-//
-final rawAllergens = aiResult["detected_allergens"] ?? [];
-
-final List<String> detectedAllergens = [];
-
-for (final item in rawAllergens) {
-  if (item is Map<String, dynamic>) {
-    final ingredients =
-        item["ingredients"] ?? item["components"] ?? [];
-
-    for (final ing in ingredients) {
-      detectedAllergens.add(ing.toString());
-    }
-  }
-}
-
-print("✅ Extracted Allergens: $detectedAllergens");
-
-final rawHidden = aiResult["hidden_sources"] ?? [];
-
-final List<String> hiddenSources = [];
-
-for (final item in rawHidden) {
-  if (item is Map<String, dynamic>) {
-    final source = item["source"];
-    if (source != null) {
-      hiddenSources.add(source.toString());
-    }
-  }
-}
-
-final List<String> warningStatements =
-    List<String>.from(aiResult["warning_statements"] ?? []);
-
-    if (detectedAllergens.isEmpty &&
-    hiddenSources.isEmpty &&
-    warningStatements.isEmpty) {
-  return ScanResult(
-    success: false,
-    message: "ما تم التعرف على المكونات",
-  );
-}
-
-
-      // 👤 2. جلب حساسية المستخدم
-      final userAllergyIds =
-          await LocalDB.getUserAllergies(userId: userId);
 
       if (geminiIngredients.isEmpty && detectedAllergenTypes.isEmpty) {
         return ScanResult(success: false, message: "ما تم التعرف على المكونات");
       }
-
-      // 5. Get user allergies
-      final userAllergyIds = await LocalDB.getUserAllergies(userId: userId);
-      final userAllergyStrings = userAllergyIds
-          .map((id) => ProfileService.allergyReverseMap[id])
-          .whereType<String>()
-          .toSet();
 
       // 6. Cross-reference with user allergies
       final List<String> detectedAllergens = [];
@@ -215,29 +151,27 @@ final List<String> warningStatements =
               break;
             }
           }
-final List<String> userMatchedAllergens = [];
-
-for (final allergyId in userAllergyStrings) {
-  final keywords = _allergyKeywords[allergyId] ?? [];
-
-  for (final allergen in detectedAllergens) {
-    final lowerAllergen = allergen.toLowerCase();
-
-    for (final keyword in keywords) {
-      if (lowerAllergen.contains(keyword)) {
-        if (!userMatchedAllergens.contains(allergen)) {
-          userMatchedAllergens.add(allergen);
         }
-        break;
       }
-    }
-  }
-}
 
       final safetyStatus = detectedAllergens.isEmpty ? 'safe' : 'unsafe';
       final ingredientsText = geminiIngredients.join(', ');
-      final safetyStatus =
-          userMatchedAllergens.isEmpty ? 'safe' : 'unsafe';
+
+      // ✅ Issue 3: Query DB alternatives NOW and merge with LLM
+      // Save the full merged list so history can display it without re-querying
+      List<AlternativeProduct> mergedAlternatives = [];
+      if (safetyStatus == 'unsafe' && userDetectedTypes.isNotEmpty) {
+        try {
+          mergedAlternatives = await AlternativesService.getAlternatives(
+            detectedAllergenTypes: userDetectedTypes,
+            llmSuggestedAlternatives: llmSuggestedAlternatives,
+            llmRawAlternatives: llmRawAlternatives,
+            productTypeAr: productTypeAr,
+          );
+        } catch (e) {
+          print('⚠️ Alternatives query at scan time failed: $e');
+        }
+      }
 
       final scanData = ProductScanData(
         productName: productName,
@@ -245,21 +179,14 @@ for (final allergyId in userAllergyStrings) {
         detectedAllergens: detectedAllergens,
         detectedAllergenTypes: userDetectedTypes,
         llmSuggestedAlternatives: llmSuggestedAlternatives,
+        llmRawAlternatives: llmRawAlternatives,
+        productTypeAr: productTypeAr,
         safetyStatus: safetyStatus,
         localImagePath: localImagePath,
         remoteImageUrl: remoteImageUrl,
+        mergedAlternatives: mergedAlternatives,
       );
 
-  productName: "منتج من صورة",
-  barcode: '',
-  imageUrl: '',
-  ingredients: detectedAllergens,
-  detectedAllergens: userMatchedAllergens,
-  hiddenSources: hiddenSources,            // 🔥
-  warningStatements: warningStatements,    // 🔥
-  safetyStatus: safetyStatus,
-);
-      // 💾 5. حفظ في Supabase + SQLite
       await _saveScanToHistory(
         userId: userId,
         scanData: scanData,
@@ -277,7 +204,6 @@ for (final allergyId in userAllergyStrings) {
     }
   }
 
-  // ✅ Save image locally for offline use
   static Future<String?> _saveImageLocally(Uint8List imageBytes) async {
     try {
       final dir = await getApplicationDocumentsDirectory();
@@ -289,45 +215,87 @@ for (final allergyId in userAllergyStrings) {
       print('✅ Image saved locally: ${file.path}');
       return file.path;
     } catch (e) {
-      print('⚠️ Local image save failed: $e');
+      print('⚠️ Local save failed: $e');
       return null;
     }
   }
 
-  // ✅ Upload image to Supabase Storage for cross-device access
   static Future<String?> _uploadImageToStorage(Uint8List imageBytes, String userId) async {
     try {
       final fileName = '${userId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final path = 'scans/$fileName';
-
       await _supabase.storage
           .from('scans')
           .uploadBinary(path, imageBytes, fileOptions: const FileOptions(contentType: 'image/jpeg'));
-
       final url = _supabase.storage.from('scans').getPublicUrl(path);
-      print('✅ Image uploaded to Supabase: $url');
+      print('✅ Image uploaded: $url');
       return url;
     } catch (e) {
-      print('⚠️ Supabase image upload failed: $e');
+      print('⚠️ Upload failed: $e');
       return null;
     }
   }
 
   static Future<ScanResult> getScanHistory({required String userId}) async {
+    final localData = await LocalDB.getScanHistory(userId: userId);
+    final Map<String, String> localImageMap = {};
+    final Map<String, String> localAltMap = {};
+    for (final row in localData) {
+      final date = row['scan_date']?.toString() ?? '';
+      final localPath = row['local_image_path']?.toString() ?? '';
+      final altJson = row['alternatives_json']?.toString() ?? '';
+      if (date.isNotEmpty) {
+        if (localPath.isNotEmpty) localImageMap[date] = localPath;
+        if (altJson.isNotEmpty && altJson != '[]') localAltMap[date] = altJson;
+      }
+    }
+
     try {
       final data = await _supabase
           .from('scanhistory')
           .select()
           .eq('user_id', userId)
           .order('scan_date', ascending: false);
-      return ScanResult(success: true, message: 'تم جلب السجل', data: data);
+
+      final merged = (data as List).map((row) {
+        final map = Map<String, dynamic>.from(row as Map);
+        final date = map['scan_date']?.toString() ?? '';
+        if (localImageMap.containsKey(date)) {
+          map['local_image_path'] = localImageMap[date];
+        }
+        // ✅ Merge alternatives_json from SQLite if Supabase doesn't have it
+        if ((map['alternatives_json'] == null || map['alternatives_json'] == '[]') &&
+            localAltMap.containsKey(date)) {
+          map['alternatives_json'] = localAltMap[date];
+        }
+        return map;
+      }).toList();
+
+      return ScanResult(success: true, message: 'تم جلب السجل', data: merged);
     } catch (e) {
-      try {
-        final localData = await LocalDB.getScanHistory(userId: userId);
-        return ScanResult(success: true, message: 'تم جلب السجل محلياً', data: localData);
-      } catch (_) {
-        return ScanResult(success: false, message: 'فشل جلب السجل');
-      }
+      print('⚠️ Supabase offline, using SQLite: $e');
+      return ScanResult(success: true, message: 'تم جلب السجل محلياً', data: localData);
+    }
+  }
+
+  static Future<void> deleteAllHistory({required String userId}) async {
+    try {
+      await _supabase.from('scanhistory').delete().eq('user_id', userId);
+      await LocalDB.deleteScanHistory(userId: userId);
+    } catch (e) {
+      print('⚠️ Delete all failed: $e');
+    }
+  }
+
+  static Future<void> deleteSingleScan({
+    required String userId,
+    required int historyId,
+  }) async {
+    try {
+      await _supabase.from('scanhistory').delete().eq('history_id', historyId);
+      await LocalDB.deleteSingleScan(historyId: historyId);
+    } catch (e) {
+      print('⚠️ Delete single failed: $e');
     }
   }
 
@@ -338,8 +306,9 @@ for (final allergyId in userAllergyStrings) {
   }) async {
     try {
       final foundAllergensJson = jsonEncode(scanData.detectedAllergens);
+      // ✅ Issue 3: save full merged alternatives (DB + LLM) not just LLM strings
+      final alternativesJson = AlternativesService.toJsonList(scanData.mergedAlternatives);
 
-      // ✅ Save remote URL to Supabase so image shows on any device
       await _supabase.from('scanhistory').insert({
         'user_id': userId,
         'product_name': scanData.productName,
@@ -347,10 +316,11 @@ for (final allergyId in userAllergyStrings) {
         'safety_status': scanData.safetyStatus,
         'ingredients_text': ingredientsText,
         'scan_date': DateTime.now().toIso8601String(),
-        'local_image_path': scanData.remoteImageUrl ?? '', // store remote URL here
+        'local_image_path': scanData.localImagePath ?? '',
+        'remote_image_url': scanData.remoteImageUrl ?? '',
+        'alternatives_json': alternativesJson,
       });
 
-      // ✅ Save local path to SQLite for offline display
       await LocalDB.saveScanHistory(
         userId: userId,
         productName: scanData.productName,
@@ -358,6 +328,8 @@ for (final allergyId in userAllergyStrings) {
         foundAllergens: foundAllergensJson,
         safetyStatus: scanData.safetyStatus,
         localImagePath: scanData.localImagePath,
+        remoteImageUrl: scanData.remoteImageUrl,
+        alternativesJson: alternativesJson,
       );
     } catch (e) {
       print('⚠️ History save failed: $e');
@@ -380,43 +352,6 @@ for (final allergyId in userAllergyStrings) {
     'lupin': ['lupin', 'lupine', 'ترمس'],
     'mollusks': ['mollusc', 'squid', 'oyster', 'رخويات'],
   };
-  'milk': [
-    'milk', 'dairy', 'lactose', 'whey', 'casein',
-    'حليب', 'لبن', 'بودرة حليب', 'مصل الحليب', 'كازين'
-  ],
-
-  'eggs': [
-    'egg', 'eggs', 'albumin',
-    'بيض'
-  ],
-
-  'gluten': [
-    'wheat', 'gluten', 'barley', 'rye', 'flour',
-    'قمح', 'دقيق', 'جلوتين', 'شعير'
-  ],
-
-  'fish': ['fish', 'salmon', 'tuna'],
-
-  'soybeans': [
-    'soy', 'soya',
-    'صويا', 'ليسيثين', 'فول الصويا'
-  ],
-
-  'treenuts': [
-    'almond', 'cashew', 'walnut',
-    'لوز', 'كاجو', 'جوز', 'بندق'
-  ],
-
-  'peanuts': [
-    'peanut',
-    'فول سوداني'
-  ],
-
-  'sesame': [
-    'sesame', 'tahini',
-    'سمسم', 'طحينة'
-  ],
-};
 
   static const Map<String, String> _allergyArabicNames = {
     'milk': 'الحليب ومشتقاته',

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AlternativeProduct {
@@ -7,9 +8,8 @@ class AlternativeProduct {
   final String brand;
   final String category;
   final String imageUrl;
-  final String ingredientsEn;
-  final String ingredientsAr;
   final bool availableInSaudi;
+  final List<String> foundInStores;
 
   AlternativeProduct({
     required this.id,
@@ -18,9 +18,8 @@ class AlternativeProduct {
     required this.brand,
     required this.category,
     required this.imageUrl,
-    required this.ingredientsEn,
-    required this.ingredientsAr,
     required this.availableInSaudi,
+    this.foundInStores = const [],
   });
 
   factory AlternativeProduct.fromDb(Map<String, dynamic> json) {
@@ -31,25 +30,50 @@ class AlternativeProduct {
       brand: json['brand']?.toString() ?? '',
       category: json['category']?.toString() ?? '',
       imageUrl: json['image_url']?.toString() ?? '',
-      ingredientsEn: json['ingredients_en']?.toString() ?? '',
-      ingredientsAr: json['ingredients_ar']?.toString() ?? '',
       availableInSaudi: true,
     );
   }
 
-  factory AlternativeProduct.fromLlm(String name) {
+  factory AlternativeProduct.fromLlm(Map<String, dynamic> json) {
     return AlternativeProduct(
       id: -1,
-      nameAr: name,
-      nameEn: name,
+      nameAr: json['name']?.toString() ?? '',
+      nameEn: json['name']?.toString() ?? '',
       brand: '',
       category: '',
       imageUrl: '',
-      ingredientsEn: '',
-      ingredientsAr: '',
-      availableInSaudi: false,
+      availableInSaudi: json['available_in_saudi'] == true,
+      foundInStores: json['found_in_stores'] is List
+          ? List<String>.from(json['found_in_stores'])
+          : [],
     );
   }
+
+  factory AlternativeProduct.fromJson(Map<String, dynamic> json) {
+    return AlternativeProduct(
+      id: json['id'] ?? -1,
+      nameAr: json['nameAr'] ?? '',
+      nameEn: json['nameEn'] ?? '',
+      brand: json['brand'] ?? '',
+      category: json['category'] ?? '',
+      imageUrl: json['imageUrl'] ?? '',
+      availableInSaudi: json['availableInSaudi'] ?? false,
+      foundInStores: json['foundInStores'] is List
+          ? List<String>.from(json['foundInStores'])
+          : [],
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'nameAr': nameAr,
+    'nameEn': nameEn,
+    'brand': brand,
+    'category': category,
+    'imageUrl': imageUrl,
+    'availableInSaudi': availableInSaudi,
+    'foundInStores': foundInStores,
+  };
 }
 
 class AlternativesService {
@@ -62,9 +86,25 @@ class AlternativesService {
     'lupin': 13, 'mollusks': 14,
   };
 
+  // ✅ Category mapping: product_type_ar → category values in DB
+  static const Map<String, List<String>> _productTypeCategories = {
+    'حليب': ['dairy-drink', 'plant-based milk'],
+    'مشروب حليب': ['dairy-drink', 'plant-based milk'],
+    'زبادي': ['yogurt', 'plant-based yogurt'],
+    'جبن': ['cheese', 'plant-based cheese'],
+    'خبز': ['bread', 'gluten-free bread'],
+    'شوكولاتة': ['chocolate', 'dairy-free chocolate'],
+    'معكرونة': ['pasta', 'gluten-free pasta'],
+    'مايونيز': ['mayonnaise', 'vegan mayo'],
+    'بسكويت': ['biscuit', 'gluten-free biscuit'],
+    'كيك': ['cake', 'dairy-free cake'],
+  };
+
   static Future<List<AlternativeProduct>> getAlternatives({
     required List<String> detectedAllergenTypes,
     required List<String> llmSuggestedAlternatives,
+    required List<Map<String, dynamic>> llmRawAlternatives,
+    String productTypeAr = '',
   }) async {
     final List<AlternativeProduct> dbProducts = [];
     final List<AlternativeProduct> result = [];
@@ -74,16 +114,12 @@ class AlternativesService {
         .whereType<int>()
         .toList();
 
-    print('🔍 Allergy IDs to query: $allergyIds');
+    print('🔍 Allergy IDs: $allergyIds, Product type: $productTypeAr');
 
-    // ✅ FIXED DB QUERY: Two-step approach
-    // Step 1: For each allergy, get safe alternative IDs
-    // Step 2: Intersect → product must be safe for ALL allergies
-    // Step 3: Fetch product details
+    // Step 1: Query DB — products safe for ALL user allergens
     if (allergyIds.isNotEmpty) {
       try {
         Set<int>? validIds;
-
         for (final allergyId in allergyIds) {
           final response = await _supabase
               .from('alternative_allergies')
@@ -94,56 +130,100 @@ class AlternativesService {
               .map((row) => (row['alternative_id'] as num).toInt())
               .toSet();
 
-          print('🔍 Allergy ID $allergyId → ${ids.length} products: $ids');
-
-          if (validIds == null) {
-            validIds = ids;
-          } else {
-            validIds = validIds.intersection(ids);
-          }
+          print('🔍 Allergy $allergyId → ${ids.length} products');
+          validIds = validIds == null ? ids : validIds.intersection(ids);
         }
 
-        print('🔍 After intersection: ${validIds?.length ?? 0} products → $validIds');
-
         if (validIds != null && validIds.isNotEmpty) {
-          final productsResponse = await _supabase
+          // ✅ Filter by product category if known
+          final targetCategories = _getTargetCategories(productTypeAr);
+
+          var query = _supabase
               .from('alternatives')
-              .select('id, name_ar, name_en, brand, category, image_url, ingredients_en, ingredients_ar')
+              .select('id, name_ar, name_en, brand, category, image_url')
               .inFilter('id', validIds.toList());
 
-          print('📦 Products fetched: ${(productsResponse as List).length}');
+          final productsResponse = await query;
 
-          for (final row in productsResponse) {
-            dbProducts.add(AlternativeProduct.fromDb(row as Map<String, dynamic>));
+          for (final row in productsResponse as List) {
+            final product = AlternativeProduct.fromDb(row as Map<String, dynamic>);
+            // ✅ If we know the product type, only show matching category
+            if (targetCategories.isEmpty || targetCategories.contains(product.category)) {
+              dbProducts.add(product);
+            }
           }
+
+          print('✅ DB products after category filter: ${dbProducts.length}');
         }
       } catch (e) {
         print('❌ DB query error: $e');
       }
     }
 
-    print('✅ DB products: ${dbProducts.length}');
-
-    // Add DB products first
     result.addAll(dbProducts);
 
-    // Add LLM suggestions not already in DB
+    // Step 2: Add LLM suggestions not already in DB
     final dbNamesLower = {
       ...dbProducts.map((p) => p.nameEn.toLowerCase()),
       ...dbProducts.map((p) => p.nameAr.toLowerCase()),
     };
 
-    for (final llmSuggestion in llmSuggestedAlternatives) {
-      final lower = llmSuggestion.toLowerCase();
-      final alreadyInDb = dbNamesLower.any(
-        (name) => name.contains(lower) || lower.contains(name),
-      );
-      if (!alreadyInDb) {
-        result.add(AlternativeProduct.fromLlm(llmSuggestion));
+    // Use rich LLM data if available
+    if (llmRawAlternatives.isNotEmpty) {
+      for (final llmAlt in llmRawAlternatives) {
+        final name = llmAlt['name']?.toString() ?? '';
+        if (name.isEmpty) continue;
+        final lower = name.toLowerCase();
+        final alreadyInDb = dbNamesLower.any(
+          (n) => n.contains(lower) || lower.contains(n),
+        );
+        if (!alreadyInDb) {
+          result.add(AlternativeProduct.fromLlm(llmAlt));
+        }
+      }
+    } else {
+      // Fallback: plain string list
+      for (final suggestion in llmSuggestedAlternatives) {
+        final lower = suggestion.toLowerCase();
+        final alreadyInDb = dbNamesLower.any(
+          (n) => n.contains(lower) || lower.contains(n),
+        );
+        if (!alreadyInDb) {
+          result.add(AlternativeProduct(
+            id: -1,
+            nameAr: suggestion,
+            nameEn: suggestion,
+            brand: '',
+            category: '',
+            imageUrl: '',
+            availableInSaudi: false,
+          ));
+        }
       }
     }
 
-    print('✅ Total: ${result.length} (${dbProducts.length} Saudi + ${result.length - dbProducts.length} LLM)');
+    print('✅ Total: ${result.length}');
     return result;
+  }
+
+  static List<String> _getTargetCategories(String productTypeAr) {
+    if (productTypeAr.isEmpty) return [];
+    for (final entry in _productTypeCategories.entries) {
+      if (productTypeAr.contains(entry.key)) return entry.value;
+    }
+    return [];
+  }
+
+  static List<AlternativeProduct> fromJsonList(String json) {
+    try {
+      final list = jsonDecode(json) as List;
+      return list.map((e) => AlternativeProduct.fromJson(e as Map<String, dynamic>)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static String toJsonList(List<AlternativeProduct> products) {
+    return jsonEncode(products.map((p) => p.toJson()).toList());
   }
 }

@@ -14,7 +14,7 @@ class LocalDB {
     String path = join(await getDatabasesPath(), 'safebite_local.db');
     return await openDatabase(
       path,
-      version: 4,
+      version: 5,
       onCreate: (Database db, int version) async {
         await db.execute('''
           CREATE TABLE current_user (
@@ -46,8 +46,10 @@ class LocalDB {
             product_name TEXT,
             ingredients_text TEXT,
             found_allergens TEXT,
+            alternatives_json TEXT,
             safety_status TEXT NOT NULL,
             local_image_path TEXT,
+            remote_image_url TEXT,
             scan_date TEXT NOT NULL
           )
         ''');
@@ -70,6 +72,13 @@ class LocalDB {
               scan_date TEXT NOT NULL
             )
           ''');
+        }
+        if (oldVersion < 5) {
+          // Add new columns for v5
+          try { await db.execute('ALTER TABLE scan_history ADD COLUMN remote_image_url TEXT'); } catch (_) {}
+          try { await db.execute('ALTER TABLE scan_history ADD COLUMN alternatives_json TEXT'); } catch (_) {}
+          try { await db.execute('ALTER TABLE scan_history ADD COLUMN product_name TEXT'); } catch (_) {}
+          try { await db.execute('ALTER TABLE scan_history ADD COLUMN ingredients_text TEXT'); } catch (_) {}
         }
       },
     );
@@ -99,6 +108,19 @@ class LocalDB {
     return result.first;
   }
 
+  static Future<void> updateUserPhoto({
+    required String userId,
+    required String photoUrl,
+  }) async {
+    final db = await getDatabase();
+    await db.update(
+      'current_user',
+      {'photo_url': photoUrl},
+      where: 'user_id = ?',
+      whereArgs: [userId],
+    );
+  }
+
   static Future<void> saveUserAllergies({
     required String userId,
     required List<int> allergyIds,
@@ -123,6 +145,8 @@ class LocalDB {
     required String foundAllergens,
     required String safetyStatus,
     String? localImagePath,
+    String? remoteImageUrl,
+    String? alternativesJson,
   }) async {
     final db = await getDatabase();
     await db.insert('scan_history', {
@@ -132,6 +156,8 @@ class LocalDB {
       'found_allergens': foundAllergens,
       'safety_status': safetyStatus,
       'local_image_path': localImagePath ?? '',
+      'remote_image_url': remoteImageUrl ?? '',
+      'alternatives_json': alternativesJson ?? '[]',
       'scan_date': DateTime.now().toIso8601String(),
     });
   }
@@ -145,6 +171,16 @@ class LocalDB {
       orderBy: 'scan_date DESC',
       limit: 50,
     );
+  }
+
+  static Future<void> deleteScanHistory({required String userId}) async {
+    final db = await getDatabase();
+    await db.delete('scan_history', where: 'user_id = ?', whereArgs: [userId]);
+  }
+
+  static Future<void> deleteSingleScan({required int historyId}) async {
+    final db = await getDatabase();
+    await db.delete('scan_history', where: 'history_id = ?', whereArgs: [historyId]);
   }
 
   static Future<void> clearUserSession() async {
