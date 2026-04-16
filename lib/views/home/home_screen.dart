@@ -3,11 +3,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import '../../widgets/product_card.dart';
 import '../../services/auth_service.dart';
 import '../../services/scan_service.dart';
+import '../../services/alternatives_service.dart';
 import '../history/history_screen.dart';
 import '../educational/articles_list_screen.dart';
 import '../profile/profile_screen.dart';
@@ -31,7 +32,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String _userName = '';
   String _userPhotoUrl = '';
-  String _cachedPhotoPath = ''; // ✅ Issue 1: local cached photo path
+  String _cachedPhotoPath = '';
+  int _photoVersion = 0; // ✅ Bug 1: force re-render
   int _totalScans = 0;
   int _safeScans = 0;
   int _unsafeScans = 0;
@@ -56,7 +58,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final history = raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
 
     final photoUrl = user['photo_url'] ?? '';
-    // ✅ Issue 1: cache photo locally for offline use
     String cachedPath = '';
     if (photoUrl.isNotEmpty) {
       cachedPath = await _getCachedPhotoPath(user['user_id'], photoUrl);
@@ -67,6 +68,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _userName = user['name'] ?? '';
         _userPhotoUrl = photoUrl;
         _cachedPhotoPath = cachedPath;
+        _photoVersion++;
         _totalScans = history.length;
         _safeScans = history.where((h) => h['safety_status'] == 'safe').length;
         _unsafeScans = history.where((h) => h['safety_status'] == 'unsafe').length;
@@ -76,34 +78,52 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // ✅ Issue 1: download and cache profile photo locally
   static Future<String> _getCachedPhotoPath(String userId, String photoUrl) async {
     try {
       final dir = await getApplicationDocumentsDirectory();
       final cacheFile = File('${dir.path}/profile_$userId.jpg');
-      // If cached file exists and is recent (< 1 day), use it
-      if (await cacheFile.exists()) {
-        final stat = await cacheFile.stat();
-        if (DateTime.now().difference(stat.modified).inHours < 24) {
-          return cacheFile.path;
+      final urlFile = File('${dir.path}/profile_${userId}_url.txt');
+
+      String cachedUrl = '';
+      if (await urlFile.exists()) cachedUrl = await urlFile.readAsString();
+
+      final urlChanged = cachedUrl != photoUrl;
+
+      if (urlChanged || !await cacheFile.exists()) {
+        if (await cacheFile.exists()) await cacheFile.delete();
+        final response = await http.get(Uri.parse(photoUrl)).timeout(const Duration(seconds: 10));
+        if (response.statusCode == 200) {
+          await cacheFile.writeAsBytes(response.bodyBytes);
+          await urlFile.writeAsString(photoUrl);
         }
       }
-      // Download and cache
-      final response = await http.get(Uri.parse(photoUrl)).timeout(const Duration(seconds: 10));
-      if (response.statusCode == 200) {
-        await cacheFile.writeAsBytes(response.bodyBytes);
-        return cacheFile.path;
-      }
+
+      if (await cacheFile.exists()) return cacheFile.path;
     } catch (e) {
       print('⚠️ Photo cache failed: $e');
     }
     return '';
   }
 
-  String _bustCache(String url) {
-    if (url.isEmpty) return url;
-    final base = url.split('?').first;
-    return '$base?t=${DateTime.now().millisecondsSinceEpoch}';
+  // ✅ Bug 1: Image.file primary, network fallback, ValueKey forces re-render
+  Widget _buildProfilePhoto(double size) {
+    if (_cachedPhotoPath.isNotEmpty) {
+      return Image.file(
+        File(_cachedPhotoPath),
+        key: ValueKey('photo_${_photoVersion}_$_cachedPhotoPath'),
+        width: size, height: size, fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => const Icon(Icons.person, color: Colors.white, size: 28),
+      );
+    }
+    if (_userPhotoUrl.isNotEmpty) {
+      return Image.network(
+        _userPhotoUrl,
+        key: ValueKey('photo_network_$_photoVersion'),
+        width: size, height: size, fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => const Icon(Icons.person, color: Colors.white, size: 28),
+      );
+    }
+    return const Icon(Icons.person, color: Colors.white, size: 28);
   }
 
   @override
@@ -121,12 +141,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: SingleChildScrollView(
                         child: Column(
                           children: [
-                            // HEADER
                             Padding(
                               padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                               child: Row(
                                 children: [
-                                  // ✅ Issue 1: SmartProfilePhoto — online=network, offline=cached file
                                   Container(
                                     width: 48, height: 48,
                                     decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFFB3B3B3)),
@@ -144,7 +162,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
                             const SizedBox(height: 32),
 
-                            // SCAN BUTTON
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 20),
                               child: AspectRatio(
@@ -167,10 +184,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
                             const SizedBox(height: 32),
 
-                            // STATS
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 20),
-                              child: Align(alignment: Alignment.centerRight, child: Text('إحصائياتك', style: GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w700))),
+                              child: Align(alignment: Alignment.centerRight,
+                                child: Text('إحصائياتك', style: GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w700))),
                             ),
                             const SizedBox(height: 12),
                             Padding(
@@ -194,10 +211,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
                             const SizedBox(height: 32),
 
-                            // LAST SCAN
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 20),
-                              child: Align(alignment: Alignment.centerRight, child: Text('آخر فحص', style: GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w700))),
+                              child: Align(alignment: Alignment.centerRight,
+                                child: Text('آخر فحص', style: GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w700))),
                             ),
                             const SizedBox(height: 12),
                             Padding(
@@ -210,7 +227,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
 
-                    // BOTTOM NAV
                     Container(
                       height: 70,
                       decoration: const BoxDecoration(color: kBackground),
@@ -218,9 +234,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
                           _buildNavItem(Icons.home, 'الرئيسية', true, () {}),
-                          _buildNavItem(Icons.history, 'السجل', false, () => Get.to(() => const HistoryScreen())?.then((_) => _loadData())),
-                          _buildNavItem(Icons.description_outlined, 'محتوى توعوي', false, () => Get.to(() => const ArticlesListScreen())),
-                          _buildNavItem(Icons.person_outline, 'الملف الشخصي', false, () => Get.to(() => const ProfileScreen())?.then((_) => _loadData())),
+                          _buildNavItem(Icons.history, 'السجل', false,
+                            () => Get.to(() => const HistoryScreen())?.then((_) => _loadData())),
+                          _buildNavItem(Icons.description_outlined, 'محتوى توعوي', false,
+                            () => Get.to(() => const ArticlesListScreen())),
+                          _buildNavItem(Icons.person_outline, 'الملف الشخصي', false,
+                            () => Get.to(() => const ProfileScreen())?.then((_) => _loadData())),
                         ],
                       ),
                     ),
@@ -229,31 +248,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
-  }
-
-  // ✅ Issue 1: try network first, fallback to cached local file
-  Widget _buildProfilePhoto(double size) {
-    if (_userPhotoUrl.isNotEmpty) {
-      return Image.network(
-        _bustCache(_userPhotoUrl),
-        width: size, height: size, fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) {
-          // Network failed (offline) → use cached file
-          if (_cachedPhotoPath.isNotEmpty) {
-            return Image.file(File(_cachedPhotoPath),
-              width: size, height: size, fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => const Icon(Icons.person, color: Colors.white, size: 28));
-          }
-          return const Icon(Icons.person, color: Colors.white, size: 28);
-        },
-      );
-    }
-    if (_cachedPhotoPath.isNotEmpty) {
-      return Image.file(File(_cachedPhotoPath),
-        width: size, height: size, fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => const Icon(Icons.person, color: Colors.white, size: 28));
-    }
-    return const Icon(Icons.person, color: Colors.white, size: 28);
   }
 
   Widget _buildLastScanSection() {
@@ -277,6 +271,12 @@ class _HomeScreenState extends State<HomeScreen> {
         ? ingredientsText.split(',').map<String>((e) => e.trim()).where((e) => e.isNotEmpty).toList()
         : <String>[];
 
+    List<AlternativeProduct> savedAlternatives = [];
+    try {
+      final altJson = _lastScan!['alternatives_json'] ?? '[]';
+      savedAlternatives = AlternativesService.fromJsonList(altJson);
+    } catch (_) {}
+
     return ProductCard(
       productName: productName,
       remoteImageUrl: remoteImageUrl,
@@ -284,9 +284,16 @@ class _HomeScreenState extends State<HomeScreen> {
       isSafe: isSafe,
       onTap: () {
         if (isSafe) {
-          Get.to(() => SafeResultScreen(productName: productName, ingredients: ingredients, allergens: allergens, localImagePath: localImagePath, remoteImageUrl: remoteImageUrl));
+          Get.to(() => SafeResultScreen(
+            productName: productName, ingredients: ingredients, allergens: allergens,
+            localImagePath: localImagePath, remoteImageUrl: remoteImageUrl,
+          ));
         } else {
-          Get.to(() => UnsafeResultScreen(productName: productName, ingredients: ingredients, detectedAllergens: allergens, localImagePath: localImagePath, remoteImageUrl: remoteImageUrl));
+          Get.to(() => UnsafeResultScreen(
+            productName: productName, ingredients: ingredients, detectedAllergens: allergens,
+            localImagePath: localImagePath, remoteImageUrl: remoteImageUrl,
+            savedAlternatives: savedAlternatives.isNotEmpty ? savedAlternatives : null,
+          ));
         }
       },
     );
@@ -299,7 +306,9 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Icon(icon, color: isActive ? kPrimary : kGrey900, size: 26),
           const SizedBox(height: 4),
-          Text(label, textAlign: TextAlign.center, style: GoogleFonts.tajawal(fontSize: 11, fontWeight: isActive ? FontWeight.w700 : FontWeight.w500, color: isActive ? kPrimary : kGrey900)),
+          Text(label, textAlign: TextAlign.center, style: GoogleFonts.tajawal(fontSize: 11,
+            fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+            color: isActive ? kPrimary : kGrey900)),
         ]),
       ),
     );

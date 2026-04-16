@@ -128,7 +128,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Future<void> _deleteSingle(Map<String, dynamic> item) async {
     final historyId = item['history_id'] as int?;
     if (historyId == null || _userId == null) return;
-    await ScanService.deleteSingleScan(userId: _userId!, historyId: historyId);
+    final scanDate = item['scan_date']?.toString() ?? '';
+    await ScanService.deleteSingleScan(
+      userId: _userId!,
+      historyId: historyId,
+      scanDate: scanDate,
+    );
     _loadHistory();
   }
 
@@ -204,10 +209,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    _buildNavItem(Icons.home, 'الرئيسية', false, () => Get.offAll(() => HomeScreen())),
+                    _buildNavItem(Icons.home, 'الرئيسية', false, () => Get.back()),
                     _buildNavItem(Icons.history, 'السجل', true, () {}),
-                    _buildNavItem(Icons.description_outlined, 'محتوى توعوي', false, () => Get.offAll(() => ArticlesListScreen())),
-                    _buildNavItem(Icons.person_outline, 'الملف الشخصي', false, () => Get.offAll(() => ProfileScreen())),
+                    _buildNavItem(Icons.description_outlined, 'محتوى توعوي', false, () => Get.to(() => ArticlesListScreen())),
+                    _buildNavItem(Icons.person_outline, 'الملف الشخصي', false, () => Get.to(() => ProfileScreen())),
                   ],
                 ),
               ),

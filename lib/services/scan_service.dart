@@ -26,7 +26,6 @@ class ProductScanData {
   final String safetyStatus;
   final String? localImagePath;
   final String? remoteImageUrl;
-  // ✅ Issue 3: full merged alternatives saved at scan time
   final List<AlternativeProduct> mergedAlternatives;
 
   ProductScanData({
@@ -53,14 +52,12 @@ class ScanService {
     String productName = 'منتج من صورة',
   }) async {
     try {
-      // 1. Save image locally + upload to Supabase Storage in parallel
       final localPathFuture = _saveImageLocally(imageBytes);
       final remoteUrlFuture = _uploadImageToStorage(imageBytes, userId);
       final results = await Future.wait([localPathFuture, remoteUrlFuture]);
       final localImagePath = results[0];
       final remoteImageUrl = results[1];
 
-      // 2. Get user allergies BEFORE calling Gemini
       final userAllergyIds = await LocalDB.getUserAllergies(userId: userId);
       final userAllergyStrings = userAllergyIds
           .map((id) => ProfileService.allergyReverseMap[id])
@@ -70,7 +67,6 @@ class ScanService {
           .map((s) => _allergyArabicNames[s] ?? s)
           .join('، ');
 
-      // 3. Analyze with Gemini
       final gemini = GeminiService();
       final aiResult = await gemini.analyzeProductImage(
         imageBytes,
@@ -79,7 +75,6 @@ class ScanService {
       );
       print("🧠 AI RESULT: $aiResult");
 
-      // 4. Extract detected allergens
       final List<String> geminiIngredients = [];
       final List<String> detectedAllergenTypes = [];
       final rawAllergens = aiResult["detected_allergens"] ?? [];
@@ -103,7 +98,6 @@ class ScanService {
         }
       }
 
-      // 5. Extract LLM suggested alternatives
       final List<String> llmSuggestedAlternatives = [];
       final List<Map<String, dynamic>> llmRawAlternatives = [];
       final String productTypeAr = aiResult["product_type_ar"]?.toString() ?? '';
@@ -122,7 +116,6 @@ class ScanService {
         return ScanResult(success: false, message: "ما تم التعرف على المكونات");
       }
 
-      // 6. Cross-reference with user allergies
       final List<String> detectedAllergens = [];
       final List<String> userDetectedTypes = [];
 
@@ -136,7 +129,6 @@ class ScanService {
         }
       }
 
-      // Fallback keyword check
       if (detectedAllergens.isEmpty && geminiIngredients.isNotEmpty) {
         final lowerText = geminiIngredients.join(' ').toLowerCase();
         for (final allergyId in userAllergyStrings) {
@@ -157,8 +149,6 @@ class ScanService {
       final safetyStatus = detectedAllergens.isEmpty ? 'safe' : 'unsafe';
       final ingredientsText = geminiIngredients.join(', ');
 
-      // ✅ Issue 3: Query DB alternatives NOW and merge with LLM
-      // Save the full merged list so history can display it without re-querying
       List<AlternativeProduct> mergedAlternatives = [];
       if (safetyStatus == 'unsafe' && userDetectedTypes.isNotEmpty) {
         try {
@@ -169,7 +159,7 @@ class ScanService {
             productTypeAr: productTypeAr,
           );
         } catch (e) {
-          print('⚠️ Alternatives query at scan time failed: $e');
+          print('⚠️ Alternatives query failed: $e');
         }
       }
 
@@ -212,7 +202,6 @@ class ScanService {
       final fileName = 'scan_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final file = File('${scansDir.path}/$fileName');
       await file.writeAsBytes(imageBytes);
-      print('✅ Image saved locally: ${file.path}');
       return file.path;
     } catch (e) {
       print('⚠️ Local save failed: $e');
@@ -228,7 +217,6 @@ class ScanService {
           .from('scans')
           .uploadBinary(path, imageBytes, fileOptions: const FileOptions(contentType: 'image/jpeg'));
       final url = _supabase.storage.from('scans').getPublicUrl(path);
-      print('✅ Image uploaded: $url');
       return url;
     } catch (e) {
       print('⚠️ Upload failed: $e');
@@ -238,15 +226,16 @@ class ScanService {
 
   static Future<ScanResult> getScanHistory({required String userId}) async {
     final localData = await LocalDB.getScanHistory(userId: userId);
-    final Map<String, String> localImageMap = {};
-    final Map<String, String> localAltMap = {};
+
+    // ✅ FIX: build localMap keyed by supabase_id (reliable) instead of scan_date (unreliable)
+    final Map<String, Map<String, String>> localMap = {};
     for (final row in localData) {
-      final date = row['scan_date']?.toString() ?? '';
-      final localPath = row['local_image_path']?.toString() ?? '';
-      final altJson = row['alternatives_json']?.toString() ?? '';
-      if (date.isNotEmpty) {
-        if (localPath.isNotEmpty) localImageMap[date] = localPath;
-        if (altJson.isNotEmpty && altJson != '[]') localAltMap[date] = altJson;
+      final supabaseId = row['supabase_id']?.toString() ?? '';
+      if (supabaseId.isNotEmpty) {
+        localMap[supabaseId] = {
+          'local_image_path': row['local_image_path']?.toString() ?? '',
+          'alternatives_json': row['alternatives_json']?.toString() ?? '',
+        };
       }
     }
 
@@ -259,14 +248,17 @@ class ScanService {
 
       final merged = (data as List).map((row) {
         final map = Map<String, dynamic>.from(row as Map);
-        final date = map['scan_date']?.toString() ?? '';
-        if (localImageMap.containsKey(date)) {
-          map['local_image_path'] = localImageMap[date];
-        }
-        // ✅ Merge alternatives_json from SQLite if Supabase doesn't have it
-        if ((map['alternatives_json'] == null || map['alternatives_json'] == '[]') &&
-            localAltMap.containsKey(date)) {
-          map['alternatives_json'] = localAltMap[date];
+        // ✅ FIX: match by history_id (Supabase PK) = supabase_id stored in SQLite
+        final supId = map['history_id']?.toString() ?? '';
+        if (supId.isNotEmpty && localMap.containsKey(supId)) {
+          final local = localMap[supId]!;
+          if (local['local_image_path']!.isNotEmpty) {
+            map['local_image_path'] = local['local_image_path'];
+          }
+          if ((map['alternatives_json'] == null || map['alternatives_json'] == '[]') &&
+              local['alternatives_json']!.isNotEmpty) {
+            map['alternatives_json'] = local['alternatives_json'];
+          }
         }
         return map;
       }).toList();
@@ -279,23 +271,27 @@ class ScanService {
   }
 
   static Future<void> deleteAllHistory({required String userId}) async {
+    await LocalDB.deleteScanHistory(userId: userId);
     try {
       await _supabase.from('scanhistory').delete().eq('user_id', userId);
-      await LocalDB.deleteScanHistory(userId: userId);
     } catch (e) {
-      print('⚠️ Delete all failed: $e');
+      print('⚠️ Supabase delete all failed (offline?): $e');
     }
   }
 
   static Future<void> deleteSingleScan({
     required String userId,
     required int historyId,
+    String? scanDate,
   }) async {
+    await LocalDB.deleteSingleScan(
+      supabaseHistoryId: historyId,
+      scanDate: scanDate,
+    );
     try {
       await _supabase.from('scanhistory').delete().eq('history_id', historyId);
-      await LocalDB.deleteSingleScan(historyId: historyId);
     } catch (e) {
-      print('⚠️ Delete single failed: $e');
+      print('⚠️ Supabase delete single failed (offline?): $e');
     }
   }
 
@@ -304,22 +300,26 @@ class ScanService {
     required ProductScanData scanData,
     required String ingredientsText,
   }) async {
+    // ✅ FIX: generate scanDate ONCE and reuse for both Supabase and SQLite
+    final scanDate = DateTime.now().toIso8601String();
+
     try {
       final foundAllergensJson = jsonEncode(scanData.detectedAllergens);
-      // ✅ Issue 3: save full merged alternatives (DB + LLM) not just LLM strings
       final alternativesJson = AlternativesService.toJsonList(scanData.mergedAlternatives);
 
-      await _supabase.from('scanhistory').insert({
+      final response = await _supabase.from('scanhistory').insert({
         'user_id': userId,
         'product_name': scanData.productName,
         'found_allergens': foundAllergensJson,
         'safety_status': scanData.safetyStatus,
         'ingredients_text': ingredientsText,
-        'scan_date': DateTime.now().toIso8601String(),
+        'scan_date': scanDate,               // ✅ same date
         'local_image_path': scanData.localImagePath ?? '',
         'remote_image_url': scanData.remoteImageUrl ?? '',
         'alternatives_json': alternativesJson,
-      });
+      }).select('history_id').single();
+
+      final supabaseId = response['history_id']?.toString() ?? '';
 
       await LocalDB.saveScanHistory(
         userId: userId,
@@ -330,9 +330,29 @@ class ScanService {
         localImagePath: scanData.localImagePath,
         remoteImageUrl: scanData.remoteImageUrl,
         alternativesJson: alternativesJson,
+        supabaseId: supabaseId,
+        scanDate: scanDate,                  // ✅ FIX: pass same date instead of DateTime.now()
       );
     } catch (e) {
       print('⚠️ History save failed: $e');
+      // Save locally even if Supabase fails
+      try {
+        final foundAllergensJson = jsonEncode(scanData.detectedAllergens);
+        final alternativesJson = AlternativesService.toJsonList(scanData.mergedAlternatives);
+        await LocalDB.saveScanHistory(
+          userId: userId,
+          productName: scanData.productName,
+          ingredientsText: ingredientsText,
+          foundAllergens: foundAllergensJson,
+          safetyStatus: scanData.safetyStatus,
+          localImagePath: scanData.localImagePath,
+          remoteImageUrl: scanData.remoteImageUrl,
+          alternativesJson: alternativesJson,
+          scanDate: scanDate,                // ✅ FIX: same date even in fallback
+        );
+      } catch (e2) {
+        print('⚠️ Local save also failed: $e2');
+      }
     }
   }
 

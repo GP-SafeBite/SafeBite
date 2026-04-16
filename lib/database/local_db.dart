@@ -14,7 +14,7 @@ class LocalDB {
     String path = join(await getDatabasesPath(), 'safebite_local.db');
     return await openDatabase(
       path,
-      version: 5,
+      version: 6,
       onCreate: (Database db, int version) async {
         await db.execute('''
           CREATE TABLE current_user (
@@ -42,6 +42,7 @@ class LocalDB {
         await db.execute('''
           CREATE TABLE scan_history (
             history_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            supabase_id TEXT,
             user_id TEXT NOT NULL,
             product_name TEXT,
             ingredients_text TEXT,
@@ -74,11 +75,11 @@ class LocalDB {
           ''');
         }
         if (oldVersion < 5) {
-          // Add new columns for v5
           try { await db.execute('ALTER TABLE scan_history ADD COLUMN remote_image_url TEXT'); } catch (_) {}
           try { await db.execute('ALTER TABLE scan_history ADD COLUMN alternatives_json TEXT'); } catch (_) {}
-          try { await db.execute('ALTER TABLE scan_history ADD COLUMN product_name TEXT'); } catch (_) {}
-          try { await db.execute('ALTER TABLE scan_history ADD COLUMN ingredients_text TEXT'); } catch (_) {}
+        }
+        if (oldVersion < 6) {
+          try { await db.execute('ALTER TABLE scan_history ADD COLUMN supabase_id TEXT'); } catch (_) {}
         }
       },
     );
@@ -138,6 +139,7 @@ class LocalDB {
     return result.map((row) => row['allergy_id'] as int).toList();
   }
 
+  // ✅ FIX: accept explicit scanDate so SQLite and Supabase store the SAME timestamp
   static Future<void> saveScanHistory({
     required String userId,
     required String productName,
@@ -147,9 +149,12 @@ class LocalDB {
     String? localImagePath,
     String? remoteImageUrl,
     String? alternativesJson,
+    String? supabaseId,
+    String? scanDate, // ✅ NEW — caller must pass the same date used for Supabase
   }) async {
     final db = await getDatabase();
     await db.insert('scan_history', {
+      'supabase_id': supabaseId ?? '',
       'user_id': userId,
       'product_name': productName,
       'ingredients_text': ingredientsText,
@@ -158,7 +163,8 @@ class LocalDB {
       'local_image_path': localImagePath ?? '',
       'remote_image_url': remoteImageUrl ?? '',
       'alternatives_json': alternativesJson ?? '[]',
-      'scan_date': DateTime.now().toIso8601String(),
+      // ✅ Use the provided date, fallback to now() only if truly not provided
+      'scan_date': scanDate ?? DateTime.now().toIso8601String(),
     });
   }
 
@@ -178,9 +184,25 @@ class LocalDB {
     await db.delete('scan_history', where: 'user_id = ?', whereArgs: [userId]);
   }
 
-  static Future<void> deleteSingleScan({required int historyId}) async {
+  // ✅ Delete by supabase_id first, fallback to scan_date
+  static Future<void> deleteSingleScan({
+    required int supabaseHistoryId,
+    String? scanDate,
+  }) async {
     final db = await getDatabase();
-    await db.delete('scan_history', where: 'history_id = ?', whereArgs: [historyId]);
+    final idStr = supabaseHistoryId.toString();
+    final affected = await db.delete(
+      'scan_history',
+      where: 'supabase_id = ?',
+      whereArgs: [idStr],
+    );
+    if (affected == 0 && scanDate != null && scanDate.isNotEmpty) {
+      await db.delete(
+        'scan_history',
+        where: 'scan_date = ?',
+        whereArgs: [scanDate],
+      );
+    }
   }
 
   static Future<void> clearUserSession() async {

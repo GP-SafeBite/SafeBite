@@ -29,7 +29,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _userName = '';
   String _userEmail = '';
   String _userPhotoUrl = '';
-  String _cachedPhotoPath = ''; // ✅ Issue 1: local cached path
+  String _cachedPhotoPath = '';
+  int _photoVersion = 0; // ✅ Bug 1: force re-render on photo change
   Set<String> _userAllergyIds = {};
   bool _isLoading = true;
 
@@ -66,16 +67,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final allergyResult = await ProfileService.getUserAllergens(userId: user['user_id']);
     final photoUrl = user['photo_url'] ?? '';
 
-    // ✅ Bust Flutter's in-memory network image cache when photo changes
-    if (forceRefresh && photoUrl.isNotEmpty) {
+    // ✅ Bug 1: clear Flutter's in-memory image cache when forcing refresh
+    if (forceRefresh) {
       PaintingBinding.instance.imageCache.clear();
       PaintingBinding.instance.imageCache.clearLiveImages();
     }
 
-    // ✅ Issue 1: cache photo locally for offline use
     String cachedPath = '';
     if (photoUrl.isNotEmpty) {
-      cachedPath = await _getCachedPhotoPath(user['user_id'], photoUrl, forceRefresh: forceRefresh);
+      cachedPath = await _getCachedPhotoPath(
+        user['user_id'],
+        photoUrl,
+        forceRefresh: forceRefresh,
+      );
     }
 
     if (mounted) {
@@ -84,6 +88,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _userEmail = user['email'] ?? '';
         _userPhotoUrl = photoUrl;
         _cachedPhotoPath = cachedPath;
+        _photoVersion++; // ✅ Bug 1: increment version to force Widget rebuild
         if (allergyResult.success && allergyResult.data != null) {
           _userAllergyIds = allergyResult.data as Set<String>;
         }
@@ -92,7 +97,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // ✅ Issue 1: download and cache photo locally
+  // ✅ Bug 1: URL-based cache invalidation — detects photo changes
   static Future<String> _getCachedPhotoPath(
     String userId,
     String photoUrl, {
@@ -101,50 +106,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final dir = await getApplicationDocumentsDirectory();
       final cacheFile = File('${dir.path}/profile_$userId.jpg');
+      final urlFile = File('${dir.path}/profile_${userId}_url.txt');
 
-      // ✅ Delete stale cache when forced (e.g. after avatar change)
-      if (forceRefresh && await cacheFile.exists()) {
-        await cacheFile.delete();
-      }
+      String cachedUrl = '';
+      if (await urlFile.exists()) cachedUrl = await urlFile.readAsString();
 
-      if (!forceRefresh && await cacheFile.exists()) {
-        final stat = await cacheFile.stat();
-        if (DateTime.now().difference(stat.modified).inHours < 24) {
-          return cacheFile.path;
+      final urlChanged = cachedUrl != photoUrl;
+
+      if (forceRefresh || urlChanged || !await cacheFile.exists()) {
+        if (await cacheFile.exists()) await cacheFile.delete();
+        final response = await http.get(Uri.parse(photoUrl)).timeout(const Duration(seconds: 10));
+        if (response.statusCode == 200) {
+          await cacheFile.writeAsBytes(response.bodyBytes);
+          await urlFile.writeAsString(photoUrl);
         }
       }
 
-      final response = await http.get(Uri.parse(photoUrl)).timeout(const Duration(seconds: 10));
-      if (response.statusCode == 200) {
-        await cacheFile.writeAsBytes(response.bodyBytes);
-        return cacheFile.path;
-      }
+      if (await cacheFile.exists()) return cacheFile.path;
     } catch (e) {
       print('⚠️ Photo cache failed: $e');
     }
     return '';
   }
 
-  // ✅ Issue 1: try network first, fallback to cached file
+  // ✅ Bug 1: always use Image.file with ValueKey on modification time
+  // This bypasses Flutter's in-memory network image cache entirely
   Widget _buildProfilePhoto(double size) {
+    if (_cachedPhotoPath.isNotEmpty) {
+      final file = File(_cachedPhotoPath);
+      return Image.file(
+        file,
+        key: ValueKey('photo_${_photoVersion}_$_cachedPhotoPath'),
+        width: size, height: size, fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Icon(Icons.person, size: size * 0.5, color: Colors.white),
+      );
+    }
     if (_userPhotoUrl.isNotEmpty) {
       return Image.network(
         _userPhotoUrl,
+        key: ValueKey('photo_network_$_photoVersion'),
         width: size, height: size, fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) {
-          if (_cachedPhotoPath.isNotEmpty) {
-            return Image.file(File(_cachedPhotoPath),
-              width: size, height: size, fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Icon(Icons.person, size: size * 0.5, color: Colors.white));
-          }
-          return Icon(Icons.person, size: size * 0.5, color: Colors.white);
-        },
+        errorBuilder: (_, __, ___) => Icon(Icons.person, size: size * 0.5, color: Colors.white),
       );
-    }
-    if (_cachedPhotoPath.isNotEmpty) {
-      return Image.file(File(_cachedPhotoPath),
-        width: size, height: size, fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => Icon(Icons.person, size: size * 0.5, color: Colors.white));
     }
     return Icon(Icons.person, size: size * 0.5, color: Colors.white);
   }
@@ -170,54 +173,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const SizedBox(height: 20),
-
-                            // PROFILE HEADER
                             Row(
                               children: [
-                                // ✅ Issue 1: replaced hardcoded grey with _buildProfilePhoto
                                 Container(
-                                  width: 80,
-                                  height: 80,
-                                  decoration: const BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: Color(0xFFB3B3B3),
-                                  ),
+                                  width: 80, height: 80,
+                                  decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFFB3B3B3)),
                                   child: ClipOval(child: _buildProfilePhoto(80)),
                                 ),
                                 const SizedBox(width: 16),
                                 Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      _userName.isEmpty ? 'مستخدم' : _userName,
-                                      style: GoogleFonts.tajawal(fontSize: 20, fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface),
-                                    ),
+                                    Text(_userName.isEmpty ? 'مستخدم' : _userName,
+                                      style: GoogleFonts.tajawal(fontSize: 20, fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface)),
                                     const SizedBox(height: 4),
-                                    Text(_userEmail, style: GoogleFonts.tajawal(fontSize: 14, fontWeight: FontWeight.w400, color: kGrey900)),
+                                    Text(_userEmail, style: GoogleFonts.tajawal(fontSize: 14, color: kGrey900)),
                                   ],
                                 ),
                               ],
                             ),
-
                             const SizedBox(height: 40),
-
                             Text('إعدادات الحساب', style: GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface)),
                             const SizedBox(height: 20),
-
                             _buildSettingItem(context: context, icon: Icons.person_outline, label: 'تعديل الملف الشخصي', cardBg: kCardBg, onTap: () async {
                               await Get.to(() => const EditProfileScreen());
-                              _loadUserData(forceRefresh: true); // ✅ force refresh after editing profile
+                              _loadUserData(forceRefresh: true); // ✅ force cache refresh after edit
                             }),
                             const SizedBox(height: 16),
                             _buildSettingItem(context: context, icon: Icons.language, label: 'اللغة  (عربية)', cardBg: kCardBg, onTap: () {}),
                             const SizedBox(height: 16),
                             _buildThemeToggleItem(context: context, cardBg: kCardBg),
-
                             const SizedBox(height: 40),
-
                             Text('ملف الحساسية', style: GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface)),
                             const SizedBox(height: 20),
-
                             Row(
                               mainAxisAlignment: MainAxisAlignment.start,
                               children: [
@@ -258,9 +246,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                               ],
                             ),
-
                             const SizedBox(height: 40),
-
                             _buildSettingItem(context: context, icon: Icons.info_outline, label: 'حول التطبيق', cardBg: kCardBg, onTap: () => Get.to(() => const AboutAppScreen())),
                             const SizedBox(height: 16),
                             _buildSettingItem(context: context, icon: Icons.logout, label: 'تسجيل الخروج', cardBg: kCardBg, onTap: () async {
@@ -272,8 +258,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                       ),
                     ),
-
-                    // BOTTOM NAV
                     Container(
                       height: 70,
                       color: kBackground,
@@ -299,14 +283,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Obx(() => Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(12)),
-          child: Row(
-            children: [
-              Icon(Icons.wb_sunny_outlined, size: 22, color: Theme.of(context).colorScheme.onSurface),
-              const SizedBox(width: 12),
-              Expanded(child: Text('المظهر الداكن', style: GoogleFonts.tajawal(fontSize: 15, fontWeight: FontWeight.w500, color: Theme.of(context).colorScheme.onSurface))),
-              Switch(value: themeController.isDarkMode.value, onChanged: (_) => themeController.toggleTheme(), activeColor: kPrimary),
-            ],
-          ),
+          child: Row(children: [
+            Icon(Icons.wb_sunny_outlined, size: 22, color: Theme.of(context).colorScheme.onSurface),
+            const SizedBox(width: 12),
+            Expanded(child: Text('المظهر الداكن', style: GoogleFonts.tajawal(fontSize: 15, fontWeight: FontWeight.w500, color: Theme.of(context).colorScheme.onSurface))),
+            Switch(value: themeController.isDarkMode.value, onChanged: (_) => themeController.toggleTheme(), activeColor: kPrimary),
+          ]),
         ));
   }
 
@@ -316,14 +298,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         decoration: BoxDecoration(color: cardBg, borderRadius: BorderRadius.circular(12)),
-        child: Row(
-          children: [
-            Icon(icon, size: 22, color: Theme.of(context).colorScheme.onSurface),
-            const SizedBox(width: 12),
-            Expanded(child: Text(label, style: GoogleFonts.tajawal(fontSize: 15, fontWeight: FontWeight.w500, color: Theme.of(context).colorScheme.onSurface))),
-            const Icon(Icons.chevron_right, size: 20, color: Color(0xFF818898)),
-          ],
-        ),
+        child: Row(children: [
+          Icon(icon, size: 22, color: Theme.of(context).colorScheme.onSurface),
+          const SizedBox(width: 12),
+          Expanded(child: Text(label, style: GoogleFonts.tajawal(fontSize: 15, fontWeight: FontWeight.w500, color: Theme.of(context).colorScheme.onSurface))),
+          const Icon(Icons.chevron_right, size: 20, color: Color(0xFF818898)),
+        ]),
       ),
     );
   }
