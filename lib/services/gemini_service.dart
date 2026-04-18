@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 class GeminiService {
-  static const String _apiKey = "AIzaSyCtJbiIuu_eK8_YmBcGWK22Sw81Sk3vNq0";
+  static const String _apiKey = "AIzaSyC4B3EAdDJh4Oge_qhJwzkyRLZw0zNMwq8";
   final String _baseUrl =
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
@@ -80,9 +80,73 @@ class GeminiService {
 قيم allergen_type المسموح بها (إنجليزية صغيرة فقط):
 milk, eggs, gluten, fish, peanuts, soybeans, treenuts, sesame, crustaceans, celery, mustard, sulfur, lupin, mollusks
 
+حقل product_category:
+✅ يجب أن يكون إحدى هذه القيم الثابتة بالضبط (بالإنجليزية) بناءً على نوع المنتج الممسوح:
+
+-- الحليب ومنتجات الألبان --
+- plant-based milk          → حليب سائل (أبقار، ماعز، كامل الدسم، خالي الدسم...)
+- plant-based yogurt        → زبادي / لبن رائب
+- plant-based labneh        → لبنة
+- plant-based cheese        → جبن بأي نوع (شيدر، موزاريلا، كريم چيز...)
+- plant-based butter        → زبدة / مارجرين
+- plant-based ghee          → سمن
+- dairy-free cream          → كريمة طبخ / كريمة خفق
+- dairy-free ice cream      → آيس كريم / جيلاتو
+- dairy-free milkshake      → ميلك شيك / مشروب حليب منكّه
+- dairy-free custard        → كاسترد / كريم بروليه
+
+-- الشوكولاتة والحلويات --
+- dairy-free chocolate          → شوكولاتة ألواح
+- dairy-free chocolate-spread   → سبريد شوكولاتة (نوتيلا وما شابه)
+- nut-free chocolate            → شوكولاتة تحتوي على مكسرات (عند البحث عن بديل بدون مكسرات)
+- free-from candy               → حلوى / ماصات / جيلي
+- free-from halawa              → حلاوة طحينية
+
+-- المخبوزات --
+- gluten-free bread         → خبز / توست / باغيت / صمون
+- gluten-free pita          → خبز عربي / خبز مسطح / خبز تنور
+- gluten-free pastry        → كرواسان / دانيش / باستري
+- dairy-free cake           → كيك / مافن / كب كيك / براونيز
+- free-from pancake-mix     → خليط بان كيك / وافل
+
+-- المعكرونة والحبوب --
+- gluten-free pasta         → معكرونة / باستا
+- gluten-free noodles       → نودلز / شعرية
+- gluten-free cereal        → حبوب إفطار / كورن فليكس / مسلي
+- gluten-free oats          → شوفان
+- gluten-free granola       → غرانولا
+- gluten-free flour-mix     → دقيق / خليط خبيز
+
+-- البسكويت والسناكس --
+- gluten-free biscuit       → بسكويت / كوكيز / ويفر / كراكر
+- free-from chips           → شيبس / كرسبي
+- nut-free snack-bar        → بار طاقة / بار حبوب
+- free-from popcorn         → فشار
+
+-- المنكّهات والصلصات --
+- vegan mayo                → مايونيز
+- nut-free peanut-butter-alt → زبدة فول سوداني (عند الحاجة لبديل بدون مكسرات)
+- sesame-free tahini-alt    → طحينة / سبريد سمسم
+- free-from salad-dressing  → صوص سلطة / ديب
+- gluten-free soy-sauce     → صلصة صويا / تاماري
+- nut-free pesto            → بيستو
+- free-from sauce           → صوص جاهز (بيتزا، مكرونة...)
+
+-- المشروبات --
+- dairy-free coffee-creamer → كريمر / مبيض قهوة
+- dairy-free hot-chocolate  → مسحوق شوكولاتة ساخنة
+- free-from protein-shake   → مسحوق بروتين / ميل ريبليسمنت
+- dairy-free cooking-cream  → كريمة طبخ مخصصة
+
+-- الشوربات --
+- free-from soup            → شوربة جاهزة / مركز شوربة
+
+- ""                        → إذا لم يتطابق مع أي فئة أعلاه
+
 المخرجات JSON فقط بدون أي شرح وبدون علامات التنصيص:
 {
   "product_type_ar": "",
+  "product_category": "",
   "detected_allergens": [
     {
       "allergen_type": "",
@@ -142,6 +206,7 @@ milk, eggs, gluten, fish, peanuts, soybeans, treenuts, sesame, crustaceans, cele
       print("❌ JSON ERROR: $e");
       return {
         "product_type_ar": "",
+        "product_category": "",
         "detected_allergens": [],
         "hidden_sources": [],
         "warning_statements": [],

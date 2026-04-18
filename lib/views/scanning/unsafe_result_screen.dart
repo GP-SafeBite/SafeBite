@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:get/get.dart';
 import '../alternatives/alternatives_screen.dart';
+import '../scanning/scan_ingredients_screen.dart';
 import '../../services/alternatives_service.dart';
 
 class UnsafeResultScreen extends StatelessWidget {
@@ -190,11 +192,12 @@ class UnsafeResultScreen extends StatelessWidget {
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton(
-                          onPressed: () => Navigator.pop(context),
+                          onPressed: () => Get.offAll(() => const ScanIngredientsScreen()),
                           style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), side: const BorderSide(color: Color(0xFF9CCB7A)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                           child: Text('فحص منتج آخر', style: GoogleFonts.tajawal(fontSize: 16, fontWeight: FontWeight.bold, color: kPrimary)),
                         ),
-                      ),
+                        ),
+           //           ),
                     ],
                   ),
                 ),

@@ -42,7 +42,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     {'name': 'السمك', 'icon': 'assets/allergies14/fish.png', 'id': 'fish'},
     {'name': 'فول الصويا', 'icon': 'assets/allergies14/soyabeans.png', 'id': 'soybeans'},
     {'name': 'الكرفس', 'icon': 'assets/allergies14/celery.png', 'id': 'celery'},
-    {'name': 'الفول الصوداني', 'icon': 'assets/allergies14/peanuts.png', 'id': 'peanuts'},
+    {'name': 'الفول السوداني', 'icon': 'assets/allergies14/peanuts.png', 'id': 'peanuts'},
     {'name': 'المكسرات', 'icon': 'assets/allergies14/treenuts.png', 'id': 'treenuts'},
     {'name': 'الخردل', 'icon': 'assets/allergies14/mustard.png', 'id': 'mustard'},
     {'name': 'الترمس', 'icon': 'assets/allergies14/lupin.png', 'id': 'lupin'},

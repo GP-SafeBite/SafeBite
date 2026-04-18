@@ -52,12 +52,13 @@ class _AlternativesScreenState extends State<AlternativesScreen> {
 
   Future<void> _loadAlternatives() async {
     try {
-      final results = await AlternativesService.getAlternatives(
-        detectedAllergenTypes: widget.detectedAllergenTypes,
-        llmSuggestedAlternatives: widget.llmSuggestedAlternatives,
-        llmRawAlternatives: widget.llmRawAlternatives,
-        productTypeAr: widget.productTypeAr,
-      );
+final results = await AlternativesService.getAlternatives(
+  detectedAllergenTypes: widget.detectedAllergenTypes,
+  allUserAllergyTypes: widget.detectedAllergenTypes, // TEMP fallback
+  llmSuggestedAlternatives: widget.llmSuggestedAlternatives,
+  llmRawAlternatives: widget.llmRawAlternatives,
+  productTypeAr: widget.productTypeAr,
+);
       if (mounted) setState(() { _alternatives = results; _isLoading = false; });
     } catch (e) {
       print('Alternatives error: $e');

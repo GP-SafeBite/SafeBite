@@ -101,6 +101,7 @@ class ScanService {
       final List<String> llmSuggestedAlternatives = [];
       final List<Map<String, dynamic>> llmRawAlternatives = [];
       final String productTypeAr = aiResult["product_type_ar"]?.toString() ?? '';
+      final String productCategory = aiResult["product_category"]?.toString() ?? '';
       final rawSuggestions = aiResult["suggested_alternatives"] ?? [];
       for (final suggestion in rawSuggestions) {
         if (suggestion is Map) {
@@ -153,10 +154,18 @@ class ScanService {
       if (safetyStatus == 'unsafe' && userDetectedTypes.isNotEmpty) {
         try {
           mergedAlternatives = await AlternativesService.getAlternatives(
+            // detectedAllergenTypes = allergens found IN the scanned product.
+            // Used to look up alternatives in alternative_allergies table.
+            // This always has rows (e.g. allergy_id=1 for all plant-based milks).
             detectedAllergenTypes: userDetectedTypes,
+            // allUserAllergyTypes = ALL user allergies from their profile.
+            // Used to filter alternatives by checking their ingredients_en,
+            // so e.g. almond milk is excluded for nut-allergic users.
+            allUserAllergyTypes: userAllergyStrings.toList(),
             llmSuggestedAlternatives: llmSuggestedAlternatives,
             llmRawAlternatives: llmRawAlternatives,
             productTypeAr: productTypeAr,
+            productCategory: productCategory,
           );
         } catch (e) {
           print('⚠️ Alternatives query failed: $e');
