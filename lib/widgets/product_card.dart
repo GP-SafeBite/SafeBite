@@ -1,4 +1,3 @@
-// lib/widgets/product_card.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -18,19 +17,21 @@ class ProductCard extends StatelessWidget {
     this.onTap,
   });
 
-  static const Color kCardBg = Color(0xFFFAF6E9);
-  static const Color kRed = Color(0xFFD32F2F);
+  static const Color kRed   = Color(0xFFD32F2F);
   static const Color kGreen = Color(0xFF9CCB7A);
   static const Color kGrey900 = Color(0xFF818898);
 
   @override
   Widget build(BuildContext context) {
+    // ✅ [Added] Dynamic card color from Theme
+    final Color kCardBg = Theme.of(context).cardColor;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: double.infinity,
         decoration: BoxDecoration(
-          color: kCardBg,
+          color: kCardBg, // ✅ [Added]
           borderRadius: BorderRadius.circular(16),
         ),
         clipBehavior: Clip.hardEdge,
@@ -86,7 +87,7 @@ class ProductCard extends StatelessWidget {
                           style: GoogleFonts.tajawal(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
-                            color: Colors.black,
+                            color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -114,7 +115,7 @@ class ProductCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  
+
                   // الوقت على اليمين
                   if (time != null) ...[
                     const SizedBox(width: 8),

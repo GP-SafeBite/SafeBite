@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:get/get.dart'; // ✅ correct
+import 'package:get/get.dart';
 
 class AlternativesScreen extends StatelessWidget {
   final String unsafeProductName;
@@ -10,7 +10,6 @@ class AlternativesScreen extends StatelessWidget {
     this.unsafeProductName = 'حليب السعودية بالشوكولاتة',
   });
 
-  static const Color kBackground = Color(0xFFFFFDF6);
   static const Color kGrey900 = Color(0xFF818898);
   static const Color kPrimary = Color(0xFF9CCB7A);
   static const Color kRed = Color(0xFFD32F2F);
@@ -36,6 +35,10 @@ class AlternativesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // ✅ [Added] Dynamic colors from Theme
+    final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
+    final Color kCardBg = Theme.of(context).cardColor;
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -53,13 +56,12 @@ class AlternativesScreen extends StatelessWidget {
                       child: Container(
                         width: 40,
                         height: 40,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFFAF6E9),
+                        decoration: BoxDecoration(
+                          color: kCardBg, // ✅ [Added]
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
                           Icons.arrow_back,
-                          color: Colors.black,
                           size: 20,
                         ),
                       ),
@@ -70,7 +72,7 @@ class AlternativesScreen extends StatelessWidget {
                       style: GoogleFonts.tajawal(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
-                        color: Colors.black,
+                        color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                       ),
                     ),
                     const Spacer(),
@@ -93,7 +95,7 @@ class AlternativesScreen extends StatelessWidget {
                         text: 'بدلاً من ',
                         style: GoogleFonts.tajawal(
                           fontWeight: FontWeight.w600,
-                          color: Colors.black87,
+                          color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                         ),
                       ),
                       TextSpan(
@@ -107,7 +109,7 @@ class AlternativesScreen extends StatelessWidget {
                         text: '، جرب هذه الخيارات ',
                         style: GoogleFonts.tajawal(
                           fontWeight: FontWeight.w600,
-                          color: Colors.black87,
+                          color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                         ),
                       ),
                       TextSpan(
@@ -121,7 +123,7 @@ class AlternativesScreen extends StatelessWidget {
                         text: ':',
                         style: GoogleFonts.tajawal(
                           fontWeight: FontWeight.w600,
-                          color: Colors.black87,
+                          color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                         ),
                       ),
                     ],
@@ -139,8 +141,10 @@ class AlternativesScreen extends StatelessWidget {
                   itemBuilder: (context, index) {
                     final item = _alternatives[index];
                     return _buildAlternativeCard(
+                      context: context,
                       title: item['title']!,
                       imagePath: item['image']!,
+                      cardBg: kCardBg,
                     );
                   },
                 ),
@@ -155,13 +159,15 @@ class AlternativesScreen extends StatelessWidget {
   }
 
   Widget _buildAlternativeCard({
+    required BuildContext context,
     required String title,
     required String imagePath,
+    required Color cardBg,
   }) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFAF6E9),
+        color: cardBg, // ✅ [Added]
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(

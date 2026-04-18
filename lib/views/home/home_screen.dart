@@ -1,3 +1,4 @@
+// Home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -8,9 +9,6 @@ import '../history/history_screen.dart';
 import '../educational/articles_list_screen.dart';
 import '../profile/profile_screen.dart';
 import '../scanning/scan_ingredients_screen.dart';
-import 'dart:convert';
-import '../scanning/safe_result_screen.dart';
-import '../scanning/unsafe_result_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -21,8 +19,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   static const Color kPrimary = Color(0xFF9CCB7A);
-  static const Color kBackground = Color(0xFFFFFDF6);
-  static const Color kCardBg = Color(0xFFFAF6E9);
   static const Color kGrey900 = Color(0xFF818898);
   static const Color kGrey400 = Color(0xFFB3B3B3);
   static const Color kRed = Color(0xFFD32F2F);
@@ -41,7 +37,6 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadData();
   }
 
-  // 🔴 reload when returning from any screen
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -76,7 +71,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // 🔴 cache busting helper
   String _bustCache(String url) {
     if (url.isEmpty) return url;
     final base = url.split('?').first;
@@ -85,19 +79,21 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // ✅ [Added] Dynamic colors from Theme
+    final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
+    final Color kCardBg = Theme.of(context).cardColor;
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: kBackground,
         body: SafeArea(
           child: _isLoading
-              // 🔴 show full loader — prevents مستخدم glitch
               ? const Center(child: CircularProgressIndicator())
               : Column(
                   children: [
                     Expanded(
                       child: SingleChildScrollView(
-                        // 🔴 scrollable — fixes overflow errors
                         child: Column(
                           children: [
                             // ========== HEADER ==========
@@ -115,7 +111,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     child: _userPhotoUrl.isNotEmpty
                                         ? ClipOval(
                                             child: Image.network(
-                                              _bustCache(_userPhotoUrl), // 🔴 cache bust
+                                              _bustCache(_userPhotoUrl),
                                               width: 48,
                                               height: 48,
                                               fit: BoxFit.cover,
@@ -134,7 +130,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       style: GoogleFonts.tajawal(
                                         fontSize: 18,
                                         fontWeight: FontWeight.w600,
-                                        color: Colors.black,
+                                        color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                                       ),
                                       overflow: TextOverflow.ellipsis,
                                     ),
@@ -145,22 +141,47 @@ class _HomeScreenState extends State<HomeScreen> {
 
                             const SizedBox(height: 32),
 
-                            // ========== أزرار المسح ==========
+                            // ========== زر المسح ==========
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 20),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: AspectRatio(
-                                      aspectRatio: 1,
-                                      child: _buildScanButton(
-                                        title: 'مسح المكونات',
-                                        subtitle: 'صورة قائمة المكونات',
-                                        onTap: () => Get.to(() => const ScanIngredientsScreen()),
-                                      ),
-                                    ),
+                              child: GestureDetector(
+                                onTap: () => Get.to(() => const ScanIngredientsScreen()),
+                                child: Container(
+                                  width: double.infinity,
+                                  height: 160,
+                                  decoration: BoxDecoration(
+                                    color: kPrimary,
+                                    borderRadius: BorderRadius.circular(20),
                                   ),
-                                ],
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(
+                                        Icons.camera_alt_outlined,
+                                        size: 56,
+                                        color: Colors.white,
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        'مسح المكونات',
+                                        style: GoogleFonts.tajawal(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        'صورة قائمة المكونات',
+                                        style: GoogleFonts.tajawal(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w500,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ),
 
@@ -176,7 +197,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   style: GoogleFonts.tajawal(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w700,
-                                    color: Colors.black,
+                                    color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                                   ),
                                 ),
                               ),
@@ -191,7 +212,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 padding: const EdgeInsets.symmetric(
                                     vertical: 20, horizontal: 16),
                                 decoration: BoxDecoration(
-                                  color: kCardBg,
+                                  color: kCardBg, // ✅ [Added]
                                   borderRadius: BorderRadius.circular(16),
                                 ),
                                 child: Column(
@@ -273,7 +294,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   style: GoogleFonts.tajawal(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w700,
-                                    color: Colors.black,
+                                    color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                                   ),
                                 ),
                               ),
@@ -295,7 +316,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     // ========== BOTTOM NAVIGATION ==========
                     Container(
                       height: 70,
-                      decoration: const BoxDecoration(color: kBackground),
+                      decoration: BoxDecoration(color: kBackground), // ✅ [Added]
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
@@ -339,75 +360,7 @@ class _HomeScreenState extends State<HomeScreen> {
       productName: _lastScan!['product_name'] ?? 'منتج غير معروف',
       imageUrl: _lastScan!['product_image_url'] ?? '',
       isSafe: _lastScan!['safety_status'] == 'safe',
-      onTap: () {
-  final allergensJson = _lastScan!['found_allergens'] ?? '[]';
-  final allergens = List<String>.from(jsonDecode(allergensJson));
-
-  final isSafe = _lastScan!['safety_status'] == 'safe';
-
-  final ingredients = [];
-
-  if (isSafe) {
-    Get.to(() => SafeResultScreen(
-          productName: _lastScan!['product_name'] ?? '',
-          ingredients: ingredients,
-          allergens: allergens,
-          imageUrl: _lastScan!['product_image_url'],
-        ));
-  } else {
-    Get.to(() => UnsafeResultScreen(
-          productName: _lastScan!['product_name'] ?? '',
-          ingredients: ingredients,
-          detectedAllergens: allergens,
-          imageUrl: _lastScan!['product_image_url'],
-        ));
-  }
-},
-    );
-  }
-
-  Widget _buildScanButton({
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: kPrimary,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.camera_alt_outlined, size: 56, color: Colors.white),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              textDirection: TextDirection.rtl,
-              style: GoogleFonts.tajawal(
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              textDirection: TextDirection.rtl,
-              style: GoogleFonts.tajawal(
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-                height: 1.4,
-              ),
-            ),
-          ],
-        ),
-      ),
+      onTap: () => debugPrint('Product card tapped!'),
     );
   }
 

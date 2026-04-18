@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:safebite/views/home/home_screen.dart';
-import '../../models/article_model.dart'; // 🔴 added
-import '../../services/articles_service.dart'; // 🔴 added
+import '../../models/article_model.dart';
+import '../../services/articles_service.dart';
 import '../../widgets/article_card.dart';
 import '../history/history_screen.dart';
 import '../profile/profile_screen.dart';
-import 'article_detail_screen.dart'; // 🔴 added
+import 'article_detail_screen.dart';
 
 class ArticlesListScreen extends StatefulWidget {
   const ArticlesListScreen({super.key});
@@ -18,14 +18,11 @@ class ArticlesListScreen extends StatefulWidget {
 
 class _ArticlesListScreenState extends State<ArticlesListScreen> {
   static const Color kPrimary = Color(0xFF9CCB7A);
-  static const Color kBackground = Color(0xFFFFFDF6);
-  static const Color kFieldBg = Color(0xFFFAF6E9);
   static const Color kGrey900 = Color(0xFF818898);
   static const Color kGrey400 = Color(0xFFB3B3B3);
 
   final TextEditingController _searchController = TextEditingController();
 
-  // 🔴 added: real data variables
   List<ArticleModel> _allArticles = [];
   List<ArticleModel> _filteredArticles = [];
   bool _isLoading = true;
@@ -34,8 +31,8 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
   @override
   void initState() {
     super.initState();
-    _loadArticles(); // 🔴 added
-    _searchController.addListener(_filterArticles); // 🔴 added
+    _loadArticles();
+    _searchController.addListener(_filterArticles);
   }
 
   @override
@@ -44,7 +41,6 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
     super.dispose();
   }
 
-  // 🔴 added: fetch articles from RSS feeds
   Future<void> _loadArticles() async {
     try {
       final articles = await ArticlesService.fetchAllArticles();
@@ -67,7 +63,6 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
     }
   }
 
-  // 🔴 added: filter articles by search query
   void _filterArticles() {
     final query = _searchController.text.trim().toLowerCase();
     setState(() {
@@ -82,6 +77,10 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // ✅ [Added] Dynamic colors from Theme
+    final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
+    final Color kFieldBg = Theme.of(context).cardColor;
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -102,12 +101,11 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
                         width: 40,
                         height: 40,
                         decoration: BoxDecoration(
-                          color: kFieldBg,
+                          color: kFieldBg, // ✅ [Added]
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
                           Icons.arrow_back,
-                          color: Colors.black,
                           size: 20,
                         ),
                       ),
@@ -118,7 +116,7 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
                       style: GoogleFonts.tajawal(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
-                        color: Colors.black,
+                        color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                       ),
                     ),
                     const Spacer(),
@@ -133,7 +131,7 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
                 child: Container(
                   height: 50,
                   decoration: BoxDecoration(
-                    color: kFieldBg,
+                    color: kFieldBg, // ✅ [Added]
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: TextField(
@@ -141,7 +139,7 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
                     textAlign: TextAlign.right,
                     style: GoogleFonts.tajawal(
                       fontSize: 14,
-                      color: Colors.black,
+                      color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                     ),
                     decoration: InputDecoration(
                       hintText: 'بحث',
@@ -169,10 +167,8 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
               // ========== ARTICLES LIST ==========
               Expanded(
                 child: _isLoading
-                    // 🔴 loading spinner
                     ? const Center(child: CircularProgressIndicator())
                     : _errorMessage != null
-                        // 🔴 error or empty state
                         ? Center(
                             child: Text(
                               _errorMessage!,
@@ -182,7 +178,6 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
                               ),
                             ),
                           )
-                        // 🔴 real articles list
                         : ListView.separated(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 20),
@@ -194,7 +189,6 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
                               return ArticleCard(
                                 title: article.title,
                                 imageUrl: article.imageUrl,
-                                // 🔴 navigate to detail screen
                                 onTap: () {
                                   Get.to(() => ArticleDetailScreen(
                                         article: article,
@@ -208,8 +202,8 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
               // ========== BOTTOM NAVIGATION ==========
               Container(
                 height: 70,
-                decoration: const BoxDecoration(
-                  color: kBackground,
+                decoration: BoxDecoration(
+                  color: kBackground, // ✅ [Added]
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -221,10 +215,7 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
                       Get.offAll(() => HistoryScreen());
                     }),
                     _buildNavItem(
-                        Icons.description_outlined, 'محتوى توعوي', true,
-                        () {
-                      // already here
-                    }),
+                        Icons.description_outlined, 'محتوى توعوي', true, () {}),
                     _buildNavItem(
                         Icons.person_outline, 'الملف الشخصي', false, () {
                       Get.offAll(() => ProfileScreen());
@@ -238,8 +229,6 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
       ),
     );
   }
-
-  // ========== WIDGETS ==========
 
   Widget _buildNavItem(
       IconData icon, String label, bool isActive, VoidCallback onTap) {

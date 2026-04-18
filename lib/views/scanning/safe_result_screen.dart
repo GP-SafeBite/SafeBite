@@ -1,3 +1,4 @@
+// Safe.result.screen.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -5,7 +6,6 @@ class SafeResultScreen extends StatelessWidget {
   final String productName;
   final String? barcode;
   final String? imageUrl;
-
   final List ingredients;
   final List allergens;
 
@@ -19,17 +19,20 @@ class SafeResultScreen extends StatelessWidget {
   });
 
   static const Color kPrimary = Color(0xFF9CCB7A);
-  static const Color kBackground = Color(0xFFFFFDF6);
   static const Color kGrey900 = Color(0xFF818898);
 
   @override
   Widget build(BuildContext context) {
+    // ✅ [Added] Dynamic colors from Theme
+    final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
+    final Color kCardBg = Theme.of(context).cardColor;
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: kBackground,
         body: SafeArea(
-          child: SingleChildScrollView( // 🔥 حل overflow
+          child: SingleChildScrollView(
             child: Column(
               children: [
                 // HEADER
@@ -42,8 +45,8 @@ class SafeResultScreen extends StatelessWidget {
                         child: Container(
                           width: 40,
                           height: 40,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFFAF6E9),
+                          decoration: BoxDecoration(
+                            color: kCardBg, // ✅ [Added]
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(Icons.arrow_back, size: 20),
@@ -55,6 +58,7 @@ class SafeResultScreen extends StatelessWidget {
                         style: GoogleFonts.tajawal(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
+                          color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                         ),
                       ),
                       const Spacer(),
@@ -121,7 +125,7 @@ class SafeResultScreen extends StatelessWidget {
 
                 const SizedBox(height: 20),
 
-                // 🔥 المكونات
+                // المكونات
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Column(
@@ -132,10 +136,10 @@ class SafeResultScreen extends StatelessWidget {
                         style: GoogleFonts.tajawal(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                         ),
                       ),
                       const SizedBox(height: 8),
-
                       ingredients.isEmpty
                           ? Text(
                               'لا توجد مكونات',
@@ -156,7 +160,7 @@ class SafeResultScreen extends StatelessWidget {
 
                 const SizedBox(height: 20),
 
-                // 🔥 مسببات الحساسية
+                // مسببات الحساسية
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Column(
@@ -167,10 +171,10 @@ class SafeResultScreen extends StatelessWidget {
                         style: GoogleFonts.tajawal(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                         ),
                       ),
                       const SizedBox(height: 8),
-
                       allergens.isEmpty
                           ? Text(
                               'لا يوجد',
