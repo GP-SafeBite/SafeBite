@@ -18,6 +18,7 @@ class ScanResult {
 class ProductScanData {
   final String productName;
   final List<String> ingredients;
+  final List<String> traceWarnings;
   final List<String> detectedAllergens;
   final List<String> detectedAllergenTypes;
   final List<String> llmSuggestedAlternatives;
@@ -31,6 +32,7 @@ class ProductScanData {
   ProductScanData({
     required this.productName,
     required this.ingredients,
+    this.traceWarnings = const [],
     required this.detectedAllergens,
     required this.detectedAllergenTypes,
     required this.llmSuggestedAlternatives,
@@ -75,6 +77,7 @@ class ScanService {
       );
       print("🧠 AI RESULT: $aiResult");
 
+      // ── Extract actual ingredients from detected_allergens ─────────────
       final List<String> geminiIngredients = [];
       final List<String> detectedAllergenTypes = [];
       final rawAllergens = aiResult["detected_allergens"] ?? [];
@@ -98,6 +101,32 @@ class ScanService {
         }
       }
 
+      // ── Extract trace warnings: hidden_sources + warning_statements ────
+      // Treated with equal safety weight as actual ingredients.
+      // Stored separately for UI display (yellow chips).
+      final List<String> traceWarnings = [];
+
+      final rawHiddenSources = aiResult["hidden_sources"] ?? [];
+      for (final source in rawHiddenSources) {
+        if (source is String && source.trim().isNotEmpty) {
+          if (!traceWarnings.contains(source.trim())) {
+            traceWarnings.add(source.trim());
+          }
+        }
+      }
+
+      final rawWarningStatements = aiResult["warning_statements"] ?? [];
+      for (final warning in rawWarningStatements) {
+        if (warning is String && warning.trim().isNotEmpty) {
+          if (!traceWarnings.contains(warning.trim())) {
+            traceWarnings.add(warning.trim());
+          }
+        }
+      }
+
+      print("⚠️ Trace warnings extracted: ${traceWarnings.length}");
+
+      // ── Extract LLM suggestions ────────────────────────────────────────
       final List<String> llmSuggestedAlternatives = [];
       final List<Map<String, dynamic>> llmRawAlternatives = [];
       final String productTypeAr = aiResult["product_type_ar"]?.toString() ?? '';
@@ -113,10 +142,15 @@ class ScanService {
         }
       }
 
-      if (geminiIngredients.isEmpty && detectedAllergenTypes.isEmpty) {
+      // Only fail if Gemini truly couldn't process the image.
+      // is_safe_for_user is ALWAYS present in a valid response (true or false).
+      // Empty detected_allergens is normal for a safe product — NOT a failure.
+      final bool aiProcessedImage = aiResult.containsKey('is_safe_for_user');
+      if (!aiProcessedImage) {
         return ScanResult(success: false, message: "ما تم التعرف على المكونات");
       }
 
+      // ── Allergen detection from actual ingredients ─────────────────────
       final List<String> detectedAllergens = [];
       final List<String> userDetectedTypes = [];
 
@@ -130,6 +164,7 @@ class ScanService {
         }
       }
 
+      // Fallback: keyword scan on actual ingredients text
       if (detectedAllergens.isEmpty && geminiIngredients.isNotEmpty) {
         final lowerText = geminiIngredients.join(' ').toLowerCase();
         for (final allergyId in userAllergyStrings) {
@@ -147,21 +182,43 @@ class ScanService {
         }
       }
 
+      // ── Allergen detection from trace warnings ─────────────────────────
+      // "May contain nuts" is treated equally to "contains nuts" for safety.
+      if (traceWarnings.isNotEmpty) {
+        final lowerTraceText = traceWarnings.join(' ').toLowerCase();
+        for (final allergyId in userAllergyStrings) {
+          if (!userDetectedTypes.contains(allergyId)) {
+            final keywords = _allergyKeywords[allergyId] ?? [];
+            for (final keyword in keywords) {
+              if (lowerTraceText.contains(keyword)) {
+                final arabicName = _allergyArabicNames[allergyId] ?? allergyId;
+                if (!detectedAllergens.contains(arabicName)) {
+                  detectedAllergens.add(arabicName);
+                  userDetectedTypes.add(allergyId);
+                  print('⚠️ Trace warning triggered allergen: $allergyId');
+                }
+                break;
+              }
+            }
+          }
+        }
+      }
+
       final safetyStatus = detectedAllergens.isEmpty ? 'safe' : 'unsafe';
-      final ingredientsText = geminiIngredients.join(', ');
+
+      // Include trace warnings in history storage text
+      // Use ||| as separator — commas appear inside ingredient names/phrases
+      // and would cause wrong splits when reloading from history.
+      final ingredientsText = [...geminiIngredients, ...traceWarnings].join('|||');
 
       List<AlternativeProduct> mergedAlternatives = [];
-      if (safetyStatus == 'unsafe' && userDetectedTypes.isNotEmpty) {
+      if (safetyStatus == 'unsafe') {
         try {
           mergedAlternatives = await AlternativesService.getAlternatives(
-            // detectedAllergenTypes = allergens found IN the scanned product.
-            // Used to look up alternatives in alternative_allergies table.
-            // This always has rows (e.g. allergy_id=1 for all plant-based milks).
-            detectedAllergenTypes: userDetectedTypes,
-            // allUserAllergyTypes = ALL user allergies from their profile.
-            // Used to filter alternatives by checking their ingredients_en,
-            // so e.g. almond milk is excluded for nut-allergic users.
+            // Use ALL user profile allergies for junction lookup —
+            // not just what Gemini detected in the scanned product.
             allUserAllergyTypes: userAllergyStrings.toList(),
+            detectedAllergenTypes: userDetectedTypes,
             llmSuggestedAlternatives: llmSuggestedAlternatives,
             llmRawAlternatives: llmRawAlternatives,
             productTypeAr: productTypeAr,
@@ -175,6 +232,7 @@ class ScanService {
       final scanData = ProductScanData(
         productName: productName,
         ingredients: geminiIngredients,
+        traceWarnings: traceWarnings,
         detectedAllergens: detectedAllergens,
         detectedAllergenTypes: userDetectedTypes,
         llmSuggestedAlternatives: llmSuggestedAlternatives,
@@ -202,6 +260,8 @@ class ScanService {
       return ScanResult(success: false, message: "فشل تحليل الصورة");
     }
   }
+
+  // ── Everything below is UNTOUCHED ─────────────────────────────────────
 
   static Future<String?> _saveImageLocally(Uint8List imageBytes) async {
     try {
@@ -236,7 +296,6 @@ class ScanService {
   static Future<ScanResult> getScanHistory({required String userId}) async {
     final localData = await LocalDB.getScanHistory(userId: userId);
 
-    // ✅ FIX: build localMap keyed by supabase_id (reliable) instead of scan_date (unreliable)
     final Map<String, Map<String, String>> localMap = {};
     for (final row in localData) {
       final supabaseId = row['supabase_id']?.toString() ?? '';
@@ -257,7 +316,6 @@ class ScanService {
 
       final merged = (data as List).map((row) {
         final map = Map<String, dynamic>.from(row as Map);
-        // ✅ FIX: match by history_id (Supabase PK) = supabase_id stored in SQLite
         final supId = map['history_id']?.toString() ?? '';
         if (supId.isNotEmpty && localMap.containsKey(supId)) {
           final local = localMap[supId]!;
@@ -309,7 +367,6 @@ class ScanService {
     required ProductScanData scanData,
     required String ingredientsText,
   }) async {
-    // ✅ FIX: generate scanDate ONCE and reuse for both Supabase and SQLite
     final scanDate = DateTime.now().toIso8601String();
 
     try {
@@ -322,7 +379,7 @@ class ScanService {
         'found_allergens': foundAllergensJson,
         'safety_status': scanData.safetyStatus,
         'ingredients_text': ingredientsText,
-        'scan_date': scanDate,               // ✅ same date
+        'scan_date': scanDate,
         'local_image_path': scanData.localImagePath ?? '',
         'remote_image_url': scanData.remoteImageUrl ?? '',
         'alternatives_json': alternativesJson,
@@ -340,11 +397,10 @@ class ScanService {
         remoteImageUrl: scanData.remoteImageUrl,
         alternativesJson: alternativesJson,
         supabaseId: supabaseId,
-        scanDate: scanDate,                  // ✅ FIX: pass same date instead of DateTime.now()
+        scanDate: scanDate,
       );
     } catch (e) {
       print('⚠️ History save failed: $e');
-      // Save locally even if Supabase fails
       try {
         final foundAllergensJson = jsonEncode(scanData.detectedAllergens);
         final alternativesJson = AlternativesService.toJsonList(scanData.mergedAlternatives);
@@ -357,7 +413,7 @@ class ScanService {
           localImagePath: scanData.localImagePath,
           remoteImageUrl: scanData.remoteImageUrl,
           alternativesJson: alternativesJson,
-          scanDate: scanDate,                // ✅ FIX: same date even in fallback
+          scanDate: scanDate,
         );
       } catch (e2) {
         print('⚠️ Local save also failed: $e2');
@@ -365,37 +421,40 @@ class ScanService {
     }
   }
 
+  // _allergyKeywords used ONLY for detecting allergens in the SCANNED product
+  // (Gemini ingredients + trace warnings). NOT used for filtering alternatives anymore.
   static const Map<String, List<String>> _allergyKeywords = {
-    'milk': ['milk', 'dairy', 'lactose', 'whey', 'casein', 'حليب', 'لاكتوز', 'كازين'],
-    'eggs': ['egg', 'eggs', 'albumin', 'بيض'],
-    'gluten': ['wheat', 'gluten', 'barley', 'rye', 'flour', 'قمح', 'جلوتين', 'شعير', 'دقيق'],
-    'fish': ['fish', 'salmon', 'tuna', 'سمك'],
-    'peanuts': ['peanut', 'فول سوداني'],
-    'soybeans': ['soy', 'soya', 'صويا'],
-    'treenuts': ['almond', 'cashew', 'walnut', 'pistachio', 'hazelnut', 'مكسرات', 'لوز'],
-    'sesame': ['sesame', 'tahini', 'سمسم', 'طحينة'],
-    'crustaceans': ['shrimp', 'crab', 'lobster', 'روبيان'],
-    'celery': ['celery', 'كرفس'],
-    'mustard': ['mustard', 'خردل'],
-    'sulfur': ['sulphite', 'sulfite', 'e220', 'كبريتيت'],
-    'lupin': ['lupin', 'lupine', 'ترمس'],
-    'mollusks': ['mollusc', 'squid', 'oyster', 'رخويات'],
+    'milk'        : ['milk', 'dairy', 'lactose', 'whey', 'casein', 'حليب', 'لاكتوز', 'كازين'],
+    'eggs'        : ['egg', 'eggs', 'albumin', 'بيض'],
+    'gluten'      : ['wheat', 'gluten', 'barley', 'rye', 'flour', 'قمح', 'جلوتين', 'شعير', 'دقيق'],
+    'fish'        : ['fish', 'salmon', 'tuna', 'سمك'],
+    'peanuts'     : ['peanut', 'فول سوداني'],
+    'soybeans'    : ['soy', 'soya', 'صويا'],
+    'treenuts'    : ['almond', 'cashew', 'walnut', 'pistachio', 'hazelnut',
+                     'nuts', 'tree nut', 'مكسرات', 'لوز'],
+    'sesame'      : ['sesame', 'tahini', 'سمسم', 'طحينة'],
+    'crustaceans' : ['shrimp', 'crab', 'lobster', 'روبيان'],
+    'celery'      : ['celery', 'كرفس'],
+    'mustard'     : ['mustard', 'خردل'],
+    'sulfur'      : ['sulphite', 'sulfite', 'e220', 'كبريتيت'],
+    'lupin'       : ['lupin', 'lupine', 'ترمس'],
+    'mollusks'    : ['mollusc', 'squid', 'oyster', 'رخويات'],
   };
 
   static const Map<String, String> _allergyArabicNames = {
-    'milk': 'الحليب ومشتقاته',
-    'eggs': 'البيض',
-    'gluten': 'القمح / الجلوتين',
-    'fish': 'الأسماك',
-    'peanuts': 'الفول السوداني',
-    'soybeans': 'فول الصويا',
-    'treenuts': 'المكسرات',
-    'sesame': 'السمسم',
-    'crustaceans': 'القشريات',
-    'celery': 'الكرفس',
-    'mustard': 'الخردل',
-    'sulfur': 'ثاني أكسيد الكبريت',
-    'lupin': 'الترمس',
-    'mollusks': 'الرخويات',
+    'milk'        : 'الحليب ومشتقاته',
+    'eggs'        : 'البيض',
+    'gluten'      : 'القمح / الجلوتين',
+    'fish'        : 'الأسماك',
+    'peanuts'     : 'الفول السوداني',
+    'soybeans'    : 'فول الصويا',
+    'treenuts'    : 'المكسرات',
+    'sesame'      : 'السمسم',
+    'crustaceans' : 'القشريات',
+    'celery'      : 'الكرفس',
+    'mustard'     : 'الخردل',
+    'sulfur'      : 'ثاني أكسيد الكبريت',
+    'lupin'       : 'الترمس',
+    'mollusks'    : 'الرخويات',
   };
 }

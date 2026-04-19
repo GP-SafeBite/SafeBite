@@ -268,7 +268,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final ingredientsText = (_lastScan!['ingredients_text'] ?? '') as String;
 
     final List<String> ingredients = ingredientsText.isNotEmpty
-        ? ingredientsText.split(',').map<String>((e) => e.trim()).where((e) => e.isNotEmpty).toList()
+        ? ingredientsText.split('|||').map<String>((e) => e.trim()).where((e) => e.isNotEmpty).toList()
         : <String>[];
 
     List<AlternativeProduct> savedAlternatives = [];

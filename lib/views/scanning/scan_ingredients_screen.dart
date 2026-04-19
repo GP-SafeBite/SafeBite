@@ -195,6 +195,7 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
               llmSuggestedAlternatives: data.llmSuggestedAlternatives,
               llmRawAlternatives: data.llmRawAlternatives,
               productTypeAr: data.productTypeAr,
+              traceWarnings: data.traceWarnings,
               localImagePath: data.localImagePath ?? '',
               remoteImageUrl: data.remoteImageUrl ?? '',
               savedAlternatives: data.mergedAlternatives.isNotEmpty

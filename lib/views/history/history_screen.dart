@@ -259,7 +259,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final ingredientsText = (item['ingredients_text'] ?? '') as String;
 
     final List<String> ingredients = ingredientsText.isNotEmpty
-        ? ingredientsText.split(',').map<String>((e) => e.trim()).where((e) => e.isNotEmpty).toList()
+        ? ingredientsText.split('|||').map<String>((e) => e.trim()).where((e) => e.isNotEmpty).toList()
         : <String>[];
 
     // ✅ Load saved alternatives from JSON

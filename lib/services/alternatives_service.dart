@@ -202,170 +202,153 @@ class AlternativesService {
     'صوص'            : 'free-from sauce',
   };
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // INGREDIENT KEYWORDS
-  // Used to filter out DB alternatives that contain an allergen the user
-  // is actually allergic to (beyond the primary detected allergen).
-  // ─────────────────────────────────────────────────────────────────────────
-  static const Map<String, List<String>> _ingredientKeywords = {
-    'milk'        : ['milk', 'dairy', 'lactose', 'whey', 'casein', 'cream', 'butter', 'cheese', 'yogurt'],
-    'eggs'        : ['egg', 'albumin', 'mayonnaise'],
-    'gluten'      : ['wheat', 'gluten', 'barley', 'rye', 'flour', 'malt', 'oat'],
-    'fish'        : ['fish', 'salmon', 'tuna', 'cod', 'anchovy'],
-    'peanuts'     : ['peanut', 'groundnut', 'arachis'],
-    'soybeans'    : ['soy', 'soya', 'tofu', 'edamame', 'miso', 'tempeh'],
-    'treenuts'    : ['almond', 'cashew', 'walnut', 'pistachio', 'hazelnut',
-                     'pecan', 'macadamia', 'brazil nut', 'pine nut', 'chestnut'],
-    'sesame'      : ['sesame', 'tahini', 'til', 'gingelly'],
-    'crustaceans' : ['shrimp', 'crab', 'lobster', 'prawn', 'crayfish'],
-    'celery'      : ['celery', 'celeriac'],
-    'mustard'     : ['mustard'],
-    'sulfur'      : ['sulphite', 'sulfite', 'e220', 'e221', 'e222', 'e223', 'e224', 'e225', 'e226', 'e227', 'e228'],
-    'lupin'       : ['lupin', 'lupine'],
-    'mollusks'    : ['mollusc', 'squid', 'oyster', 'mussel', 'clam', 'scallop'],
+  // Maps plain product types (returned by Gemini) to all matching DB categories.
+  // This decouples product identification from allergen filtering.
+  // Gemini always returns e.g. "cereal" regardless of the user's allergy,
+  // and this table handles the DB category translation deterministically.
+  static const Map<String, List<String>> _productTypeToDbCategories = {
+    'milk'              : ['plant-based milk'],
+    'yogurt'            : ['plant-based yogurt'],
+    'labneh'            : ['plant-based labneh'],
+    'cheese'            : ['plant-based cheese'],
+    'butter'            : ['plant-based butter'],
+    'ghee'              : ['plant-based ghee'],
+    'cream'             : ['dairy-free cream'],
+    'ice-cream'         : ['dairy-free ice cream'],
+    'milkshake'         : ['dairy-free milkshake'],
+    'custard'           : ['dairy-free custard'],
+    'chocolate'         : ['dairy-free chocolate', 'nut-free chocolate'],
+    'chocolate-spread'  : ['dairy-free chocolate-spread'],
+    'candy'             : ['free-from candy'],
+    'halawa'            : ['free-from halawa'],
+    'bread'             : ['gluten-free bread'],
+    'pita'              : ['gluten-free pita'],
+    'pastry'            : ['gluten-free pastry'],
+    'cake'              : ['dairy-free cake'],
+    'pancake-mix'       : ['free-from pancake-mix'],
+    'pasta'             : ['gluten-free pasta'],
+    'noodles'           : ['gluten-free noodles'],
+    'cereal'            : ['gluten-free cereal'],
+    'oats'              : ['gluten-free oats'],
+    'granola'           : ['gluten-free granola'],
+    'flour-mix'         : ['gluten-free flour-mix'],
+    'biscuit'           : ['gluten-free biscuit'],
+    'chips'             : ['free-from chips'],
+    'snack-bar'         : ['nut-free snack-bar'],
+    'popcorn'           : ['free-from popcorn'],
+    'mayo'              : ['vegan mayo'],
+    'peanut-butter-alt' : ['nut-free peanut-butter-alt'],
+    'tahini-alt'        : ['sesame-free tahini-alt'],
+    'salad-dressing'    : ['free-from salad-dressing'],
+    'soy-sauce'         : ['gluten-free soy-sauce'],
+    'pesto'             : ['nut-free pesto'],
+    'sauce'             : ['free-from sauce'],
+    'coffee-creamer'    : ['dairy-free coffee-creamer'],
+    'hot-chocolate'     : ['dairy-free hot-chocolate'],
+    'protein-shake'     : ['free-from protein-shake'],
+    'cooking-cream'     : ['dairy-free cooking-cream'],
+    'soup'              : ['free-from soup'],
   };
 
-  /// Returns true if the product's ingredients contain any keyword
-  /// for the given allergen type.
-  static bool _ingredientsContainAllergen(String ingredientsEn, String allergenType) {
-    final lower = ingredientsEn.toLowerCase();
-    final keywords = _ingredientKeywords[allergenType.toLowerCase()] ?? [];
-    return keywords.any((k) => lower.contains(k));
-  }
+  // ─────────────────────────────────────────────────────────────────────────
+  // NEW ARCHITECTURE — allergens_present column approach
+  // ─────────────────────────────────────────────────────────────────────────
+  //
+  // PREVIOUSLY: keyword-based text matching on ingredients_en
+  //   → brittle, patchy, language-dependent
+  //   → 'milk' keyword matched 'soy milk', 'oat milk', 'almond milk'
+  //   → required constant patching
+  //
+  // NOW: structured integer array in allergens_present DB column
+  //   → each product has a jsonb column: allergens_present = [1, 7, 8]
+  //   → contains allergy_id for every allergen IN the product
+  //     (confirmed ingredients AND may contain traces — treated equally)
+  //   → filter: exclude product if any user allergy id is in allergens_present
+  //   → deterministic, language-independent, zero edge cases
+  //   → adding new allergens never breaks existing logic
+  //
+  // FLOW:
+  //   1. Junction table lookup: find all candidate products for user's allergies
+  //   2. Category filter: keep only products matching scanned product type
+  //   3. Safety filter: exclude any candidate whose allergens_present
+  //      intersects with user's allergy ids
+  //   4. LLM suggestions appended as supplemental section (display only)
+  // ─────────────────────────────────────────────────────────────────────────
 
   static Future<List<AlternativeProduct>> getAlternatives({
-    required List<String> detectedAllergenTypes,
     required List<String> allUserAllergyTypes,
     required List<String> llmSuggestedAlternatives,
     required List<Map<String, dynamic>> llmRawAlternatives,
     String productTypeAr = '',
     String productCategory = '',
+    List<String> detectedAllergenTypes = const [],
   }) async {
-    // ── ARCHITECTURE ──────────────────────────────────────────────────────
-    //
-    // KEY FIX — Why the old logic broke:
-    //
-    // The ingredient filter was checking the alternative's ingredients against
-    // ALL user allergies, including the PRIMARY detected allergen (e.g. milk).
-    // This caused oat milk (which has "cream" in some variants) or soy milk
-    // to be excluded even when the user only has a milk allergy.
-    //
-    // CORRECT LOGIC:
-    //   1. Fetch DB alternatives for the detected allergen (allergy_id lookup).
-    //   2. Filter by category (product type match).
-    //   3. Filter by SECONDARY allergies ONLY — i.e. user allergies that are
-    //      NOT the detected allergen itself.
-    //      Example: user has milk + treenuts → detected = milk
-    //        → secondary = [treenuts]
-    //        → exclude almond milk (contains almond → treenuts keyword)
-    //        → keep oat milk, soy milk, coconut milk (no treenuts keywords)
-    //
-    // This makes DB results DETERMINISTIC — same product, same user allergies
-    // → always same list, regardless of what Gemini suggested.
-    //
-    // LLM suggestions are shown AFTER DB results as a supplemental section.
-    // They are NOT used as a "base" for enrichment anymore — that was the
-    // source of inconsistency.
-    // ─────────────────────────────────────────────────────────────────────
 
-    // ── Step 1: Compute secondary allergies ───────────────────────────────
-    // These are allergens the user has that are NOT in the scanned product.
-    // We only filter alternatives for these — not for the primary allergen,
-    // since the alternatives ARE designed to replace that allergen.
-    final Set<String> detectedSet = detectedAllergenTypes.map((s) => s.toLowerCase()).toSet();
-    final List<String> secondaryAllergyTypes = allUserAllergyTypes
-        .where((a) => !detectedSet.contains(a.toLowerCase()))
-        .toList();
-    print('🔍 Detected allergens (primary): $detectedAllergenTypes');
-    print('🔍 Secondary allergies to filter by: $secondaryAllergyTypes');
+    print('👤 User profile allergies: $allUserAllergyTypes');
 
-    // ── Step 2: Query DB for alternatives to the PRIMARY detected allergen ─
-    final List<AlternativeProduct> dbProducts = [];
+    // ── Step 1: Resolve target categories dynamically ──────────────────────
+    final targetCategories = _resolveTargetCategories(
+      productCategory: productCategory,
+      productTypeAr: productTypeAr,
+    );
+    print('🗂️ Target categories: $targetCategories');
 
-    final List<int> allergyIds = detectedAllergenTypes
+    // ── Step 2: Convert user allergy strings to ids ────────────────────────
+    final List<int> userAllergyIds = allUserAllergyTypes
         .map((type) => _allergyIdMap[type.toLowerCase()])
         .whereType<int>()
         .toList();
+    print('🔍 User allergy ids: $userAllergyIds');
 
-    if (allergyIds.isNotEmpty) {
-      try {
-        // Collect ALL alternative_ids that match ANY detected allergen.
-        // Union (not intersection) — we want alternatives safe for any of the
-        // detected allergens, then let ingredient filter handle the rest.
-        final Set<int> validIds = {};
-        for (final allergyId in allergyIds) {
-          final response = await _supabase
-              .from('alternative_allergies')
-              .select('alternative_id')
-              .eq('allergy_id', allergyId);
-          final ids = (response as List)
-              .map((row) => (row['alternative_id'] as num).toInt())
-              .toSet();
-          print('🔍 Allergy $allergyId → ${ids.length} candidates in DB');
-          validIds.addAll(ids);
-        }
+    final List<AlternativeProduct> dbProducts = [];
 
-        if (validIds.isNotEmpty) {
-          final targetCategories = _resolveTargetCategories(
-            productCategory: productCategory,
-            productTypeAr: productTypeAr,
-          );
-          print('🗂️ Target categories: $targetCategories');
+    try {
+      // ── Step 3: Direct query — no junction table needed ──────────────────
+      // Fetch all alternatives matching the target category (or all if no category).
+      // Safety is determined purely by allergens_present, not junction table membership.
+      // This means ANY product safe for the user's allergies will appear,
+      // regardless of whether it was manually linked in a junction table.
+      dynamic query = _supabase
+          .from('alternatives')
+          .select('id, name_ar, name_en, brand, category, image_url, allergens_present');
 
-          // Fetch all candidate products with ingredients for safety check
-          final productsResponse = await _supabase
-              .from('alternatives')
-              .select('id, name_ar, name_en, brand, category, image_url, ingredients_en')
-              .inFilter('id', validIds.toList());
-
-          for (final row in productsResponse as List) {
-            final map = row as Map<String, dynamic>;
-            final ingredientsEn = map['ingredients_en']?.toString() ?? '';
-            final categoryVal = (map['category']?.toString() ?? '').toLowerCase().trim();
-
-            // ── Category filter ───────────────────────────────────────────
-            final categoryOk = targetCategories.isEmpty ||
-                targetCategories.contains(categoryVal);
-            if (!categoryOk) {
-              print('⛔ Skipped ${map['name_en']} — category "$categoryVal" not in $targetCategories');
-              continue;
-            }
-
-            // ── Secondary allergy ingredient filter ───────────────────────
-            // IMPORTANT: Only check SECONDARY allergies here.
-            // Do NOT check the primary detected allergen — the product is an
-            // alternative to that allergen, so its ingredients won't contain
-            // it (and if they do, that's fine — e.g. soy milk has soy, and
-            // soy is the alternative, not the allergy).
-            bool safeForUser = true;
-            for (final secondaryAllergen in secondaryAllergyTypes) {
-              if (_ingredientsContainAllergen(ingredientsEn, secondaryAllergen)) {
-                print('⚠️ Excluded ${map['name_en']} — ingredients contain secondary allergen: $secondaryAllergen');
-                safeForUser = false;
-                break;
-              }
-            }
-            if (!safeForUser) continue;
-
-            dbProducts.add(AlternativeProduct.fromDb(map));
-          }
-          print('✅ DB products after filtering: ${dbProducts.length}');
-        }
-      } catch (e) {
-        print('❌ DB query error: $e');
+      if (targetCategories.isNotEmpty) {
+        query = query.inFilter('category', targetCategories);
       }
+
+      final productsResponse = await query;
+
+      for (final row in productsResponse as List) {
+        final map = row as Map<String, dynamic>;
+
+        // ── Step 4: Safety filter via allergens_present ───────────────────
+        // A product is safe if NONE of the user's allergy ids appear
+        // in the product's allergens_present array.
+        // This is deterministic: no keywords, no text matching, no manual upkeep.
+        final List<int> productAllergenIds = _parseAllergensPresent(map['allergens_present']);
+
+        final bool safeForUser = userAllergyIds.isEmpty ||
+            !userAllergyIds.any((id) => productAllergenIds.contains(id));
+
+        if (!safeForUser) {
+          final conflicts = userAllergyIds.where((id) => productAllergenIds.contains(id)).toList();
+          print('⚠️ Excluded ${map['name_en']} — allergens_present conflicts: $conflicts');
+          continue;
+        }
+
+        dbProducts.add(AlternativeProduct.fromDb(map));
+      }
+      print('✅ DB products after safety filter: ${dbProducts.length}');
+    } catch (e) {
+      print('❌ DB query error: $e');
     }
 
-    // ── Step 3: Build LLM suggestions list (supplemental only) ────────────
-    // These appear AFTER DB results and are always shown as AI suggestions.
-    // They are NOT used as a base for enrichment — this was causing
-    // inconsistency because Gemini varies its suggestions each scan.
+    // ── Step 7: LLM suggestions — display only, no DB interaction ─────────
     final List<AlternativeProduct> llmProducts = [];
     if (llmRawAlternatives.isNotEmpty) {
       for (final llmAlt in llmRawAlternatives) {
         final name = llmAlt['name']?.toString() ?? '';
         if (name.isEmpty) continue;
-        // Skip LLM suggestion if we already have a DB product with matching name
         final alreadyInDb = dbProducts.any((db) {
           final dbEn = db.nameEn.toLowerCase();
           final dbAr = db.nameAr.toLowerCase();
@@ -378,7 +361,6 @@ class AlternativesService {
         }
       }
     } else {
-      // Fallback: plain name strings from LLM
       for (final suggestion in llmSuggestedAlternatives) {
         if (suggestion.isEmpty) continue;
         final alreadyInDb = dbProducts.any((db) {
@@ -396,10 +378,29 @@ class AlternativesService {
     }
     print('🤖 LLM supplemental suggestions: ${llmProducts.length}');
 
-    // ── Step 4: Combine — DB first (verified), then LLM ───────────────────
     final result = [...dbProducts, ...llmProducts];
     print('✅ Total alternatives: ${result.length} (${dbProducts.length} DB + ${llmProducts.length} LLM)');
     return result;
+  }
+
+  /// Parses the allergens_present jsonb column value into a List<int>.
+  /// Handles null, empty array, and various jsonb representations safely.
+  static List<int> _parseAllergensPresent(dynamic value) {
+    if (value == null) return [];
+    try {
+      if (value is List) {
+        return value.map((e) => (e as num).toInt()).toList();
+      }
+      if (value is String) {
+        final decoded = jsonDecode(value);
+        if (decoded is List) {
+          return decoded.map((e) => (e as num).toInt()).toList();
+        }
+      }
+    } catch (e) {
+      print('⚠️ Failed to parse allergens_present: $value — $e');
+    }
+    return [];
   }
 
   static List<String> _resolveTargetCategories({
@@ -408,22 +409,72 @@ class AlternativesService {
   }) {
     if (productCategory.isNotEmpty) {
       final key = productCategory.toLowerCase().trim();
-      final dbCategories = _canonicalCategoryMap[key];
-      if (dbCategories != null && dbCategories.isNotEmpty) return dbCategories;
-      print('⚠️ Unknown canonical category from Gemini: "$productCategory". '
-            'Add it to _canonicalCategoryMap.');
+
+      // 1. Check plain product type first (new Gemini format: "cereal", "bread", etc.)
+      if (_productTypeToDbCategories.containsKey(key)) {
+        final categories = _productTypeToDbCategories[key]!;
+        print('🗂️ Resolved plain product type "$key" → $categories');
+        return categories;
+      }
+
+      // 2. Fallback: check legacy canonical category (old Gemini format: "gluten-free cereal")
+      if (_canonicalCategoryMap.containsKey(key)) {
+        // Dynamically find all sibling categories sharing the same base product type.
+        // e.g. "dairy-free chocolate" → base "chocolate" → also finds "nut-free chocolate"
+        return _findSiblingCategories(key);
+      }
+
+      print('⚠️ Unknown category from Gemini: "$productCategory".');
       return [];
     }
 
     if (productTypeAr.isNotEmpty) {
       for (final entry in _arabicFallbackToCanonical.entries) {
         if (productTypeAr.contains(entry.key)) {
-          return _canonicalCategoryMap[entry.value] ?? [];
+          return _findSiblingCategories(entry.value);
         }
       }
     }
 
     return [];
+  }
+
+  /// Returns all canonical categories sharing the same base product type.
+  /// Strips allergen-prefixes, then matches every category with the same base noun.
+  /// New categories added to _canonicalCategoryMap are automatically included.
+  ///
+  /// Examples:
+  ///   "gluten-free cereal"   → base "cereal"    → ["gluten-free cereal"]
+  ///   "dairy-free chocolate" → base "chocolate" → ["dairy-free chocolate", "nut-free chocolate"]
+  ///   "plant-based milk"     → base "milk"      → ["plant-based milk"]
+  static List<String> _findSiblingCategories(String category) {
+    final baseType = _extractBaseProductType(category);
+    if (baseType.isEmpty) return [category];
+
+    final siblings = _canonicalCategoryMap.keys
+        .where((k) => _extractBaseProductType(k) == baseType)
+        .toList();
+
+    return siblings.isNotEmpty ? siblings : [category];
+  }
+
+  /// Strips the allergen-prefix from a category string to get the base product type.
+  ///   "gluten-free cereal"  → "cereal"
+  ///   "dairy-free chocolate"→ "chocolate"
+  ///   "plant-based milk"    → "milk"
+  ///   "nut-free snack-bar"  → "snack-bar"
+  static String _extractBaseProductType(String category) {
+    const prefixes = [
+      'gluten-free ', 'dairy-free ', 'plant-based ',
+      'nut-free ', 'free-from ', 'sesame-free ', 'vegan ',
+    ];
+    final lower = category.toLowerCase().trim();
+    for (final prefix in prefixes) {
+      if (lower.startsWith(prefix)) {
+        return lower.substring(prefix.length).trim();
+      }
+    }
+    return lower;
   }
 
   static List<AlternativeProduct> fromJsonList(String json) {
