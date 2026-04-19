@@ -353,7 +353,7 @@ class AlternativesService {
     // but product_type_ar contains a recognisable Arabic keyword.
     // Also handles spelling variants: "زبادى" / "زبادة" still contain "زبادي"
     // because _arabicFallbackToCanonical uses contains() not exact match.
-    if (dbProducts.isEmpty && productTypeAr.isNotEmpty) {
+    if (dbProducts.isEmpty && productTypeAr.isNotEmpty&&targetCategories.isEmpty) {
       print('🔄 DB returned 0 — retrying with Arabic fallback for "$productTypeAr"');
       try {
         final fallbackCategories = _resolveFromArabicOnly(productTypeAr);
