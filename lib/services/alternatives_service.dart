@@ -86,6 +86,10 @@ class AlternativesService {
     'lupin': 13, 'mollusks': 14,
   };
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // CANONICAL CATEGORY MAP
+  // Used as a lookup for legacy Gemini responses and sibling resolution.
+  // ─────────────────────────────────────────────────────────────────────────
   static const Map<String, List<String>> _canonicalCategoryMap = {
     'plant-based milk'           : ['plant-based milk'],
     'plant-based yogurt'         : ['plant-based yogurt'],
@@ -131,81 +135,12 @@ class AlternativesService {
     'free-from sauce'            : ['free-from sauce'],
   };
 
-  static const Map<String, String> _arabicFallbackToCanonical = {
-    'حليب'           : 'plant-based milk',
-    'مشروب حليب'     : 'plant-based milk',
-    'زبادي'          : 'plant-based yogurt',
-    'لبن رائب'        : 'plant-based yogurt',
-    'لبن'            : 'plant-based yogurt',
-    'لبنة'           : 'plant-based labneh',
-    'جبن'            : 'plant-based cheese',
-    'جبنة'           : 'plant-based cheese',
-    'زبدة'           : 'plant-based butter',
-    'مارجرين'        : 'plant-based butter',
-    'سمن'            : 'plant-based ghee',
-    'كريمة'          : 'dairy-free cream',
-    'كريم'           : 'dairy-free cream',
-    'آيس كريم'       : 'dairy-free ice cream',
-    'ايس كريم'       : 'dairy-free ice cream',
-    'جيلاتو'         : 'dairy-free ice cream',
-    'ميلك شيك'       : 'dairy-free milkshake',
-    'كاسترد'         : 'dairy-free custard',
-    'شوكولاتة'       : 'dairy-free chocolate',
-    'سبريد شوكولاتة' : 'dairy-free chocolate-spread',
-    'نوتيلا'         : 'dairy-free chocolate-spread',
-    'حلوى'           : 'free-from candy',
-    'جيلي'           : 'free-from candy',
-    'حلاوة'          : 'free-from halawa',
-    'خبز'            : 'gluten-free bread',
-    'توست'           : 'gluten-free bread',
-    'باغيت'          : 'gluten-free bread',
-    'صمون'           : 'gluten-free bread',
-    'خبز عربي'       : 'gluten-free pita',
-    'خبز مسطح'       : 'gluten-free pita',
-    'كرواسان'        : 'gluten-free pastry',
-    'باستري'         : 'gluten-free pastry',
-    'كيك'            : 'dairy-free cake',
-    'مافن'           : 'dairy-free cake',
-    'كب كيك'         : 'dairy-free cake',
-    'براونيز'        : 'dairy-free cake',
-    'بان كيك'        : 'free-from pancake-mix',
-    'وافل'           : 'free-from pancake-mix',
-    'معكرونة'        : 'gluten-free pasta',
-    'باستا'          : 'gluten-free pasta',
-    'نودلز'          : 'gluten-free noodles',
-    'شعرية'          : 'gluten-free noodles',
-    'حبوب إفطار'     : 'gluten-free cereal',
-    'كورن فليكس'     : 'gluten-free cereal',
-    'مسلي'           : 'gluten-free cereal',
-    'شوفان'          : 'gluten-free oats',
-    'غرانولا'        : 'gluten-free granola',
-    'دقيق'           : 'gluten-free flour-mix',
-    'بسكويت'         : 'gluten-free biscuit',
-    'كوكيز'          : 'gluten-free biscuit',
-    'ويفر'           : 'gluten-free biscuit',
-    'كراكر'          : 'gluten-free biscuit',
-    'شيبس'           : 'free-from chips',
-    'بار طاقة'       : 'nut-free snack-bar',
-    'فشار'           : 'free-from popcorn',
-    'مايونيز'        : 'vegan mayo',
-    'زبدة فول'       : 'nut-free peanut-butter-alt',
-    'طحينة'          : 'sesame-free tahini-alt',
-    'صوص سلطة'       : 'free-from salad-dressing',
-    'صلصة صويا'      : 'gluten-free soy-sauce',
-    'بيستو'          : 'nut-free pesto',
-    'كريمر'          : 'dairy-free coffee-creamer',
-    'مبيض'           : 'dairy-free coffee-creamer',
-    'شوكولاتة ساخنة' : 'dairy-free hot-chocolate',
-    'بروتين'         : 'free-from protein-shake',
-    'كريمة طبخ'      : 'dairy-free cooking-cream',
-    'شوربة'          : 'free-from soup',
-    'صوص'            : 'free-from sauce',
-  };
-
-  // Maps plain product types (returned by Gemini) to all matching DB categories.
-  // This decouples product identification from allergen filtering.
-  // Gemini always returns e.g. "cereal" regardless of the user's allergy,
-  // and this table handles the DB category translation deterministically.
+  // ─────────────────────────────────────────────────────────────────────────
+  // PRODUCT TYPE → DB CATEGORIES
+  // Gemini returns a plain product type (e.g. "cereal").
+  // This map translates it to all matching DB category values.
+  // Separates product identification from allergen filtering completely.
+  // ─────────────────────────────────────────────────────────────────────────
   static const Map<String, List<String>> _productTypeToDbCategories = {
     'milk'              : ['plant-based milk'],
     'yogurt'            : ['plant-based yogurt'],
@@ -251,28 +186,102 @@ class AlternativesService {
   };
 
   // ─────────────────────────────────────────────────────────────────────────
-  // NEW ARCHITECTURE — allergens_present column approach
+  // ARABIC FALLBACK MAP
+  // Used when Gemini returns empty product_category.
+  // Maps Arabic keyword → plain product type (same values as _productTypeToDbCategories keys).
+  // FIX: values are now plain types ('milk', 'cereal') not old canonical strings
+  //      ('plant-based milk', 'gluten-free cereal') so they route through
+  //      _productTypeToDbCategories consistently with the primary path.
+  // ─────────────────────────────────────────────────────────────────────────
+  static const Map<String, String> _arabicFallbackToCanonical = {
+    'حليب'           : 'milk',
+    'مشروب حليب'     : 'milk',
+    'زبادي'          : 'yogurt',
+    'لبن رائب'        : 'yogurt',
+    'لبن'            : 'yogurt',
+    'لبنة'           : 'labneh',
+    'جبن'            : 'cheese',
+    'جبنة'           : 'cheese',
+    'زبدة'           : 'butter',
+    'مارجرين'        : 'butter',
+    'سمن'            : 'ghee',
+    'كريمة'          : 'cream',
+    'كريم'           : 'cream',
+    'آيس كريم'       : 'ice-cream',
+    'ايس كريم'       : 'ice-cream',
+    'جيلاتو'         : 'ice-cream',
+    'ميلك شيك'       : 'milkshake',
+    'كاسترد'         : 'custard',
+    'شوكولاتة'       : 'chocolate',
+    'سبريد شوكولاتة' : 'chocolate-spread',
+    'نوتيلا'         : 'chocolate-spread',
+    'حلوى'           : 'candy',
+    'جيلي'           : 'candy',
+    'حلاوة'          : 'halawa',
+    'خبز'            : 'bread',
+    'توست'           : 'bread',
+    'باغيت'          : 'bread',
+    'صمون'           : 'bread',
+    'خبز عربي'       : 'pita',
+    'خبز مسطح'       : 'pita',
+    'كرواسان'        : 'pastry',
+    'باستري'         : 'pastry',
+    'كيك'            : 'cake',
+    'مافن'           : 'cake',
+    'كب كيك'         : 'cake',
+    'براونيز'        : 'cake',
+    'بان كيك'        : 'pancake-mix',
+    'وافل'           : 'pancake-mix',
+    'معكرونة'        : 'pasta',
+    'باستا'          : 'pasta',
+    'نودلز'          : 'noodles',
+    'شعرية'          : 'noodles',
+    'حبوب إفطار'     : 'cereal',
+    'كورن فليكس'     : 'cereal',
+    'مسلي'           : 'cereal',
+    'شوفان'          : 'oats',
+    'غرانولا'        : 'granola',
+    'دقيق'           : 'flour-mix',
+    'بسكويت'         : 'biscuit',
+    'كوكيز'          : 'biscuit',
+    'ويفر'           : 'biscuit',
+    'كراكر'          : 'biscuit',
+    'شيبس'           : 'chips',
+    'بار طاقة'       : 'snack-bar',
+    'فشار'           : 'popcorn',
+    'مايونيز'        : 'mayo',
+    'زبدة فول'       : 'peanut-butter-alt',
+    'طحينة'          : 'tahini-alt',
+    'صوص سلطة'       : 'salad-dressing',
+    'صلصة صويا'      : 'soy-sauce',
+    'بيستو'          : 'pesto',
+    'كريمر'          : 'coffee-creamer',
+    'مبيض'           : 'coffee-creamer',
+    'شوكولاتة ساخنة' : 'hot-chocolate',
+    'بروتين'         : 'protein-shake',
+    'كريمة طبخ'      : 'cooking-cream',
+    'شوربة'          : 'soup',
+    'صوص'            : 'sauce',
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // ARCHITECTURE SUMMARY
   // ─────────────────────────────────────────────────────────────────────────
   //
-  // PREVIOUSLY: keyword-based text matching on ingredients_en
-  //   → brittle, patchy, language-dependent
-  //   → 'milk' keyword matched 'soy milk', 'oat milk', 'almond milk'
-  //   → required constant patching
+  // Q1: What type of product is this?
+  //     Gemini returns plain type: "cereal", "milk", "chocolate"
+  //     (ignores user allergies — pure product identification)
   //
-  // NOW: structured integer array in allergens_present DB column
-  //   → each product has a jsonb column: allergens_present = [1, 7, 8]
-  //   → contains allergy_id for every allergen IN the product
-  //     (confirmed ingredients AND may contain traces — treated equally)
-  //   → filter: exclude product if any user allergy id is in allergens_present
-  //   → deterministic, language-independent, zero edge cases
-  //   → adding new allergens never breaks existing logic
+  // Q2: Which DB categories match this type?
+  //     _productTypeToDbCategories["cereal"] → ['gluten-free cereal']
+  //     _productTypeToDbCategories["chocolate"] → ['dairy-free chocolate', 'nut-free chocolate']
   //
-  // FLOW:
-  //   1. Junction table lookup: find all candidate products for user's allergies
-  //   2. Category filter: keep only products matching scanned product type
-  //   3. Safety filter: exclude any candidate whose allergens_present
-  //      intersects with user's allergy ids
-  //   4. LLM suggestions appended as supplemental section (display only)
+  // Q3: Is each DB result safe for this user?
+  //     allergens_present [8] ∩ user_allergy_ids [1, 8] = [8] → EXCLUDED
+  //     allergens_present []  ∩ user_allergy_ids [1, 8] = []  → SAFE
+  //
+  // No junction table. No keyword matching. No text parsing.
+  // Pure integer set intersection — deterministic and language-independent.
   // ─────────────────────────────────────────────────────────────────────────
 
   static Future<List<AlternativeProduct>> getAlternatives({
@@ -286,7 +295,7 @@ class AlternativesService {
 
     print('👤 User profile allergies: $allUserAllergyTypes');
 
-    // ── Step 1: Resolve target categories dynamically ──────────────────────
+    // ── Step 1: Resolve target DB categories from product type ─────────────
     final targetCategories = _resolveTargetCategories(
       productCategory: productCategory,
       productTypeAr: productTypeAr,
@@ -303,11 +312,9 @@ class AlternativesService {
     final List<AlternativeProduct> dbProducts = [];
 
     try {
-      // ── Step 3: Direct query — no junction table needed ──────────────────
-      // Fetch all alternatives matching the target category (or all if no category).
-      // Safety is determined purely by allergens_present, not junction table membership.
-      // This means ANY product safe for the user's allergies will appear,
-      // regardless of whether it was manually linked in a junction table.
+      // ── Step 3: Direct category query — no junction table ─────────────────
+      // Fetch all alternatives matching the target categories.
+      // Safety is determined entirely by allergens_present, not junction rows.
       dynamic query = _supabase
           .from('alternatives')
           .select('id, name_ar, name_en, brand, category, image_url, allergens_present');
@@ -318,20 +325,18 @@ class AlternativesService {
 
       final productsResponse = await query;
 
+      // ── Step 4: Safety filter — pure integer intersection ─────────────────
       for (final row in productsResponse as List) {
         final map = row as Map<String, dynamic>;
-
-        // ── Step 4: Safety filter via allergens_present ───────────────────
-        // A product is safe if NONE of the user's allergy ids appear
-        // in the product's allergens_present array.
-        // This is deterministic: no keywords, no text matching, no manual upkeep.
         final List<int> productAllergenIds = _parseAllergensPresent(map['allergens_present']);
 
         final bool safeForUser = userAllergyIds.isEmpty ||
             !userAllergyIds.any((id) => productAllergenIds.contains(id));
 
         if (!safeForUser) {
-          final conflicts = userAllergyIds.where((id) => productAllergenIds.contains(id)).toList();
+          final conflicts = userAllergyIds
+              .where((id) => productAllergenIds.contains(id))
+              .toList();
           print('⚠️ Excluded ${map['name_en']} — allergens_present conflicts: $conflicts');
           continue;
         }
@@ -343,7 +348,46 @@ class AlternativesService {
       print('❌ DB query error: $e');
     }
 
-    // ── Step 7: LLM suggestions — display only, no DB interaction ─────────
+    // ── Step 4b: Arabic fallback retry — if DB returned 0 results ─────────
+    // Handles cases where Gemini returned empty/wrong product_category
+    // but product_type_ar contains a recognisable Arabic keyword.
+    // Also handles spelling variants: "زبادى" / "زبادة" still contain "زبادي"
+    // because _arabicFallbackToCanonical uses contains() not exact match.
+    if (dbProducts.isEmpty && productTypeAr.isNotEmpty) {
+      print('🔄 DB returned 0 — retrying with Arabic fallback for "$productTypeAr"');
+      try {
+        final fallbackCategories = _resolveFromArabicOnly(productTypeAr);
+        if (fallbackCategories.isNotEmpty) {
+          print('🗂️ Arabic fallback retry categories: $fallbackCategories');
+          final fallbackResponse = await _supabase
+              .from('alternatives')
+              .select('id, name_ar, name_en, brand, category, image_url, allergens_present')
+              .inFilter('category', fallbackCategories);
+
+          for (final row in fallbackResponse as List) {
+            final map = row as Map<String, dynamic>;
+            final List<int> productAllergenIds = _parseAllergensPresent(map['allergens_present']);
+            final bool safeForUser = userAllergyIds.isEmpty ||
+                !userAllergyIds.any((id) => productAllergenIds.contains(id));
+            if (!safeForUser) {
+              final conflicts = userAllergyIds
+                  .where((id) => productAllergenIds.contains(id))
+                  .toList();
+              print('⚠️ Fallback excluded ${map['name_en']} — conflicts: $conflicts');
+              continue;
+            }
+            dbProducts.add(AlternativeProduct.fromDb(map));
+          }
+          print('✅ DB products after Arabic fallback retry: ${dbProducts.length}');
+        } else {
+          print('⚠️ Arabic fallback found no matching categories for "$productTypeAr"');
+        }
+      } catch (e) {
+        print('❌ Arabic fallback retry error: $e');
+      }
+    }
+
+    // ── Step 5: LLM suggestions — supplemental display only ───────────────
     final List<AlternativeProduct> llmProducts = [];
     if (llmRawAlternatives.isNotEmpty) {
       for (final llmAlt in llmRawAlternatives) {
@@ -356,9 +400,7 @@ class AlternativesService {
           return dbEn.contains(llmLower) || llmLower.contains(dbEn) ||
                  dbAr.contains(llmLower) || llmLower.contains(dbAr);
         });
-        if (!alreadyInDb) {
-          llmProducts.add(AlternativeProduct.fromLlm(llmAlt));
-        }
+        if (!alreadyInDb) llmProducts.add(AlternativeProduct.fromLlm(llmAlt));
       }
     } else {
       for (final suggestion in llmSuggestedAlternatives) {
@@ -383,26 +425,14 @@ class AlternativesService {
     return result;
   }
 
-  /// Parses the allergens_present jsonb column value into a List<int>.
-  /// Handles null, empty array, and various jsonb representations safely.
-  static List<int> _parseAllergensPresent(dynamic value) {
-    if (value == null) return [];
-    try {
-      if (value is List) {
-        return value.map((e) => (e as num).toInt()).toList();
-      }
-      if (value is String) {
-        final decoded = jsonDecode(value);
-        if (decoded is List) {
-          return decoded.map((e) => (e as num).toInt()).toList();
-        }
-      }
-    } catch (e) {
-      print('⚠️ Failed to parse allergens_present: $value — $e');
-    }
-    return [];
-  }
-
+  // ─────────────────────────────────────────────────────────────────────────
+  // CATEGORY RESOLUTION
+  // Priority:
+  //   1. Plain type from Gemini ("cereal") → _productTypeToDbCategories
+  //   2. Legacy type from Gemini ("gluten-free cereal") → _findSiblingCategories
+  //   3. Arabic fallback from product_type_ar → _arabicFallbackToCanonical
+  //      → plain type → _productTypeToDbCategories  (FIX: now consistent)
+  // ─────────────────────────────────────────────────────────────────────────
   static List<String> _resolveTargetCategories({
     required String productCategory,
     required String productTypeAr,
@@ -410,28 +440,37 @@ class AlternativesService {
     if (productCategory.isNotEmpty) {
       final key = productCategory.toLowerCase().trim();
 
-      // 1. Check plain product type first (new Gemini format: "cereal", "bread", etc.)
+      // 1. Plain product type (new Gemini format: "cereal", "milk" etc.)
       if (_productTypeToDbCategories.containsKey(key)) {
         final categories = _productTypeToDbCategories[key]!;
         print('🗂️ Resolved plain product type "$key" → $categories');
         return categories;
       }
 
-      // 2. Fallback: check legacy canonical category (old Gemini format: "gluten-free cereal")
+      // 2. Legacy canonical category (old Gemini format: "gluten-free cereal")
+      //    Find all DB categories sharing the same base product type.
       if (_canonicalCategoryMap.containsKey(key)) {
-        // Dynamically find all sibling categories sharing the same base product type.
-        // e.g. "dairy-free chocolate" → base "chocolate" → also finds "nut-free chocolate"
-        return _findSiblingCategories(key);
+        final siblings = _findSiblingCategories(key);
+        print('🗂️ Resolved legacy category "$key" → siblings $siblings');
+        return siblings;
       }
 
       print('⚠️ Unknown category from Gemini: "$productCategory".');
       return [];
     }
 
+    // 3. Arabic fallback — now correctly routes through _productTypeToDbCategories
+    //    FIX: _arabicFallbackToCanonical values are now plain types ('milk', 'cereal')
+    //         so this path is consistent with path 1 above.
     if (productTypeAr.isNotEmpty) {
       for (final entry in _arabicFallbackToCanonical.entries) {
         if (productTypeAr.contains(entry.key)) {
-          return _findSiblingCategories(entry.value);
+          final plainType = entry.value; // e.g. 'milk', 'cereal'
+          if (_productTypeToDbCategories.containsKey(plainType)) {
+            final categories = _productTypeToDbCategories[plainType]!;
+            print('🗂️ Resolved Arabic fallback "${entry.key}" → "$plainType" → $categories');
+            return categories;
+          }
         }
       }
     }
@@ -439,9 +478,23 @@ class AlternativesService {
     return [];
   }
 
-  /// Returns all canonical categories sharing the same base product type.
-  /// Strips allergen-prefixes, then matches every category with the same base noun.
-  /// New categories added to _canonicalCategoryMap are automatically included.
+  /// Same as the Arabic path in _resolveTargetCategories but standalone,
+  /// so Step 4b can call it independently as a retry without re-running Gemini.
+  static List<String> _resolveFromArabicOnly(String productTypeAr) {
+    for (final entry in _arabicFallbackToCanonical.entries) {
+      if (productTypeAr.contains(entry.key)) {
+        final plainType = entry.value;
+        if (_productTypeToDbCategories.containsKey(plainType)) {
+          return _productTypeToDbCategories[plainType]!;
+        }
+      }
+    }
+    return [];
+  }
+
+  /// Returns all canonical DB categories sharing the same base product type.
+  /// Strips allergen-prefix, then matches every category with the same base noun.
+  /// Automatically includes new categories added to _canonicalCategoryMap.
   ///
   /// Examples:
   ///   "gluten-free cereal"   → base "cereal"    → ["gluten-free cereal"]
@@ -458,11 +511,11 @@ class AlternativesService {
     return siblings.isNotEmpty ? siblings : [category];
   }
 
-  /// Strips the allergen-prefix from a category string to get the base product type.
-  ///   "gluten-free cereal"  → "cereal"
-  ///   "dairy-free chocolate"→ "chocolate"
-  ///   "plant-based milk"    → "milk"
-  ///   "nut-free snack-bar"  → "snack-bar"
+  /// Strips allergen-prefix from a category string to get the base product type.
+  ///   "gluten-free cereal"   → "cereal"
+  ///   "dairy-free chocolate" → "chocolate"
+  ///   "plant-based milk"     → "milk"
+  ///   "nut-free snack-bar"   → "snack-bar"
   static String _extractBaseProductType(String category) {
     const prefixes = [
       'gluten-free ', 'dairy-free ', 'plant-based ',
@@ -475,6 +528,26 @@ class AlternativesService {
       }
     }
     return lower;
+  }
+
+  /// Parses allergens_present jsonb column into List<int>.
+  /// Handles null, empty, List, and String representations safely.
+  static List<int> _parseAllergensPresent(dynamic value) {
+    if (value == null) return [];
+    try {
+      if (value is List) {
+        return value.map((e) => (e as num).toInt()).toList();
+      }
+      if (value is String) {
+        final decoded = jsonDecode(value);
+        if (decoded is List) {
+          return decoded.map((e) => (e as num).toInt()).toList();
+        }
+      }
+    } catch (e) {
+      print('⚠️ Failed to parse allergens_present: $value — $e');
+    }
+    return [];
   }
 
   static List<AlternativeProduct> fromJsonList(String json) {
