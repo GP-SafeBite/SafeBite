@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 class GeminiService {
-  static const String _apiKey = "AIzaSyC4B3EAdDJh4Oge_qhJwzkyRLZw0zNMwq8";
+  static const String _apiKey = "AIzaSyCaONW2r35n8FYWBffo4cSNDw10Ax7ZvmU";
   final String _baseUrl =
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
@@ -212,6 +212,16 @@ ${userAllergies.isEmpty ? 'لا توجد حساسيات محددة' : userAllerg
 - is_safe_for_user: false إذا وُجد أي مسبب حساسية من قائمة المستخدم.
 - is_safe_for_user: true إذا لم يوجد أي تطابق.
 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+حقل confidence:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- "high" → الصورة واضحة والمكونات مقروءة بوضوح
+- "medium" → الصورة مقبولة لكن بعض المكونات غير واضحة
+- "low" → الصورة غير واضحة أو مظلمة أو لا تحتوي على قائمة مكونات مرئية
+  في حالة low: أعد جميع الحقول فارغة، product_type_ar = ""، product_category = ""،
+  detected_allergens = []، is_safe_for_user = true، suggested_alternatives = []
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 المخرجات JSON فقط بدون أي شرح وبدون علامات التنصيص:
 {
   "product_type_ar": "",

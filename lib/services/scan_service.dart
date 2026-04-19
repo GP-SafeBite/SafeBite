@@ -146,9 +146,26 @@ class ScanService {
       // is_safe_for_user is ALWAYS present in a valid response (true or false).
       // Empty detected_allergens is normal for a safe product — NOT a failure.
       final bool aiProcessedImage = aiResult.containsKey('is_safe_for_user');
-      if (!aiProcessedImage) {
-        return ScanResult(success: false, message: "ما تم التعرف على المكونات");
-      }
+if (!aiProcessedImage) {
+  return ScanResult(success: false, message: "لم يتم التعرف على المكونات");
+}
+
+// Guard against unreadable/dark images.
+// A valid scan always has at least one of: product type, ingredients, or allergens.
+// If all are empty, Gemini couldn't read the image — fail safely.
+final String productType = aiResult["product_type_ar"]?.toString() ?? '';
+final String confidence = aiResult["confidence"]?.toString() ?? 'low';
+final bool hasAnyContent = geminiIngredients.isNotEmpty ||
+    detectedAllergenTypes.isNotEmpty ||
+    traceWarnings.isNotEmpty ||
+    productType.isNotEmpty;
+
+if (!hasAnyContent) {
+  return ScanResult(
+    success: false,
+    message: "الصورة غير واضحة، يرجى التصوير في إضاءة جيدة وأن تكون قائمة المكونات ظاهرة بوضوح",
+  );
+}
 
       // ── Allergen detection from actual ingredients ─────────────────────
       final List<String> detectedAllergens = [];
