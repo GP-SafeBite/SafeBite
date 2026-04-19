@@ -12,10 +12,9 @@ class LocalDB {
 
   static Future<Database> _initDatabase() async {
     String path = join(await getDatabasesPath(), 'safebite_local.db');
-
     return await openDatabase(
       path,
-      version: 2, // 🔴 bumped from 1 to 2
+      version: 6,
       onCreate: (Database db, int version) async {
         await db.execute('''
           CREATE TABLE current_user (
@@ -26,7 +25,6 @@ class LocalDB {
             created_at TEXT
           )
         ''');
-
         await db.execute('''
           CREATE TABLE cached_allergies (
             allergy_id INTEGER PRIMARY KEY,
@@ -34,7 +32,6 @@ class LocalDB {
             name_ar TEXT NOT NULL
           )
         ''');
-
         await db.execute('''
           CREATE TABLE user_allergies (
             user_id TEXT NOT NULL,
@@ -42,38 +39,57 @@ class LocalDB {
             PRIMARY KEY (user_id, allergy_id)
           )
         ''');
-
         await db.execute('''
           CREATE TABLE scan_history (
             history_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            supabase_id TEXT,
             user_id TEXT NOT NULL,
-            product_id TEXT NOT NULL,
             product_name TEXT,
-            product_image_url TEXT,
+            ingredients_text TEXT,
             found_allergens TEXT,
+            alternatives_json TEXT,
             safety_status TEXT NOT NULL,
+            local_image_path TEXT,
+            remote_image_url TEXT,
             scan_date TEXT NOT NULL
           )
         ''');
       },
-      // 🔴 migration: adds photo_url to existing installs
       onUpgrade: (Database db, int oldVersion, int newVersion) async {
         if (oldVersion < 2) {
-          await db.execute(
-            'ALTER TABLE current_user ADD COLUMN photo_url TEXT'
-          );
+          await db.execute('ALTER TABLE current_user ADD COLUMN photo_url TEXT');
+        }
+        if (oldVersion < 4) {
+          await db.execute('DROP TABLE IF EXISTS scan_history');
+          await db.execute('''
+            CREATE TABLE scan_history (
+              history_id INTEGER PRIMARY KEY AUTOINCREMENT,
+              user_id TEXT NOT NULL,
+              product_name TEXT,
+              ingredients_text TEXT,
+              found_allergens TEXT,
+              safety_status TEXT NOT NULL,
+              local_image_path TEXT,
+              scan_date TEXT NOT NULL
+            )
+          ''');
+        }
+        if (oldVersion < 5) {
+          try { await db.execute('ALTER TABLE scan_history ADD COLUMN remote_image_url TEXT'); } catch (_) {}
+          try { await db.execute('ALTER TABLE scan_history ADD COLUMN alternatives_json TEXT'); } catch (_) {}
+        }
+        if (oldVersion < 6) {
+          try { await db.execute('ALTER TABLE scan_history ADD COLUMN supabase_id TEXT'); } catch (_) {}
         }
       },
     );
   }
 
-  // ── User operations ──────────────────────────
-
   static Future<void> saveUser({
     required String userId,
     required String email,
     required String name,
-    String? photoUrl, // 🔴 added
+    String? photoUrl,
   }) async {
     final db = await getDatabase();
     await db.delete('current_user');
@@ -81,7 +97,7 @@ class LocalDB {
       'user_id': userId,
       'email': email,
       'name': name,
-      'photo_url': photoUrl ?? '', // 🔴 added
+      'photo_url': photoUrl ?? '',
       'created_at': DateTime.now().toIso8601String(),
     });
   }
@@ -93,63 +109,66 @@ class LocalDB {
     return result.first;
   }
 
-  // ── Allergy operations ────────────────────────
+  static Future<void> updateUserPhoto({
+    required String userId,
+    required String photoUrl,
+  }) async {
+    final db = await getDatabase();
+    await db.update(
+      'current_user',
+      {'photo_url': photoUrl},
+      where: 'user_id = ?',
+      whereArgs: [userId],
+    );
+  }
 
   static Future<void> saveUserAllergies({
     required String userId,
     required List<int> allergyIds,
   }) async {
     final db = await getDatabase();
-    await db.delete(
-      'user_allergies',
-      where: 'user_id = ?',
-      whereArgs: [userId],
-    );
+    await db.delete('user_allergies', where: 'user_id = ?', whereArgs: [userId]);
     for (final allergyId in allergyIds) {
-      await db.insert('user_allergies', {
-        'user_id': userId,
-        'allergy_id': allergyId,
-      });
+      await db.insert('user_allergies', {'user_id': userId, 'allergy_id': allergyId});
     }
   }
 
-  static Future<List<int>> getUserAllergies({
-    required String userId,
-  }) async {
+  static Future<List<int>> getUserAllergies({required String userId}) async {
     final db = await getDatabase();
-    final result = await db.query(
-      'user_allergies',
-      where: 'user_id = ?',
-      whereArgs: [userId],
-    );
+    final result = await db.query('user_allergies', where: 'user_id = ?', whereArgs: [userId]);
     return result.map((row) => row['allergy_id'] as int).toList();
   }
 
-  // ── Scan History operations ───────────────────
-
+  // ✅ FIX: accept explicit scanDate so SQLite and Supabase store the SAME timestamp
   static Future<void> saveScanHistory({
     required String userId,
-    required String productId,
     required String productName,
-    required String productImageUrl,
+    required String ingredientsText,
     required String foundAllergens,
     required String safetyStatus,
+    String? localImagePath,
+    String? remoteImageUrl,
+    String? alternativesJson,
+    String? supabaseId,
+    String? scanDate, // ✅ NEW — caller must pass the same date used for Supabase
   }) async {
     final db = await getDatabase();
     await db.insert('scan_history', {
+      'supabase_id': supabaseId ?? '',
       'user_id': userId,
-      'product_id': productId,
       'product_name': productName,
-      'product_image_url': productImageUrl,
+      'ingredients_text': ingredientsText,
       'found_allergens': foundAllergens,
       'safety_status': safetyStatus,
-      'scan_date': DateTime.now().toIso8601String(),
+      'local_image_path': localImagePath ?? '',
+      'remote_image_url': remoteImageUrl ?? '',
+      'alternatives_json': alternativesJson ?? '[]',
+      // ✅ Use the provided date, fallback to now() only if truly not provided
+      'scan_date': scanDate ?? DateTime.now().toIso8601String(),
     });
   }
 
-  static Future<List<Map<String, dynamic>>> getScanHistory({
-    required String userId,
-  }) async {
+  static Future<List<Map<String, dynamic>>> getScanHistory({required String userId}) async {
     final db = await getDatabase();
     return await db.query(
       'scan_history',
@@ -160,12 +179,35 @@ class LocalDB {
     );
   }
 
-  // ── Session ───────────────────────────────────
+  static Future<void> deleteScanHistory({required String userId}) async {
+    final db = await getDatabase();
+    await db.delete('scan_history', where: 'user_id = ?', whereArgs: [userId]);
+  }
+
+  // ✅ Delete by supabase_id first, fallback to scan_date
+  static Future<void> deleteSingleScan({
+    required int supabaseHistoryId,
+    String? scanDate,
+  }) async {
+    final db = await getDatabase();
+    final idStr = supabaseHistoryId.toString();
+    final affected = await db.delete(
+      'scan_history',
+      where: 'supabase_id = ?',
+      whereArgs: [idStr],
+    );
+    if (affected == 0 && scanDate != null && scanDate.isNotEmpty) {
+      await db.delete(
+        'scan_history',
+        where: 'scan_date = ?',
+        whereArgs: [scanDate],
+      );
+    }
+  }
 
   static Future<void> clearUserSession() async {
     final db = await getDatabase();
     await db.delete('current_user');
     await db.delete('user_allergies');
-    // ✅ scan_history kept intentionally
   }
 }

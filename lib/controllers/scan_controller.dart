@@ -1,10 +1,9 @@
-// Scan.controller.dart
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../services/scan_service.dart';
+import '../services/alternatives_service.dart';
 
 class ScanController extends ChangeNotifier {
-
   bool _isLoading = false;
   Map<String, dynamic>? _result;
   String? _error;
@@ -13,42 +12,40 @@ class ScanController extends ChangeNotifier {
   Map<String, dynamic>? get result => _result;
   String? get error => _error;
 
-  // ===================================================
-  // 📸 تحليل الصورة (Gemini + Allergy Detection)
-  // ===================================================
-  Future<void> analyzeImage(File imageFile, String userId) async {
+  Future<void> analyzeImage(File imageFile, String userId, {String productName = 'منتج من صورة'}) async {
     try {
       _isLoading = true;
       _error = null;
       notifyListeners();
 
-      print("📸 Reading image...");
       final bytes = await imageFile.readAsBytes();
 
-      // 🔥 استدعاء ScanService (مو Gemini مباشرة)
       final scanResult = await ScanService.scanFromImage(
         imageBytes: bytes,
         userId: userId,
+        productName: productName,
       );
 
-      if (!scanResult.success) {
-        throw Exception(scanResult.message);
-      }
+      if (!scanResult.success) throw Exception(scanResult.message);
 
-      final data = scanResult.data;
+      final data = scanResult.data as ProductScanData;
 
-      // 📦 النتيجة النهائية للـ UI
-_result = {
-  "ingredients": data.ingredients,
-  "allergens": data.detectedAllergens,
-  "hidden_sources": data.hiddenSources,
-  "warnings": data.warningStatements,
-  "is_safe": data.safetyStatus == 'safe',
-"is_unknown": data.safetyStatus == 'unknown', // 🔥 جديد
-};
+      _result = {
+        "ingredients": data.ingredients,
+        "allergens": data.detectedAllergens,
+        "allergen_types": data.detectedAllergenTypes,
+        "llm_alternatives": data.llmSuggestedAlternatives,
+        "llm_raw_alternatives": data.llmRawAlternatives,
+        "product_type_ar": data.productTypeAr,
+        "is_safe": data.safetyStatus == 'safe',
+        "local_image_path": data.localImagePath ?? '',
+        "remote_image_url": data.remoteImageUrl ?? '',
+        "product_name": data.productName,
+        // ✅ Issue 3: pass merged alternatives to UI
+        "merged_alternatives": data.mergedAlternatives,
+      };
 
       print("✅ Final Result: $_result");
-
     } catch (e) {
       print("🔥 Error: $e");
       _error = e.toString();
@@ -58,9 +55,6 @@ _result = {
     }
   }
 
-  // ===================================================
-  // 🧹 تنظيف النتائج
-  // ===================================================
   void clearResult() {
     _result = null;
     _error = null;

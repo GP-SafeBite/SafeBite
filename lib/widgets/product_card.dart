@@ -1,9 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class ProductCard extends StatelessWidget {
   final String productName;
-  final String imageUrl;
+  final String remoteImageUrl;
+  final String localImagePath;
   final bool isSafe;
   final String? time;
   final VoidCallback? onTap;
@@ -11,128 +13,160 @@ class ProductCard extends StatelessWidget {
   const ProductCard({
     super.key,
     required this.productName,
-    this.imageUrl = '',
+    this.remoteImageUrl = '',
+    this.localImagePath = '',
     required this.isSafe,
     this.time,
     this.onTap,
   });
 
-  static const Color kRed   = Color(0xFFD32F2F);
+  static const Color kCardBg = Color(0xFFFAF6E9);
+  static const Color kRed = Color(0xFFD32F2F);
   static const Color kGreen = Color(0xFF9CCB7A);
   static const Color kGrey900 = Color(0xFF818898);
 
   @override
   Widget build(BuildContext context) {
-    // ✅ [Added] Dynamic card color from Theme
-    final Color kCardBg = Theme.of(context).cardColor;
-
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: double.infinity,
-        decoration: BoxDecoration(
-          color: kCardBg, // ✅ [Added]
-          borderRadius: BorderRadius.circular(16),
-        ),
+        decoration: BoxDecoration(color: kCardBg, borderRadius: BorderRadius.circular(16)),
         clipBehavior: Clip.hardEdge,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            // صورة المنتج (فوق)
             Container(
               width: double.infinity,
               height: 120,
               color: Colors.white,
-              child: imageUrl.isEmpty
-                  ? const Center(
-                      child: Icon(
-                        Icons.image_outlined,
-                        size: 40,
-                        color: Color(0xFFD1D1D1),
-                      ),
-                    )
-                  : Image.network(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return const Center(
-                          child: Icon(
-                            Icons.image_outlined,
-                            size: 40,
-                            color: Color(0xFFD1D1D1),
-                          ),
-                        );
-                      },
-                    ),
+              child: _SmartImage(
+                remoteUrl: remoteImageUrl,
+                localPath: localImagePath,
+                isSafe: isSafe,
+                height: 120,
+              ),
             ),
-
-            // تفاصيل المنتج (تحت)
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 12, 12, 12),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // اسم المنتج والبادج (على اليسار)
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // اسم المنتج
                         Text(
-                          productName,
-                          textAlign: TextAlign.left,
+                          productName.isNotEmpty ? productName : 'فحص مكونات',
+                          textAlign: TextAlign.right,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.tajawal(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
-                          ),
+                          style: GoogleFonts.tajawal(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.black),
                         ),
                         const SizedBox(height: 8),
-                        // Badge آمن/غير آمن
                         Row(
                           mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.start,
                           children: [
-                            Icon(
-                              isSafe ? Icons.check_circle : Icons.cancel,
-                              size: 20,
-                              color: isSafe ? kGreen : kRed,
-                            ),
+                            Icon(isSafe ? Icons.check_circle : Icons.cancel, size: 20, color: isSafe ? kGreen : kRed),
                             const SizedBox(width: 6),
-                            Text(
-                              isSafe ? 'آمن' : 'غير آمن',
-                              style: GoogleFonts.tajawal(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: isSafe ? kGreen : kRed,
-                              ),
-                            ),
+                            Text(isSafe ? 'آمن' : 'غير آمن', style: GoogleFonts.tajawal(fontSize: 13, fontWeight: FontWeight.w600, color: isSafe ? kGreen : kRed)),
                           ],
                         ),
                       ],
                     ),
                   ),
-
-                  // الوقت على اليمين
                   if (time != null) ...[
                     const SizedBox(width: 8),
-                    Text(
-                      time!,
-                      style: GoogleFonts.tajawal(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: kGrey900,
-                      ),
-                    ),
+                    Text(time!, style: GoogleFonts.tajawal(fontSize: 13, fontWeight: FontWeight.w500, color: kGrey900)),
                   ],
                 ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _SmartImage extends StatefulWidget {
+  final String remoteUrl;
+  final String localPath;
+  final bool isSafe;
+  final double height;
+
+  const _SmartImage({
+    required this.remoteUrl,
+    required this.localPath,
+    required this.isSafe,
+    this.height = 120,
+  });
+
+  @override
+  State<_SmartImage> createState() => _SmartImageState();
+}
+
+class _SmartImageState extends State<_SmartImage> {
+  // ✅ Try local first if file exists, otherwise try remote
+  bool get _hasLocalFile =>
+      widget.localPath.isNotEmpty && File(widget.localPath).existsSync();
+
+  @override
+  Widget build(BuildContext context) {
+    // ✅ Priority 1: local file exists on THIS device → use it directly
+    if (_hasLocalFile) {
+      return Image.file(
+        File(widget.localPath),
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: widget.height,
+        errorBuilder: (_, __, ___) => _tryRemote(),
+      );
+    }
+    // ✅ Priority 2: no local file → try remote URL
+    return _tryRemote();
+  }
+
+  Widget _tryRemote() {
+    if (widget.remoteUrl.isNotEmpty) {
+      return Image.network(
+        widget.remoteUrl,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: widget.height,
+        loadingBuilder: (ctx, child, progress) {
+          if (progress == null) return child;
+          // ✅ While loading remote, show local if available
+          if (widget.localPath.isNotEmpty) {
+            final f = File(widget.localPath);
+            if (f.existsSync()) {
+              return Image.file(f, fit: BoxFit.cover, width: double.infinity, height: widget.height);
+            }
+          }
+          return _placeholder();
+        },
+        errorBuilder: (_, __, ___) {
+          // ✅ Remote failed → try local as final fallback
+          if (widget.localPath.isNotEmpty) {
+            final f = File(widget.localPath);
+            if (f.existsSync()) {
+              return Image.file(f, fit: BoxFit.cover, width: double.infinity, height: widget.height);
+            }
+          }
+          return _placeholder();
+        },
+      );
+    }
+    return _placeholder();
+  }
+
+  Widget _placeholder() {
+    return Center(
+      child: Icon(
+        widget.isSafe ? Icons.check_circle_outline : Icons.warning_amber_rounded,
+        size: 40,
+        color: widget.isSafe ? const Color(0xFF9CCB7A) : const Color(0xFFD32F2F),
       ),
     );
   }

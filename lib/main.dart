@@ -13,6 +13,12 @@ final supabase = Supabase.instance.client;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // ✅ Catch ALL flutter errors with full stack trace
+  FlutterError.onError = (FlutterErrorDetails details) {
+    print('🔴 FLUTTER ERROR: ${details.exception}');
+    print('🔴 STACK TRACE:\n${details.stack}');
+    FlutterError.presentError(details); // still show red screen
+  };
   await GetStorage.init(); // ✅ [Added]
 
   await Supabase.initialize(
