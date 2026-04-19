@@ -1,23 +1,24 @@
-// lib/views/profile/about_app_screen.dart
 import 'package:flutter/material.dart';
-import 'package:get/get.dart'; // ✅ correct
+import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_svg/flutter_svg.dart'; // ✅ أضفته
+import 'package:flutter_svg/flutter_svg.dart';
 
 class AboutAppScreen extends StatelessWidget {
   const AboutAppScreen({super.key});
 
   static const Color kPrimary = Color(0xFF9CCB7A);
-  static const Color kBackground = Color(0xFFFFFDF6);
-  static const Color kFieldBg = Color(0xFFFAF6E9);
   static const Color kGrey900 = Color(0xFF818898);
 
   @override
   Widget build(BuildContext context) {
+    // ✅ [Added] Dynamic colors from Theme
+    final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
+    final Color kFieldBg = Theme.of(context).cardColor;
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: kBackground,
+        backgroundColor: kBackground, // ✅ [Added]
         body: SafeArea(
           child: Column(
             children: [
@@ -29,7 +30,6 @@ class AboutAppScreen extends StatelessWidget {
                       // ========== HEADER ==========
                       Row(
                         children: [
-                          // زر الرجوع (على اليمين)
                           GestureDetector(
                             onTap: () {
                               Get.back();
@@ -38,24 +38,22 @@ class AboutAppScreen extends StatelessWidget {
                               width: 40,
                               height: 40,
                               decoration: BoxDecoration(
-                                color: kFieldBg,
+                                color: kFieldBg, // ✅ [Added]
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(
                                 Icons.arrow_back,
-                                color: Colors.black,
                                 size: 20,
                               ),
                             ),
                           ),
                           const Spacer(),
-                          // العنوان
                           Text(
                             'حول التطبيق',
                             style: GoogleFonts.tajawal(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
-                              color: Colors.black,
+                              color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                             ),
                           ),
                           const Spacer(),
@@ -67,7 +65,7 @@ class AboutAppScreen extends StatelessWidget {
 
                       // ========== شعار التطبيق ==========
                       SvgPicture.asset(
-                        'Assets/Logo/Logo_LightMode.svg', // ✅ SVG
+                        'assets/logo/logo_lightmode.svg', // ✅ [Fixed] correct path
                         width: 200,
                         height: 200,
                       ),
@@ -90,7 +88,8 @@ class AboutAppScreen extends StatelessWidget {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: Text(
-                          'SafeBite هو تطبيق متخصص في الكشف عن مسببات الحساسية الغذائية، يساعد الأفراد الذين يعانون من حساسية تجاه أنواع معينة من الأطعمة. يوفر التطبيق فحصاً ذكياً وسريعاً للمنتجات الغذائية من خلال مسح الباركود أو تصوير المكونات.\n\nيمكن للمستخدمين إنشاء ملف شخصي يحدد أنواع الحساسية من بين 14 نوعاً شائعاً، ويحصلون على تقرير واضح يوضح إذا كان المنتج آمناً أو يحتوي على مكونات خطرة، مع إمكانية اقتراح بدائل آمنة ومحتوى تعليمي موثوق.',
+                          // ✅ [Fixed] removed barcode mention — ingredients scan only
+                          'SafeBite هو تطبيق متخصص في الكشف عن مسببات الحساسية الغذائية، يساعد الأفراد الذين يعانون من حساسية تجاه أنواع معينة من الأطعمة. يوفر التطبيق فحصاً ذكياً وسريعاً للمنتجات الغذائية من خلال تصوير قائمة المكونات المكتوبة على العبوة.\n\nيمكن للمستخدمين إنشاء ملف شخصي يحدد أنواع الحساسية من بين 14 نوعاً شائعاً، ويحصلون على تقرير واضح يوضح إذا كان المنتج آمناً أو يحتوي على مكونات خطرة، مع إمكانية اقتراح بدائل آمنة ومحتوى تعليمي موثوق.',
                           style: GoogleFonts.tajawal(
                             fontSize: 12,
                             fontWeight: FontWeight.w400,
@@ -102,6 +101,7 @@ class AboutAppScreen extends StatelessWidget {
                       ),
 
                       const SizedBox(height: 80),
+
                       // ========== حقوق النشر ==========
                       Text(
                         '© 2025 SafeBite',

@@ -1,4 +1,3 @@
-// lib/widgets/alternative_product_card.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -14,11 +13,11 @@ class AlternativeProductCard extends StatelessWidget {
     this.onTap,
   });
 
-  static const Color kCardBg  = Color(0xFFFAF6E9);
-  static const Color kGrey900 = Color(0xFF818898);
-
   @override
   Widget build(BuildContext context) {
+    // ✅ [Added] Dynamic colors from Theme
+    final Color kCardBg = Theme.of(context).cardColor;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -61,7 +60,7 @@ class AlternativeProductCard extends StatelessWidget {
                   style: GoogleFonts.tajawal(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
-                    color: kGrey900,
+                    color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                   ),
                 ),
               ),

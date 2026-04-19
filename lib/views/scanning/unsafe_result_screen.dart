@@ -1,3 +1,4 @@
+// Unsafe.results.screen.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../alternatives/alternatives_screen.dart';
@@ -5,24 +6,27 @@ import '../alternatives/alternatives_screen.dart';
 class UnsafeResultScreen extends StatelessWidget {
   final String productName;
   final List<String> detectedAllergens;
-  final List ingredients; // 🔥 جديد
+  final List ingredients;
   final String? imageUrl;
 
   const UnsafeResultScreen({
     super.key,
     required this.productName,
     required this.detectedAllergens,
-    required this.ingredients, // 🔥 جديد
+    required this.ingredients,
     this.imageUrl,
   });
 
   static const Color kPrimary = Color(0xFF9CCB7A);
-  static const Color kBackground = Color(0xFFFFFDF6);
   static const Color kGrey900 = Color(0xFF818898);
   static const Color kRed = Color(0xFFD32F2F);
 
   @override
   Widget build(BuildContext context) {
+    // ✅ [Added] Dynamic colors from Theme
+    final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
+    final Color kCardBg = Theme.of(context).cardColor;
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -41,8 +45,8 @@ class UnsafeResultScreen extends StatelessWidget {
                         child: Container(
                           width: 40,
                           height: 40,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFFAF6E9),
+                          decoration: BoxDecoration(
+                            color: kCardBg, // ✅ [Added]
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(Icons.arrow_back, size: 20),
@@ -54,6 +58,7 @@ class UnsafeResultScreen extends StatelessWidget {
                         style: GoogleFonts.tajawal(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
+                          color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                         ),
                       ),
                       const Spacer(),
@@ -117,7 +122,7 @@ class UnsafeResultScreen extends StatelessWidget {
 
                 const SizedBox(height: 20),
 
-                // 🔥 المكونات
+                // المكونات
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Column(
@@ -128,20 +133,22 @@ class UnsafeResultScreen extends StatelessWidget {
                         style: GoogleFonts.tajawal(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                         ),
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        ingredients.join(', '),
-                        style: GoogleFonts.tajawal(fontSize: 14),
-                      ),
+  ingredients.join(' ، '),
+  style: GoogleFonts.tajawal(fontSize: 14),
+),
                     ],
                   ),
                 ),
 
+
                 const SizedBox(height: 20),
 
-                // 🔥 مسببات الحساسية
+                // مسببات الحساسية
                 Column(
                   children: [
                     Text(
@@ -149,6 +156,7 @@ class UnsafeResultScreen extends StatelessWidget {
                       style: GoogleFonts.tajawal(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                       ),
                     ),
                     const SizedBox(height: 8),

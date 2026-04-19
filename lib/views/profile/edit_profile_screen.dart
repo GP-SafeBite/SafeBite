@@ -3,10 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
 import '../../services/auth_service.dart';
-import 'package:image_picker/image_picker.dart'; // ✅ إضافة
-import '../../services/auth_service.dart'; // 🔴 added
 import '../../widgets/custom_button.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -18,17 +15,15 @@ class EditProfileScreen extends StatefulWidget {
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
   static const Color kPrimary = Color(0xFF9CCB7A);
-  static const Color kBackground = Color(0xFFFFFDF6);
-  static const Color kFieldBg = Color(0xFFFAF6E9);
   static const Color kGrey900 = Color(0xFF818898);
 
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   bool _isLoading = true;
   bool _isSaving = false;
-  String _currentPhotoUrl = '';   // photo saved in DB
-  File? _pendingPhotoFile = null; // photo picked but NOT yet saved
-  bool _deletePhoto = false;      // user wants to delete avatar
+  String _currentPhotoUrl = '';
+  File? _pendingPhotoFile;
+  bool _deletePhoto = false;
   String? _userId;
 
   @override
@@ -48,10 +43,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final user = await AuthService.getCurrentUser();
     if (user != null && mounted) {
       setState(() {
-        _nameController.text = user['name'] ?? '';
-        _emailController.text = user['email'] ?? '';
-        _currentPhotoUrl = user['photo_url'] ?? '';
-        _userId = user['user_id'];
+        _nameController.text  = user['name']      ?? '';
+        _emailController.text = user['email']     ?? '';
+        _currentPhotoUrl      = user['photo_url'] ?? '';
+        _userId               = user['user_id'];
         _isLoading = false;
       });
     } else {
@@ -59,7 +54,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
-  // 🔴 Just picks photo locally — does NOT upload yet
   Future<void> _pickPhoto() async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(
@@ -69,11 +63,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (picked == null) return;
     setState(() {
       _pendingPhotoFile = File(picked.path);
-      _deletePhoto = false; // cancel any pending delete
+      _deletePhoto = false;
     });
   }
 
-  // 🔴 Mark photo for deletion — does NOT delete yet
   void _removePhoto() {
     setState(() {
       _pendingPhotoFile = null;
@@ -81,7 +74,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     });
   }
 
-  // 🔴 Save everything on button press
   Future<void> _saveChanges() async {
     final newName = _nameController.text.trim();
     if (newName.isEmpty) {
@@ -93,18 +85,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     setState(() => _isSaving = true);
 
-    // Step 1: Save name
     final nameSuccess = await AuthService.updateUserName(newName: newName);
 
-    // Step 2: Handle photo
     if (_pendingPhotoFile != null && _userId != null) {
-      // Upload new photo
       await AuthService.uploadProfilePhoto(
         userId: _userId!,
         filePath: _pendingPhotoFile!.path,
       );
     } else if (_deletePhoto && _userId != null) {
-      // Delete photo
       await AuthService.deleteProfilePhoto(userId: _userId!);
     }
 
@@ -123,14 +111,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
-  // 🔴 What photo to show: pending local > existing url > nothing
   Widget _buildAvatar() {
-    // Deleted → show default
     if (_deletePhoto) {
       return const Icon(Icons.person, size: 60, color: Colors.white);
     }
-
-    // Picked locally but not saved yet → show local file
     if (_pendingPhotoFile != null) {
       return ClipOval(
         child: Image.file(
@@ -141,11 +125,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         ),
       );
     }
-
-    // Existing photo from DB
     if (_currentPhotoUrl.isNotEmpty) {
-      // 🔴 cache busting: add timestamp so Flutter reloads fresh image
-      final url = '${_currentPhotoUrl}?t=${DateTime.now().millisecondsSinceEpoch}';
+      final url = '$_currentPhotoUrl?t=${DateTime.now().millisecondsSinceEpoch}';
       return ClipOval(
         child: Image.network(
           url,
@@ -157,17 +138,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         ),
       );
     }
-
-    // No photo
     return const Icon(Icons.person, size: 60, color: Colors.white);
   }
 
   @override
   Widget build(BuildContext context) {
+    // ✅ [Added] Dynamic colors from Theme
+    final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
+    final Color kFieldBg = Theme.of(context).cardColor;
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: kBackground,
+        backgroundColor: kBackground, // ✅ [Added]
         body: SafeArea(
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
@@ -187,11 +170,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                     width: 40,
                                     height: 40,
                                     decoration: BoxDecoration(
-                                      color: kFieldBg,
+                                      color: kFieldBg, // ✅ [Added]
                                       shape: BoxShape.circle,
                                     ),
-                                    child: const Icon(Icons.arrow_back,
-                                        color: Colors.black, size: 20),
+                                    child: const Icon(Icons.arrow_back, size: 20),
                                   ),
                                 ),
                                 const Spacer(),
@@ -200,7 +182,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   style: GoogleFonts.tajawal(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w700,
-                                    color: Colors.black,
+                                    color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                                   ),
                                 ),
                                 const Spacer(),
@@ -213,18 +195,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             // ========== صورة البروفايل ==========
                             Stack(
                               children: [
-                                // ✅ تعديل: عرض الصورة المختارة أو الـ placeholder
                                 Container(
                                   width: 120,
                                   height: 120,
-                                  decoration: BoxDecoration(
+                                  decoration: const BoxDecoration(
                                     shape: BoxShape.circle,
                                     color: Color(0xFFB3D9E8),
                                   ),
                                   child: _buildAvatar(),
                                 ),
-
-                                // Edit button
                                 Positioned(
                                   bottom: 0,
                                   right: 0,
@@ -242,8 +221,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                     ),
                                   ),
                                 ),
-
-                                // 🔴 Delete button — shows if photo exists
                                 if (_currentPhotoUrl.isNotEmpty ||
                                     _pendingPhotoFile != null)
                                   Positioned(
@@ -266,16 +243,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               ],
                             ),
 
-                            // 🔴 pending photo label
                             if (_pendingPhotoFile != null)
                               Padding(
                                 padding: const EdgeInsets.only(top: 8),
                                 child: Text(
                                   'صورة جديدة — ستُحفظ عند الضغط على حفظ',
                                   style: GoogleFonts.tajawal(
-                                    fontSize: 12,
-                                    color: kGrey900,
-                                  ),
+                                      fontSize: 12, color: kGrey900),
                                   textAlign: TextAlign.center,
                                 ),
                               ),
@@ -286,9 +260,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 child: Text(
                                   'ستُحذف الصورة عند الضغط على حفظ',
                                   style: GoogleFonts.tajawal(
-                                    fontSize: 12,
-                                    color: Colors.red,
-                                  ),
+                                      fontSize: 12, color: Colors.red),
                                   textAlign: TextAlign.center,
                                 ),
                               ),
@@ -303,14 +275,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 style: GoogleFonts.tajawal(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.black,
+                                  color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                                 ),
                               ),
                             ),
                             const SizedBox(height: 8),
                             Container(
                               decoration: BoxDecoration(
-                                color: kFieldBg,
+                                color: kFieldBg, // ✅ [Added]
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: TextField(
@@ -336,7 +308,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 style: GoogleFonts.tajawal(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.black,
+                                  color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
                                 ),
                               ),
                             ),
