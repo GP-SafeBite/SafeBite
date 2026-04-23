@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/auth_service.dart';
 import '../../services/profile_service.dart';
+import '../../services/scan_service.dart';
 import '../../widgets/custom_button.dart';
 
 class EditAllergiesScreen extends StatefulWidget {
@@ -78,6 +79,7 @@ class _EditAllergiesScreenState extends State<EditAllergiesScreen> {
     if (!mounted) return;
 
     if (result.success) {
+      ScanService.clearAllergyCache(user['user_id']);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('تم حفظ التغييرات بنجاح ✅')),
       );

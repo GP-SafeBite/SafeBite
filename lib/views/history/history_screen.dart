@@ -52,7 +52,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     if (user == null) { setState(() => _isLoading = false); return; }
     _userId = user['user_id'];
 
-    final result = await ScanService.getScanHistory(userId: _userId!);
+    final result = await ScanService.getScanHistoryCached(userId: _userId!);
     final raw = result.success ? (result.data as List? ?? []) : [];
     final history = raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
 

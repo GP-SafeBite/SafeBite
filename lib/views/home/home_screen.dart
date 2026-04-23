@@ -1,3 +1,4 @@
+import 'dart:async' show unawaited;
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -75,6 +76,8 @@ class _HomeScreenState extends State<HomeScreen> {
         _lastScan = history.isNotEmpty ? history.first : null;
         _isLoading = false;
       });
+      // Optimization 8: prefetch history in background for instant load next time
+      unawaited(ScanService.prefetchHistory(userId: user['user_id']));
     }
   }
 

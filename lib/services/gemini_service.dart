@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 class GeminiService {
-  static const String _apiKey = "AIzaSyCaONW2r35n8FYWBffo4cSNDw10Ax7ZvmU";
+  static const String _apiKey = "AIzaSyCtJbiIuu_eK8_YmBcGWK22Sw81Sk3vNq0";
   final String _baseUrl =
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
@@ -63,6 +63,12 @@ class GeminiService {
    - استخرج فقط التحذيرات المتعلقة بحساسيات المستخدم.
    - اكتبها بنفس اللغة التي وردت فيها، أو باللغتين إن وُجدتا.
 
+6. قاعدة التحقق من الادعاءات الغذائية (Claims vs. Flavors):
+   - إذا ذكر المنتج صراحة أنه "خالٍ من الألبان" (Free from dairy) أو "نباتي" (Vegan):
+     * تعامل مع أوصاف النكهات مثل "[cream]" أو "[butter]" على أنها "بروفايل نكهة" وليست مكونات ألبان حقيقية.
+     * لا تصنفها كمسبب حساسية إلا إذا وُجد مشتق حليبي صريح (مثل: كازين، مصل لبن، casein, whey).
+     * في هذه الحالة، يجب أن تكون قيمة is_safe_for_user هي true.
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 تصنيفات الحساسية المعتمدة (14 فئة):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -72,7 +78,7 @@ class GeminiService {
 - المكسرات (Tree Nuts) — يشمل: لوز، كاجو، جوز، فستق، بندق، بيكان، ماكاديميا، جوز البرازيل، جوز الصنوبر، كستناء
   ⚠️ مهم: جوز الهند (coconut) ليس مكسرة وليس من Tree Nuts — لا تصنفه كحساسية مكسرات
   ⚠️ مهم: السمسم (sesame) له تصنيف منفصل — لا تضعه ضمن Tree Nuts
-- الصويا (Soy/Soybeans) — يشمل: فول الصويا، ليسيتين الصويا، توفو
+- صويا (Soy/Soybeans) — يشمل: فول الصويا، ليسيتين الصويا، توفو
 - القمح / الجلوتين (Wheat / Gluten) — يشمل: قمح، شعير، جاودار، هجين القمح، مالت
   ⚠️ مهم: الشوفان (oat) يُدرج هنا فقط إذا كان مُلوثاً بالجلوتين أو غير معتمد خالٍ من الجلوتين
 - السمك (Fish) — يشمل: جميع أنواع الأسماك، أنشوجة، سردين
@@ -209,6 +215,7 @@ ${userAllergies.isEmpty ? 'لا توجد حساسيات محددة' : userAllerg
 - إذا لم تجد مسببات تطابق حساسيات المستخدم → detected_allergens = [].
 - لا تذكر مسببات غير مطلوبة من المستخدم.
 - لا تخترع مكونات غير موجودة في الصورة.
+- مراجعة الادعاءات الكبيرة على العبوة (مثل Dairy Free) قبل اتخاذ القرار النهائي في حقل is_safe_for_user.
 - is_safe_for_user: false إذا وُجد أي مسبب حساسية من قائمة المستخدم.
 - is_safe_for_user: true إذا لم يوجد أي تطابق.
 

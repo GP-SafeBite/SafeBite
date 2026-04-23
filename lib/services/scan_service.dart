@@ -1,6 +1,8 @@
+import 'dart:async' show unawaited;
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../database/local_db.dart';
@@ -48,36 +50,123 @@ class ProductScanData {
 class ScanService {
   static final _supabase = Supabase.instance.client;
 
+  // ── Optimization 3: In-memory allergy cache ──────────────────────────
+  static final Map<String, List<String>> _allergyCache = {};
+
+  static void clearAllergyCache(String userId) {
+    _allergyCache.remove(userId);
+  }
+
+  // ── Optimization 8: History prefetch cache ───────────────────────────
+  static String? _historyCacheUserId;
+  static List<Map<String, dynamic>>? _historyCache;
+
+  static void _invalidateHistoryCache() {
+    _historyCacheUserId = null;
+    _historyCache = null;
+  }
+
+  static Future<void> prefetchHistory({required String userId}) async {
+    try {
+      final result = await getScanHistory(userId: userId);
+      if (result.success && result.data != null) {
+        final raw = result.data as List;
+        _historyCache =
+            raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        _historyCacheUserId = userId;
+      }
+    } catch (e) {
+      print('⚠️ prefetchHistory failed: $e');
+    }
+  }
+
+  static Future<ScanResult> getScanHistoryCached(
+      {required String userId}) async {
+    if (_historyCacheUserId == userId && _historyCache != null) {
+      final cached = List<Map<String, dynamic>>.from(_historyCache!);
+      _historyCacheUserId = null;
+      _historyCache = null;
+      return ScanResult(success: true, message: 'تم جلب السجل', data: cached);
+    }
+    return getScanHistory(userId: userId);
+  }
+
+  // ── Optimization 2: Image compression ────────────────────────────────
+  static Future<Uint8List> _compressForGemini(Uint8List imageBytes) async {
+    if (imageBytes.length < 400 * 1024) return imageBytes;
+    try {
+      final dir = await getTemporaryDirectory();
+      final ts = DateTime.now().millisecondsSinceEpoch;
+      final inputFile = File('${dir.path}/input_$ts.jpg');
+      final outputPath = '${dir.path}/output_$ts.jpg';
+
+      await inputFile.writeAsBytes(imageBytes);
+
+      final XFile? result = await FlutterImageCompress.compressAndGetFile(
+        inputFile.path,
+        outputPath,
+        minWidth: 800,
+        minHeight: 0,
+        quality: 82,
+        format: CompressFormat.jpeg,
+      );
+
+      try { await inputFile.delete(); } catch (_) {}
+
+      if (result == null) return imageBytes;
+
+      final compressedBytes = await result.readAsBytes();
+
+      try { await File(outputPath).delete(); } catch (_) {}
+
+      if (compressedBytes.length >= imageBytes.length) return imageBytes;
+
+      return compressedBytes;
+    } catch (e) {
+      print('⚠️ Image compression failed, using original: $e');
+      return imageBytes;
+    }
+  }
+
   static Future<ScanResult> scanFromImage({
     required Uint8List imageBytes,
     required String userId,
     String productName = 'منتج من صورة',
   }) async {
     try {
-      final localPathFuture = _saveImageLocally(imageBytes);
+      // ── Optimization 1: Start upload + local save immediately in background
       final remoteUrlFuture = _uploadImageToStorage(imageBytes, userId);
-      final results = await Future.wait([localPathFuture, remoteUrlFuture]);
-      final localImagePath = results[0];
-      final remoteImageUrl = results[1];
+      final localPathFuture = _saveImageLocally(imageBytes);
 
-      final userAllergyIds = await LocalDB.getUserAllergies(userId: userId);
-      final userAllergyStrings = userAllergyIds
-          .map((id) => ProfileService.allergyReverseMap[id])
-          .whereType<String>()
-          .toSet();
+      // ── Optimization 3: Serve allergy data from cache ─────────────────
+      Set<String> userAllergyStrings;
+      if (_allergyCache.containsKey(userId)) {
+        userAllergyStrings = Set<String>.from(_allergyCache[userId]!);
+      } else {
+        final userAllergyIds = await LocalDB.getUserAllergies(userId: userId);
+        userAllergyStrings = userAllergyIds
+            .map((id) => ProfileService.allergyReverseMap[id])
+            .whereType<String>()
+            .toSet();
+        _allergyCache[userId] = userAllergyStrings.toList();
+      }
+
       final userAllergiesAr = userAllergyStrings
           .map((s) => _allergyArabicNames[s] ?? s)
           .join('، ');
 
+      // ── Optimization 2: Compress only bytes that go to Gemini ─────────
+      final geminiBytes = await _compressForGemini(imageBytes);
+
       final gemini = GeminiService();
       final aiResult = await gemini.analyzeProductImage(
-        imageBytes,
+        geminiBytes,
         productName: productName,
         userAllergies: userAllergiesAr,
       );
       print("🧠 AI RESULT: $aiResult");
 
-      // ── Extract actual ingredients from detected_allergens ─────────────
+      // ── Extract actual ingredients from detected_allergens ─────────────────
       final List<String> geminiIngredients = [];
       final List<String> detectedAllergenTypes = [];
       final rawAllergens = aiResult["detected_allergens"] ?? [];
@@ -246,6 +335,10 @@ if (!hasAnyContent) {
         }
       }
 
+      // ── Optimization 1: Collect background futures now (after Gemini) ──
+      final localImagePath = await localPathFuture;
+      final remoteImageUrl = await remoteUrlFuture;
+
       final scanData = ProductScanData(
         productName: productName,
         ingredients: geminiIngredients,
@@ -261,11 +354,12 @@ if (!hasAnyContent) {
         mergedAlternatives: mergedAlternatives,
       );
 
-      await _saveScanToHistory(
+      // ── Optimization 4: Fire-and-forget history save ──────────────────
+      unawaited(_saveScanToHistory(
         userId: userId,
         scanData: scanData,
         ingredientsText: ingredientsText,
-      );
+      ));
 
       return ScanResult(
         success: true,
@@ -310,6 +404,7 @@ if (!hasAnyContent) {
     }
   }
 
+  // ── Optimization 6: History query with .limit(50) ─────────────────────
   static Future<ScanResult> getScanHistory({required String userId}) async {
     final localData = await LocalDB.getScanHistory(userId: userId);
 
@@ -329,7 +424,8 @@ if (!hasAnyContent) {
           .from('scanhistory')
           .select()
           .eq('user_id', userId)
-          .order('scan_date', ascending: false);
+          .order('scan_date', ascending: false)
+          .limit(50);
 
       final merged = (data as List).map((row) {
         final map = Map<String, dynamic>.from(row as Map);
@@ -384,6 +480,9 @@ if (!hasAnyContent) {
     required ProductScanData scanData,
     required String ingredientsText,
   }) async {
+    // ── Optimization 8: Bust stale prefetch cache on every new scan ──────
+    _invalidateHistoryCache();
+
     final scanDate = DateTime.now().toIso8601String();
 
     try {

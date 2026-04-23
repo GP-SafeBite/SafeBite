@@ -133,6 +133,17 @@ class AlternativesService {
     'dairy-free cooking-cream'   : ['dairy-free cooking-cream'],
     'free-from soup'             : ['free-from soup'],
     'free-from sauce'            : ['free-from sauce'],
+    'gluten-free chocolate'  : ['gluten-free chocolate'],
+'gluten-free wrap'       : ['gluten-free wrap'],
+'gluten-free cracker'    : ['gluten-free cracker'],
+'gluten-free couscous'   : ['gluten-free couscous'],
+'gluten-free waffle'     : ['gluten-free waffle'],
+'gluten-free cake'       : ['gluten-free cake'],
+'dairy-free whipped-cream': ['dairy-free whipped-cream'],
+'free-from hummus'       : ['free-from hummus'],
+'free-from date-bar'     : ['free-from date-bar'],
+'free-from energy-bar'   : ['free-from energy-bar'],
+'sesame-free bread'      : ['sesame-free bread'],
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -152,14 +163,14 @@ class AlternativesService {
     'ice-cream'         : ['dairy-free ice cream'],
     'milkshake'         : ['dairy-free milkshake'],
     'custard'           : ['dairy-free custard'],
-    'chocolate'         : ['dairy-free chocolate', 'nut-free chocolate'],
+    //'chocolate'         : ['dairy-free chocolate', 'nut-free chocolate'],
     'chocolate-spread'  : ['dairy-free chocolate-spread'],
     'candy'             : ['free-from candy'],
     'halawa'            : ['free-from halawa'],
-    'bread'             : ['gluten-free bread'],
+    //'bread'             : ['gluten-free bread'],
     'pita'              : ['gluten-free pita'],
     'pastry'            : ['gluten-free pastry'],
-    'cake'              : ['dairy-free cake'],
+    //'cake'              : ['dairy-free cake'],
     'pancake-mix'       : ['free-from pancake-mix'],
     'pasta'             : ['gluten-free pasta'],
     'noodles'           : ['gluten-free noodles'],
@@ -183,6 +194,18 @@ class AlternativesService {
     'protein-shake'     : ['free-from protein-shake'],
     'cooking-cream'     : ['dairy-free cooking-cream'],
     'soup'              : ['free-from soup'],
+    'chocolate' : ['dairy-free chocolate', 'nut-free chocolate', 'gluten-free chocolate'],
+'cake'      : ['dairy-free cake', 'gluten-free cake'],
+'bread'     : ['gluten-free bread', 'sesame-free bread'],
+// add new ones:
+'wrap'          : ['gluten-free wrap'],
+'cracker'       : ['gluten-free cracker'],
+'couscous'      : ['gluten-free couscous'],
+'waffle'        : ['gluten-free waffle'],
+'whipped-cream' : ['dairy-free whipped-cream'],
+'hummus'        : ['free-from hummus'],
+'date-bar'      : ['free-from date-bar'],
+'energy-bar'    : ['free-from energy-bar'],
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -262,6 +285,13 @@ class AlternativesService {
     'كريمة طبخ'      : 'cooking-cream',
     'شوربة'          : 'soup',
     'صوص'            : 'sauce',
+    'شوكولاتة خالية من الجلوتين' : 'chocolate',
+'تورتيلا'    : 'wrap',
+'راب'        : 'wrap',
+'كريمة مخفوقة': 'whipped-cream',
+'حمص'        : 'hummus',
+'بار تمر'    : 'date-bar',
+'تمر'        : 'date-bar',
   };
 
   // ─────────────────────────────────────────────────────────────────────────
