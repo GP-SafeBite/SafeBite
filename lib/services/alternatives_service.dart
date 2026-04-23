@@ -312,41 +312,38 @@ class AlternativesService {
     final List<AlternativeProduct> dbProducts = [];
 
     try {
-      // ── Step 3: Direct category query — no junction table ─────────────────
-      // Fetch all alternatives matching the target categories.
-      // Safety is determined entirely by allergens_present, not junction rows.
-      dynamic query = _supabase
-          .from('alternatives')
-          .select('id, name_ar, name_en, brand, category, image_url, allergens_present');
+  // ── Step 3: Direct category query — no junction table ─────────────────
+  if (targetCategories.isEmpty) {
+    print('⚠️ No target categories — skipping DB query entirely.');
+  } else {
+    final productsResponse = await _supabase
+        .from('alternatives')
+        .select('id, name_ar, name_en, brand, category, image_url, allergens_present')
+        .inFilter('category', targetCategories);
 
-      if (targetCategories.isNotEmpty) {
-        query = query.inFilter('category', targetCategories);
+    // ── Step 4: Safety filter — pure integer intersection ─────────────────
+    for (final row in productsResponse as List) {
+      final map = row as Map<String, dynamic>;
+      final List<int> productAllergenIds = _parseAllergensPresent(map['allergens_present']);
+
+      final bool safeForUser = userAllergyIds.isEmpty ||
+          !userAllergyIds.any((id) => productAllergenIds.contains(id));
+
+      if (!safeForUser) {
+        final conflicts = userAllergyIds
+            .where((id) => productAllergenIds.contains(id))
+            .toList();
+        print('⚠️ Excluded ${map['name_en']} — allergens_present conflicts: $conflicts');
+        continue;
       }
 
-      final productsResponse = await query;
-
-      // ── Step 4: Safety filter — pure integer intersection ─────────────────
-      for (final row in productsResponse as List) {
-        final map = row as Map<String, dynamic>;
-        final List<int> productAllergenIds = _parseAllergensPresent(map['allergens_present']);
-
-        final bool safeForUser = userAllergyIds.isEmpty ||
-            !userAllergyIds.any((id) => productAllergenIds.contains(id));
-
-        if (!safeForUser) {
-          final conflicts = userAllergyIds
-              .where((id) => productAllergenIds.contains(id))
-              .toList();
-          print('⚠️ Excluded ${map['name_en']} — allergens_present conflicts: $conflicts');
-          continue;
-        }
-
-        dbProducts.add(AlternativeProduct.fromDb(map));
-      }
-      print('✅ DB products after safety filter: ${dbProducts.length}');
-    } catch (e) {
-      print('❌ DB query error: $e');
+      dbProducts.add(AlternativeProduct.fromDb(map));
     }
+    print('✅ DB products after safety filter: ${dbProducts.length}');
+  }
+} catch (e) {
+  print('❌ DB query error: $e');
+}
 
     // ── Step 4b: Arabic fallback retry — if DB returned 0 results ─────────
     // Handles cases where Gemini returned empty/wrong product_category
