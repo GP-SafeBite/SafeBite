@@ -31,6 +31,10 @@ class _HomeScreenState extends State<HomeScreen> {
   static const Color kGrey900 = Color(0xFF818898);
   static const Color kRed = Color(0xFFD32F2F);
 
+static Map<String, dynamic>? _cachedUser;
+static List<Map<String, dynamic>>? _cachedHistory;
+
+
   String _userName = '';
   String _userPhotoUrl = '';
   String _cachedPhotoPath = '';
@@ -46,40 +50,49 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _loadData();
   }
-
-  Future<void> _loadData() async {
-    final user = await AuthService.getCurrentUser();
-    if (user == null) {
-      if (mounted) setState(() => _isLoading = false);
-      return;
-    }
-
-    final result = await ScanService.getScanHistory(userId: user['user_id']);
-    final raw = result.success ? (result.data as List? ?? []) : [];
-    final history = raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
-
-    final photoUrl = user['photo_url'] ?? '';
-    String cachedPath = '';
-    if (photoUrl.isNotEmpty) {
-      cachedPath = await _getCachedPhotoPath(user['user_id'], photoUrl);
-    }
-
-    if (mounted) {
-      setState(() {
-        _userName = user['name'] ?? '';
-        _userPhotoUrl = photoUrl;
-        _cachedPhotoPath = cachedPath;
-        _photoVersion++;
-        _totalScans = history.length;
-        _safeScans = history.where((h) => h['safety_status'] == 'safe').length;
-        _unsafeScans = history.where((h) => h['safety_status'] == 'unsafe').length;
-        _lastScan = history.isNotEmpty ? history.first : null;
-        _isLoading = false;
-      });
-      // Optimization 8: prefetch history in background for instant load next time
-      unawaited(ScanService.prefetchHistory(userId: user['user_id']));
-    }
+  @override
+void didChangeDependencies() {
+  super.didChangeDependencies();
+  _loadData();
+}
+Future<void> _loadData({bool forceRefresh = false}) async {
+  if (forceRefresh) {
+    _cachedUser = null;
+    _cachedHistory = null;
   }
+
+  _cachedUser ??= await AuthService.getCurrentUser();
+  if (_cachedUser == null) {
+    if (mounted) setState(() => _isLoading = false);
+    return;
+  }
+
+  if (_cachedHistory == null) {
+    final result = await ScanService.getScanHistory(userId: _cachedUser!['user_id']);
+    final raw = result.success ? (result.data as List? ?? []) : [];
+    _cachedHistory = raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  final photoUrl = _cachedUser!['photo_url'] ?? '';
+  String cachedPath = '';
+  if (photoUrl.isNotEmpty) {
+    cachedPath = await _getCachedPhotoPath(_cachedUser!['user_id'], photoUrl);
+  }
+
+  if (mounted) {
+    setState(() {
+      _userName = _cachedUser!['name'] ?? '';
+      _userPhotoUrl = photoUrl;
+      _cachedPhotoPath = cachedPath;
+      _photoVersion++;
+      _safeScans = _cachedHistory!.where((h) => h['safety_status'] == 'safe').length;
+      _unsafeScans = _cachedHistory!.where((h) => h['safety_status'] == 'unsafe').length;
+      _totalScans = _safeScans + _unsafeScans;
+      _lastScan = _cachedHistory!.isNotEmpty ? _cachedHistory!.first : null;
+      _isLoading = false;
+    });
+  }
+}
 
   static Future<String> _getCachedPhotoPath(String userId, String photoUrl) async {
     try {
@@ -170,7 +183,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               child: AspectRatio(
                                 aspectRatio: 1,
                                 child: GestureDetector(
-                                  onTap: () => Get.to(() => const ScanIngredientsScreen())?.then((_) => _loadData()),
+                                  onTap: () => Get.to(() => const ScanIngredientsScreen())?.then((_) => _loadData(forceRefresh: true)),
                                   child: Container(
                                     decoration: BoxDecoration(color: kPrimary, borderRadius: BorderRadius.circular(20)),
                                     child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -242,7 +255,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           _buildNavItem(Icons.description_outlined, 'محتوى توعوي', false,
                             () => Get.to(() => const ArticlesListScreen())),
                           _buildNavItem(Icons.person_outline, 'الملف الشخصي', false,
-                            () => Get.to(() => const ProfileScreen())?.then((_) => _loadData())),
+                            () => Get.to(() => const ProfileScreen())?.then((_) => _loadData(forceRefresh: true))),
                         ],
                       ),
                     ),
