@@ -282,7 +282,7 @@ class AlternativesService {
     'مبيض'           : 'coffee-creamer',
     'شوكولاتة ساخنة' : 'hot-chocolate',
     'بروتين'         : 'protein-shake',
-    'كريمة طبخ'      : 'cooking-cream',
+   'كريمة طبخ'      : 'cooking-cream',
     'شوربة'          : 'soup',
     'صوص'            : 'sauce',
     'شوكولاتة خالية من الجلوتين' : 'chocolate',
