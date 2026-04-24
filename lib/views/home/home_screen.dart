@@ -20,6 +20,11 @@ import '../scanning/unsafe_result_screen.dart';
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
+    static void clearCache() {
+    _HomeScreenState._cachedUser = null;
+    _HomeScreenState._cachedHistory = null;
+  }
+
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }

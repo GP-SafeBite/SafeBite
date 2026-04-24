@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:safebite/views/home/home_screen.dart';
+import '../home/home_screen.dart';
 import '../../services/auth_service.dart';
 import '../../services/scan_service.dart';
 import '../../services/alternatives_service.dart';
@@ -120,11 +120,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
       ),
     );
     if (confirm == true && _userId != null) {
-      await ScanService.deleteAllHistory(userId: _userId!);
-      _loadHistory();
-    }
+await ScanService.deleteAllHistory(userId: _userId!);
+HomeScreen.clearCache();
+_loadHistory();
   }
-
+  }
   Future<void> _deleteSingle(Map<String, dynamic> item) async {
     final historyId = item['history_id'] as int?;
     if (historyId == null || _userId == null) return;
@@ -134,6 +134,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       historyId: historyId,
       scanDate: scanDate,
     );
+    HomeScreen.clearCache();
     _loadHistory();
   }
 
@@ -209,7 +210,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    _buildNavItem(Icons.home, 'الرئيسية', false, () => Get.back()),
+                    _buildNavItem(Icons.home, 'الرئيسية', false, () {
+  HomeScreen.clearCache();
+  Get.back();
+}),
                     _buildNavItem(Icons.history, 'السجل', true, () {}),
                     _buildNavItem(Icons.description_outlined, 'محتوى توعوي', false, () => Get.to(() => ArticlesListScreen())),
                     _buildNavItem(Icons.person_outline, 'الملف الشخصي', false, () => Get.to(() => ProfileScreen())),
