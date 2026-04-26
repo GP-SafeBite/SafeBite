@@ -6,7 +6,6 @@ import '../alternatives/alternatives_screen.dart';
 import '../scanning/scan_ingredients_screen.dart';
 import '../../services/alternatives_service.dart';
 
-// ── Optimization 9: Convert to StatefulWidget for lazy alternatives ──────────
 class UnsafeResultScreen extends StatefulWidget {
   final String productName;
   final List<String> detectedAllergens;
@@ -41,7 +40,6 @@ class UnsafeResultScreen extends StatefulWidget {
 
 class _UnsafeResultScreenState extends State<UnsafeResultScreen> {
   static const Color kPrimary = Color(0xFF9CCB7A);
-  static const Color kBackground = Color(0xFFFFFDF6);
   static const Color kRed = Color(0xFFD32F2F);
 
   late Future<List<AlternativeProduct>> _alternativesFuture;
@@ -49,7 +47,6 @@ class _UnsafeResultScreenState extends State<UnsafeResultScreen> {
   @override
   void initState() {
     super.initState();
-    // Resolve immediately — the result is already available from the scan.
     if (widget.savedAlternatives != null) {
       _alternativesFuture = Future.value(widget.savedAlternatives);
     } else {
@@ -59,10 +56,13 @@ class _UnsafeResultScreenState extends State<UnsafeResultScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final Color kBackground = Theme.of(context).scaffoldBackgroundColor; // [FIXED Dark Mode]
+    final Color kCardBg = Theme.of(context).cardColor; // [FIXED Dark Mode]
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: kBackground,
+        backgroundColor: kBackground, // [FIXED Dark Mode]
         body: SafeArea(
           child: SingleChildScrollView(
             child: Column(
@@ -76,10 +76,8 @@ class _UnsafeResultScreenState extends State<UnsafeResultScreen> {
                         onTap: () => Navigator.pop(context),
                         child: Container(
                           width: 40, height: 40,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFFAF6E9), shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.arrow_back, size: 20),
+                          decoration: BoxDecoration(color: kCardBg, shape: BoxShape.circle), // [FIXED Dark Mode]
+                          child: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.onSurface, size: 20), // [FIXED Dark Mode]
                         ),
                       ),
                       const Spacer(),
@@ -123,8 +121,7 @@ class _UnsafeResultScreenState extends State<UnsafeResultScreen> {
                     const Icon(Icons.cancel, color: Colors.red, size: 32),
                     const SizedBox(width: 8),
                     Flexible(child: Text('المنتج غير آمن',
-                        style: GoogleFonts.tajawal(
-                            fontSize: 20, fontWeight: FontWeight.bold, color: kRed),
+                        style: GoogleFonts.tajawal(fontSize: 20, fontWeight: FontWeight.bold, color: kRed),
                         overflow: TextOverflow.ellipsis)),
                   ]),
                 ),
@@ -149,8 +146,7 @@ class _UnsafeResultScreenState extends State<UnsafeResultScreen> {
                           const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 20),
                           const SizedBox(width: 6),
                           Flexible(child: Text('مسببات الحساسية المكتشفة:',
-                              style: GoogleFonts.tajawal(
-                                  fontSize: 15, fontWeight: FontWeight.bold, color: kRed))),
+                              style: GoogleFonts.tajawal(fontSize: 15, fontWeight: FontWeight.bold, color: kRed))),
                         ]),
                         const SizedBox(height: 10),
                         ...widget.detectedAllergens.map((a) => Padding(
@@ -159,8 +155,7 @@ class _UnsafeResultScreenState extends State<UnsafeResultScreen> {
                             const Icon(Icons.circle, size: 8, color: Colors.red),
                             const SizedBox(width: 8),
                             Flexible(child: Text(a,
-                                style: GoogleFonts.tajawal(
-                                    fontSize: 14, color: kRed, fontWeight: FontWeight.w600))),
+                                style: GoogleFonts.tajawal(fontSize: 14, color: kRed, fontWeight: FontWeight.w600))),
                           ]),
                         )),
                       ],
@@ -170,7 +165,7 @@ class _UnsafeResultScreenState extends State<UnsafeResultScreen> {
 
                 const SizedBox(height: 16),
 
-                // ── المواد المكتشفة — plain text list, consistent with history ─
+                // ── المواد المكتشفة ──────────────────────────────────────
                 if (widget.ingredients.isNotEmpty || widget.traceWarnings.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -178,18 +173,14 @@ class _UnsafeResultScreenState extends State<UnsafeResultScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFAF6E9),
+                        color: kCardBg, // [FIXED Dark Mode]
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          Text(
-                            'المواد المكتشفة:',
-                            style: GoogleFonts.tajawal(
-                              fontSize: 15, fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                          Text('المواد المكتشفة:',
+                            style: GoogleFonts.tajawal(fontSize: 15, fontWeight: FontWeight.bold)),
                           const SizedBox(height: 10),
                           ...[
                             ...widget.ingredients.map((e) => e.toString()),
@@ -201,7 +192,7 @@ class _UnsafeResultScreenState extends State<UnsafeResultScreen> {
                                 item,
                                 style: GoogleFonts.tajawal(
                                   fontSize: 13,
-                                  color: Colors.black87,
+                                  color: Theme.of(context).colorScheme.onSurface, // [FIXED Dark Mode]
                                   height: 1.6,
                                 ),
                                 textAlign: TextAlign.right,
@@ -220,7 +211,6 @@ class _UnsafeResultScreenState extends State<UnsafeResultScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Column(
                     children: [
-                      // Optimization 9: FutureBuilder wraps only the alternatives button
                       FutureBuilder<List<AlternativeProduct>>(
                         future: _alternativesFuture,
                         builder: (context, snapshot) {
@@ -250,20 +240,15 @@ class _UnsafeResultScreenState extends State<UnsafeResultScreen> {
                               ),
                               child: isReady
                                   ? Text('عرض البدائل الآمنة',
-                                      style: GoogleFonts.tajawal(
-                                          fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white))
+                                      style: GoogleFonts.tajawal(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white))
                                   : Row(
                                       mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
-                                        const SizedBox(
-                                          width: 16, height: 16,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2, color: Colors.white70),
-                                        ),
+                                        const SizedBox(width: 16, height: 16,
+                                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70)),
                                         const SizedBox(width: 10),
                                         Text('جاري التحميل...',
-                                            style: GoogleFonts.tajawal(
-                                                fontSize: 16, color: Colors.white70)),
+                                            style: GoogleFonts.tajawal(fontSize: 16, color: Colors.white70)),
                                       ],
                                     ),
                             ),
@@ -281,8 +266,7 @@ class _UnsafeResultScreenState extends State<UnsafeResultScreen> {
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
                           child: Text('فحص منتج آخر',
-                              style: GoogleFonts.tajawal(
-                                  fontSize: 16, fontWeight: FontWeight.bold, color: kPrimary)),
+                              style: GoogleFonts.tajawal(fontSize: 16, fontWeight: FontWeight.bold, color: kPrimary)),
                         ),
                       ),
                     ],
@@ -298,7 +282,6 @@ class _UnsafeResultScreenState extends State<UnsafeResultScreen> {
   }
 }
 
-// ── SmartImage — UNTOUCHED ─────────────────────────────────────────────────
 class _SmartImage extends StatefulWidget {
   final String remoteUrl;
   final String localPath;

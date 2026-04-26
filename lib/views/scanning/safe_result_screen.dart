@@ -21,14 +21,16 @@ class SafeResultScreen extends StatelessWidget {
   });
 
   static const Color kPrimary = Color(0xFF9CCB7A);
-  static const Color kBackground = Color(0xFFFFFDF6);
 
   @override
   Widget build(BuildContext context) {
+    final Color kBackground = Theme.of(context).scaffoldBackgroundColor; // [FIXED Dark Mode]
+    final Color kCardBg = Theme.of(context).cardColor; // [FIXED Dark Mode]
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: kBackground,
+        backgroundColor: kBackground, // [FIXED Dark Mode]
         body: SafeArea(
           child: SingleChildScrollView(
             child: Column(
@@ -39,7 +41,11 @@ class SafeResultScreen extends StatelessWidget {
                     children: [
                       GestureDetector(
                         onTap: () => Navigator.pop(context),
-                        child: Container(width: 40, height: 40, decoration: const BoxDecoration(color: Color(0xFFFAF6E9), shape: BoxShape.circle), child: const Icon(Icons.arrow_back, size: 20)),
+                        child: Container(
+                          width: 40, height: 40,
+                          decoration: BoxDecoration(color: kCardBg, shape: BoxShape.circle), // [FIXED Dark Mode]
+                          child: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.onSurface, size: 20), // [FIXED Dark Mode]
+                        ),
                       ),
                       const Spacer(),
                       Text('نتيجة الفحص', style: GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w700)),
@@ -49,7 +55,6 @@ class SafeResultScreen extends StatelessWidget {
                   ),
                 ),
 
-                // ✅ Smart image
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: ClipRRect(
@@ -87,7 +92,7 @@ class SafeResultScreen extends StatelessWidget {
                     child: Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(color: const Color(0xFFFAF6E9), borderRadius: BorderRadius.circular(16)),
+                      decoration: BoxDecoration(color: kCardBg, borderRadius: BorderRadius.circular(16)), // [FIXED Dark Mode]
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -97,7 +102,11 @@ class SafeResultScreen extends StatelessWidget {
                             spacing: 8, runSpacing: 8,
                             children: ingredients.map((e) => Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: kPrimary.withOpacity(0.4))),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).scaffoldBackgroundColor, // [FIXED Dark Mode]
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: kPrimary.withOpacity(0.4)),
+                              ),
                               child: Text(e.toString(), style: GoogleFonts.tajawal(fontSize: 13)),
                             )).toList(),
                           ),
@@ -133,8 +142,7 @@ class SafeResultScreen extends StatelessWidget {
                       style: ElevatedButton.styleFrom(backgroundColor: kPrimary, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                       child: Text('فحص منتج آخر', style: GoogleFonts.tajawal(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
                     ),
-                    ),
-                 // ),
+                  ),
                 ),
                 const SizedBox(height: 30),
               ],

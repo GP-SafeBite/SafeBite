@@ -19,7 +19,6 @@ class ScanIngredientsScreen extends StatefulWidget {
 
 class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
   static const Color kPrimary = Color(0xFF9CCB7A);
-  static const Color kBackground = Color(0xFFFFFDF6);
   static const Color kGrey900 = Color(0xFF818898);
 
   bool _isFlashOn = false;
@@ -46,7 +45,6 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
 
   @override
   void dispose() {
-    // Do NOT dispose the controller — the singleton manages its lifetime.
     super.dispose();
   }
 
@@ -83,16 +81,13 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
       builder: (context) => Directionality(
         textDirection: TextDirection.rtl,
         child: AlertDialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text('اسم المنتج',
-              style: GoogleFonts.tajawal(fontWeight: FontWeight.bold)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text('اسم المنتج', style: GoogleFonts.tajawal(fontWeight: FontWeight.bold)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text('أدخل اسم المنتج (اختياري)',
-                  style:
-                      GoogleFonts.tajawal(fontSize: 13, color: kGrey900)),
+                  style: GoogleFonts.tajawal(fontSize: 13, color: kGrey900)),
               const SizedBox(height: 12),
               TextField(
                 controller: controller,
@@ -100,8 +95,7 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
                 decoration: InputDecoration(
                   hintText: 'مثال: حليب المراعي',
                   hintStyle: GoogleFonts.tajawal(),
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10)),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 ),
                 style: GoogleFonts.tajawal(),
               ),
@@ -110,21 +104,15 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, 'منتج من صورة'),
-              child:
-                  Text('تخطي', style: GoogleFonts.tajawal(color: kGrey900)),
+              child: Text('تخطي', style: GoogleFonts.tajawal(color: kGrey900)),
             ),
             ElevatedButton(
               onPressed: () => Navigator.pop(
                 context,
-                controller.text.trim().isEmpty
-                    ? 'منتج من صورة'
-                    : controller.text.trim(),
+                controller.text.trim().isEmpty ? 'منتج من صورة' : controller.text.trim(),
               ),
-              style:
-                  ElevatedButton.styleFrom(backgroundColor: kPrimary),
-              child: Text('تأكيد',
-                  style:
-                      GoogleFonts.tajawal(color: Colors.white)),
+              style: ElevatedButton.styleFrom(backgroundColor: kPrimary),
+              child: Text('تأكيد', style: GoogleFonts.tajawal(color: Colors.white)),
             ),
           ],
         ),
@@ -145,9 +133,6 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
         return;
       }
 
-      // ✅ FIX: call ScanService directly — no ScanController, no cached state.
-      // Every call to scanFromImage() is fully independent and always returns
-      // a fresh result, so rescanning never shows a previous result.
       final imageBytes = await imageFile.readAsBytes();
       final scanResult = await ScanService.scanFromImage(
         imageBytes: imageBytes,
@@ -188,9 +173,7 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
               traceWarnings: data.traceWarnings,
               localImagePath: data.localImagePath ?? '',
               remoteImageUrl: data.remoteImageUrl ?? '',
-              savedAlternatives: data.mergedAlternatives.isNotEmpty
-                  ? data.mergedAlternatives
-                  : null,
+              savedAlternatives: data.mergedAlternatives.isNotEmpty ? data.mergedAlternatives : null,
             ));
       }
     } catch (e) {
@@ -206,19 +189,20 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
   }
 
   Future<void> _toggleFlash() async {
-    if (_cameraController == null ||
-        !_cameraController!.value.isInitialized) return;
+    if (_cameraController == null || !_cameraController!.value.isInitialized) return;
     setState(() => _isFlashOn = !_isFlashOn);
-    await _cameraController!
-        .setFlashMode(_isFlashOn ? FlashMode.torch : FlashMode.off);
+    await _cameraController!.setFlashMode(_isFlashOn ? FlashMode.torch : FlashMode.off);
   }
 
   @override
   Widget build(BuildContext context) {
+    final Color kBackground = Theme.of(context).scaffoldBackgroundColor; // [FIXED Dark Mode]
+    final Color kCardBg = Theme.of(context).cardColor; // [FIXED Dark Mode]
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: kBackground,
+        backgroundColor: kBackground, // [FIXED Dark Mode]
         body: SafeArea(
           child: Column(
             children: [
@@ -231,17 +215,17 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
                       child: Container(
                         width: 40,
                         height: 40,
-                        decoration: const BoxDecoration(
-                            color: Color(0xFFFAF6E9),
-                            shape: BoxShape.circle),
-                        child: const Icon(Icons.arrow_back,
-                            color: Colors.black, size: 20),
+                        decoration: BoxDecoration(
+                          color: kCardBg, // [FIXED Dark Mode]
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.arrow_back,
+                            color: Theme.of(context).colorScheme.onSurface, size: 20), // [FIXED Dark Mode]
                       ),
                     ),
                     const Spacer(),
                     Text('مسح المكونات',
-                        style: GoogleFonts.tajawal(
-                            fontSize: 18, fontWeight: FontWeight.w700)),
+                        style: GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w700)),
                     const Spacer(),
                     const SizedBox(width: 40),
                   ],
@@ -263,12 +247,9 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
                             child: FittedBox(
                               fit: BoxFit.cover,
                               child: SizedBox(
-                                width: _cameraController!
-                                    .value.previewSize!.height,
-                                height: _cameraController!
-                                    .value.previewSize!.width,
-                                child:
-                                    CameraPreview(_cameraController!),
+                                width: _cameraController!.value.previewSize!.height,
+                                height: _cameraController!.value.previewSize!.width,
+                                child: CameraPreview(_cameraController!),
                               ),
                             ),
                           )
@@ -276,8 +257,7 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
                           Container(
                             color: Colors.black,
                             child: const Center(
-                              child: CircularProgressIndicator(
-                                  color: Colors.white),
+                              child: CircularProgressIndicator(color: Colors.white),
                             ),
                           ),
                         if (_isScanning)
@@ -287,15 +267,11 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const CircularProgressIndicator(
-                                      color: Colors.white),
+                                  const CircularProgressIndicator(color: Colors.white),
                                   const SizedBox(height: 12),
-                                  Text(
-                                    'جاري تحليل المكونات...',
-                                    style: GoogleFonts.tajawal(
-                                        color: Colors.white),
-                                    textAlign: TextAlign.center,
-                                  ),
+                                  Text('جاري تحليل المكونات...',
+                                      style: GoogleFonts.tajawal(color: Colors.white),
+                                      textAlign: TextAlign.center),
                                 ],
                               ),
                             ),
@@ -306,59 +282,38 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              Text(
-                'صوّر قائمة المكونات المكتوبة على العبوة',
-                style: GoogleFonts.tajawal(
-                    fontSize: 14, color: kGrey900),
-                textAlign: TextAlign.center,
-              ),
+              Text('صوّر قائمة المكونات المكتوبة على العبوة',
+                  style: GoogleFonts.tajawal(fontSize: 14, color: kGrey900),
+                  textAlign: TextAlign.center),
               const Spacer(),
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 60),
+                padding: const EdgeInsets.symmetric(horizontal: 60),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     GestureDetector(
-                      onTap:
-                          _isScanning ? null : _pickFromGallery,
+                      onTap: _isScanning ? null : _pickFromGallery,
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            Icons.image_outlined,
-                            color: _isScanning
-                                ? kGrey900.withOpacity(0.4)
-                                : kGrey900,
-                            size: 32,
-                          ),
+                          Icon(Icons.image_outlined,
+                              color: _isScanning ? kGrey900.withOpacity(0.4) : kGrey900, size: 32),
                           const SizedBox(height: 4),
-                          Text(
-                            'الألبوم',
-                            style: GoogleFonts.tajawal(
-                              fontSize: 12,
-                              color: _isScanning
-                                  ? kGrey900.withOpacity(0.4)
-                                  : kGrey900,
-                            ),
-                          ),
+                          Text('الألبوم',
+                              style: GoogleFonts.tajawal(fontSize: 12,
+                                  color: _isScanning ? kGrey900.withOpacity(0.4) : kGrey900)),
                         ],
                       ),
                     ),
                     GestureDetector(
-                      onTap:
-                          _isScanning ? null : _captureImage,
+                      onTap: _isScanning ? null : _captureImage,
                       child: Container(
-                        width: 100,
-                        height: 100,
+                        width: 100, height: 100,
                         decoration: BoxDecoration(
-                          color: _isScanning
-                              ? kGrey900
-                              : kPrimary,
+                          color: _isScanning ? kGrey900 : kPrimary,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.camera_alt,
-                            color: Colors.white, size: 40),
+                        child: const Icon(Icons.camera_alt, color: Colors.white, size: 40),
                       ),
                     ),
                     GestureDetector(
@@ -366,25 +321,12 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            _isFlashOn
-                                ? Icons.flash_on
-                                : Icons.flash_off,
-                            color: _isFlashOn
-                                ? Colors.amber
-                                : kGrey900,
-                            size: 32,
-                          ),
+                          Icon(_isFlashOn ? Icons.flash_on : Icons.flash_off,
+                              color: _isFlashOn ? Colors.amber : kGrey900, size: 32),
                           const SizedBox(height: 4),
-                          Text(
-                            _isFlashOn ? 'مضيء' : 'مغلق',
-                            style: GoogleFonts.tajawal(
-                              fontSize: 12,
-                              color: _isFlashOn
-                                  ? Colors.amber
-                                  : kGrey900,
-                            ),
-                          ),
+                          Text(_isFlashOn ? 'مضيء' : 'مغلق',
+                              style: GoogleFonts.tajawal(fontSize: 12,
+                                  color: _isFlashOn ? Colors.amber : kGrey900)),
                         ],
                       ),
                     ),
