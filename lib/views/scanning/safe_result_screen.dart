@@ -40,7 +40,7 @@ class SafeResultScreen extends StatelessWidget {
                   child: Row(
                     children: [
                       GestureDetector(
-                        onTap: () => Navigator.pop(context),
+                        onTap: () => Get.until((route) => route.isFirst),
                         child: Container(
                           width: 40, height: 40,
                           decoration: BoxDecoration(color: kCardBg, shape: BoxShape.circle), // [FIXED Dark Mode]
@@ -138,7 +138,7 @@ class SafeResultScreen extends StatelessWidget {
                   child: SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () => Get.offAll(() => const ScanIngredientsScreen()),
+                      onPressed: () => Get.to(() => const ScanIngredientsScreen()),
                       style: ElevatedButton.styleFrom(backgroundColor: kPrimary, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                       child: Text('فحص منتج آخر', style: GoogleFonts.tajawal(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
                     ),
