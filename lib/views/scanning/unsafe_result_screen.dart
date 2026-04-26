@@ -73,7 +73,7 @@ class _UnsafeResultScreenState extends State<UnsafeResultScreen> {
                   child: Row(
                     children: [
                       GestureDetector(
-                        onTap: () => Navigator.pop(context),
+                        onTap: () => Get.until((route) => route.isFirst),
                         child: Container(
                           width: 40, height: 40,
                           decoration: BoxDecoration(color: kCardBg, shape: BoxShape.circle), // [FIXED Dark Mode]
@@ -182,22 +182,18 @@ class _UnsafeResultScreenState extends State<UnsafeResultScreen> {
                           Text('المواد المكتشفة:',
                             style: GoogleFonts.tajawal(fontSize: 15, fontWeight: FontWeight.bold)),
                           const SizedBox(height: 10),
-                          ...[
-                            ...widget.ingredients.map((e) => e.toString()),
-                            ...widget.traceWarnings,
-                          ].map(
-                            (item) => Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Text(
-                                item,
-                                style: GoogleFonts.tajawal(
-                                  fontSize: 13,
-                                  color: Theme.of(context).colorScheme.onSurface, // [FIXED Dark Mode]
-                                  height: 1.6,
-                                ),
-                                textAlign: TextAlign.right,
-                              ),
+                          Text(
+                            [
+                              ...widget.ingredients.map((e) => e.toString()),
+                              ...widget.traceWarnings,
+                            ].join('\n'),
+                            style: GoogleFonts.tajawal(
+                              fontSize: 13,
+                              color: Theme.of(context).colorScheme.onSurface, // [FIXED Dark Mode]
+                              height: 1.6,
                             ),
+                            textAlign: TextAlign.right,
+                            textDirection: TextDirection.rtl,
                           ),
                         ],
                       ),
@@ -259,7 +255,7 @@ class _UnsafeResultScreenState extends State<UnsafeResultScreen> {
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton(
-                          onPressed: () => Get.offAll(() => const ScanIngredientsScreen()),
+                          onPressed: () => Get.to(() => const ScanIngredientsScreen()),
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             side: const BorderSide(color: Color(0xFF9CCB7A)),
