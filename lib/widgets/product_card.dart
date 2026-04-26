@@ -20,18 +20,19 @@ class ProductCard extends StatelessWidget {
     this.onTap,
   });
 
-  static const Color kCardBg = Color(0xFFFAF6E9);
   static const Color kRed = Color(0xFFD32F2F);
   static const Color kGreen = Color(0xFF9CCB7A);
   static const Color kGrey900 = Color(0xFF818898);
 
   @override
   Widget build(BuildContext context) {
+    final Color kCardBg = Theme.of(context).cardColor; // [FIXED Dark Mode]
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: double.infinity,
-        decoration: BoxDecoration(color: kCardBg, borderRadius: BorderRadius.circular(16)),
+        decoration: BoxDecoration(color: kCardBg, borderRadius: BorderRadius.circular(16)), // [FIXED Dark Mode]
         clipBehavior: Clip.hardEdge,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -62,7 +63,8 @@ class ProductCard extends StatelessWidget {
                           textAlign: TextAlign.right,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.tajawal(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.black),
+                          style: GoogleFonts.tajawal(fontSize: 15, fontWeight: FontWeight.w600,
+                              color: Theme.of(context).colorScheme.onSurface), // [FIXED Dark Mode]
                         ),
                         const SizedBox(height: 8),
                         Row(
@@ -70,7 +72,9 @@ class ProductCard extends StatelessWidget {
                           children: [
                             Icon(isSafe ? Icons.check_circle : Icons.cancel, size: 20, color: isSafe ? kGreen : kRed),
                             const SizedBox(width: 6),
-                            Text(isSafe ? 'آمن' : 'غير آمن', style: GoogleFonts.tajawal(fontSize: 13, fontWeight: FontWeight.w600, color: isSafe ? kGreen : kRed)),
+                            Text(isSafe ? 'آمن' : 'غير آمن',
+                                style: GoogleFonts.tajawal(fontSize: 13, fontWeight: FontWeight.w600,
+                                    color: isSafe ? kGreen : kRed)),
                           ],
                         ),
                       ],
@@ -108,36 +112,25 @@ class _SmartImage extends StatefulWidget {
 }
 
 class _SmartImageState extends State<_SmartImage> {
-  // ✅ Try local first if file exists, otherwise try remote
   bool get _hasLocalFile =>
       widget.localPath.isNotEmpty && File(widget.localPath).existsSync();
 
   @override
   Widget build(BuildContext context) {
-    // ✅ Priority 1: local file exists on THIS device → use it directly
     if (_hasLocalFile) {
-      return Image.file(
-        File(widget.localPath),
-        fit: BoxFit.cover,
-        width: double.infinity,
-        height: widget.height,
-        errorBuilder: (_, __, ___) => _tryRemote(),
-      );
+      return Image.file(File(widget.localPath), fit: BoxFit.cover,
+        width: double.infinity, height: widget.height,
+        errorBuilder: (_, __, ___) => _tryRemote());
     }
-    // ✅ Priority 2: no local file → try remote URL
     return _tryRemote();
   }
 
   Widget _tryRemote() {
     if (widget.remoteUrl.isNotEmpty) {
-      return Image.network(
-        widget.remoteUrl,
-        fit: BoxFit.cover,
-        width: double.infinity,
-        height: widget.height,
+      return Image.network(widget.remoteUrl, fit: BoxFit.cover,
+        width: double.infinity, height: widget.height,
         loadingBuilder: (ctx, child, progress) {
           if (progress == null) return child;
-          // ✅ While loading remote, show local if available
           if (widget.localPath.isNotEmpty) {
             final f = File(widget.localPath);
             if (f.existsSync()) {
@@ -147,7 +140,6 @@ class _SmartImageState extends State<_SmartImage> {
           return _placeholder();
         },
         errorBuilder: (_, __, ___) {
-          // ✅ Remote failed → try local as final fallback
           if (widget.localPath.isNotEmpty) {
             final f = File(widget.localPath);
             if (f.existsSync()) {

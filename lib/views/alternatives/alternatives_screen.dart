@@ -28,11 +28,9 @@ class AlternativesScreen extends StatefulWidget {
 }
 
 class _AlternativesScreenState extends State<AlternativesScreen> {
-  static const Color kBackground = Color(0xFFFFFDF6);
   static const Color kGrey900 = Color(0xFF818898);
   static const Color kPrimary = Color(0xFF9CCB7A);
   static const Color kRed = Color(0xFFD32F2F);
-  static const Color kCardBg = Color(0xFFFAF6E9);
   static const Color kYellow = Color(0xFFF5A623);
 
   List<AlternativeProduct> _alternatives = [];
@@ -52,10 +50,6 @@ class _AlternativesScreenState extends State<AlternativesScreen> {
 
   Future<void> _loadAlternatives() async {
     try {
-      // Use detectedAllergenTypes as allUserAllergyTypes here since
-      // AlternativesScreen doesn't have direct access to full user profile.
-      // The full profile is used in scan_service before navigating here.
-      // savedAlternatives (pre-computed in scan_service) is the preferred path.
       final results = await AlternativesService.getAlternatives(
         allUserAllergyTypes: widget.detectedAllergenTypes,
         llmSuggestedAlternatives: widget.llmSuggestedAlternatives,
@@ -71,13 +65,16 @@ class _AlternativesScreenState extends State<AlternativesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final Color kBackground = Theme.of(context).scaffoldBackgroundColor; // [FIXED Dark Mode]
+    final Color kCardBg = Theme.of(context).cardColor; // [FIXED Dark Mode]
+
     final dbProducts = _alternatives.where((a) => a.id != -1).toList();
     final llmProducts = _alternatives.where((a) => a.id == -1).toList();
 
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: kBackground,
+        backgroundColor: kBackground, // [FIXED Dark Mode]
         body: SafeArea(
           child: Column(
             children: [
@@ -90,19 +87,18 @@ class _AlternativesScreenState extends State<AlternativesScreen> {
                       onTap: () => Get.back(),
                       child: Container(
                         width: 40, height: 40,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFFAF6E9),
+                        decoration: BoxDecoration(
+                          color: kCardBg, // [FIXED Dark Mode]
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.arrow_back, color: Colors.black, size: 20),
+                        child: Icon(Icons.arrow_back,
+                            color: Theme.of(context).colorScheme.onSurface, size: 20), // [FIXED Dark Mode]
                       ),
                     ),
                     const Spacer(),
-                    Text(
-                      'البدائل الآمنة',
-                      style: GoogleFonts.tajawal(
-                        fontSize: 18, fontWeight: FontWeight.w700, color: Colors.black,
-                      ),
+                    Text('البدائل الآمنة',
+                      style: GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w700,
+                          color: Theme.of(context).colorScheme.onSurface), // [FIXED Dark Mode]
                     ),
                     const Spacer(),
                     const SizedBox(width: 40),
@@ -123,9 +119,7 @@ class _AlternativesScreenState extends State<AlternativesScreen> {
                     ),
                     child: Text(
                       'بدائل آمنة لـ: ${widget.detectedAllergens.join('، ')}',
-                      style: GoogleFonts.tajawal(
-                        fontSize: 14, color: kRed, fontWeight: FontWeight.w600,
-                      ),
+                      style: GoogleFonts.tajawal(fontSize: 14, color: kRed, fontWeight: FontWeight.w600),
                       textAlign: TextAlign.right,
                     ),
                   ),
@@ -142,32 +136,28 @@ class _AlternativesScreenState extends State<AlternativesScreen> {
                               children: [
                                 const Icon(Icons.search_off, size: 60, color: Color(0xFFD1D1D1)),
                                 const SizedBox(height: 16),
-                                Text(
-                                  'لا توجد بدائل متاحة حالياً',
-                                  style: GoogleFonts.tajawal(fontSize: 16, color: kGrey900),
-                                ),
+                                Text('لا توجد بدائل متاحة حالياً',
+                                    style: GoogleFonts.tajawal(fontSize: 16, color: kGrey900)),
                               ],
                             ),
                           )
                         : ListView(
                             padding: const EdgeInsets.symmetric(horizontal: 20),
                             children: [
-                              // ── DB products — GREEN ──────────────────────
                               if (dbProducts.isNotEmpty) ...[
                                 _buildSectionHeader('متاح في السوق السعودي', Colors.green),
                                 const SizedBox(height: 12),
-                                ...dbProducts.map((p) => _buildProductCard(p, isLlm: false)),
+                                ...dbProducts.map((p) => _buildProductCard(p, isLlm: false, kCardBg: kCardBg)),
                                 const SizedBox(height: 20),
                               ],
 
-                              // ── LLM section — collapsible ────────────────
                               if (llmProducts.isNotEmpty) ...[
                                 _buildLlmToggleButton(llmProducts.length),
                                 if (_llmExpanded) ...[
                                   const SizedBox(height: 12),
                                   _buildLlmDisclaimer(),
                                   const SizedBox(height: 12),
-                                  ...llmProducts.map((p) => _buildProductCard(p, isLlm: true)),
+                                  ...llmProducts.map((p) => _buildProductCard(p, isLlm: true, kCardBg: kCardBg)),
                                 ],
                               ],
 
@@ -194,32 +184,18 @@ class _AlternativesScreenState extends State<AlternativesScreen> {
         ),
         child: Row(
           children: [
-            Icon(
-              _llmExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-              color: kYellow, size: 20,
-            ),
+            Icon(_llmExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                color: kYellow, size: 20),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(
-                'بحث عن بدائل إضافية',
-                style: GoogleFonts.tajawal(
-                  fontSize: 14, fontWeight: FontWeight.w700, color: kYellow,
-                ),
-                textAlign: TextAlign.right,
-              ),
+              child: Text('بحث عن بدائل إضافية',
+                style: GoogleFonts.tajawal(fontSize: 14, fontWeight: FontWeight.w700, color: kYellow),
+                textAlign: TextAlign.right),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: kYellow.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                '$count',
-                style: GoogleFonts.tajawal(
-                  fontSize: 12, fontWeight: FontWeight.bold, color: kYellow,
-                ),
-              ),
+              decoration: BoxDecoration(color: kYellow.withOpacity(0.15), borderRadius: BorderRadius.circular(20)),
+              child: Text('$count', style: GoogleFonts.tajawal(fontSize: 12, fontWeight: FontWeight.bold, color: kYellow)),
             ),
           ],
         ),
@@ -261,14 +237,12 @@ class _AlternativesScreenState extends State<AlternativesScreen> {
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: color.withOpacity(0.3)),
       ),
-      child: Text(
-        title,
-        style: GoogleFonts.tajawal(fontSize: 14, fontWeight: FontWeight.bold, color: color),
-      ),
+      child: Text(title,
+        style: GoogleFonts.tajawal(fontSize: 14, fontWeight: FontWeight.bold, color: color)),
     );
   }
 
-  Widget _buildProductCard(AlternativeProduct product, {required bool isLlm}) {
+  Widget _buildProductCard(AlternativeProduct product, {required bool isLlm, required Color kCardBg}) {
     final cardColor = isLlm ? kYellow : Colors.green;
     final borderColor = cardColor.withOpacity(0.3);
 
@@ -276,7 +250,7 @@ class _AlternativesScreenState extends State<AlternativesScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: kCardBg,
+        color: kCardBg, // [FIXED Dark Mode]
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: borderColor),
       ),
@@ -292,8 +266,7 @@ class _AlternativesScreenState extends State<AlternativesScreen> {
                     fit: BoxFit.cover,
                     loadingBuilder: (ctx, child, progress) => progress == null
                         ? child
-                        : Center(child: CircularProgressIndicator(
-                            strokeWidth: 2, color: cardColor.withOpacity(0.5))),
+                        : Center(child: CircularProgressIndicator(strokeWidth: 2, color: cardColor.withOpacity(0.5))),
                     errorBuilder: (_, __, ___) => _imagePlaceholder(isLlm),
                   )
                 : _imagePlaceholder(isLlm),
@@ -310,11 +283,9 @@ class _AlternativesScreenState extends State<AlternativesScreen> {
                 ),
                 if (product.brand.isNotEmpty) ...[
                   const SizedBox(height: 4),
-                  Text(
-                    product.brand,
+                  Text(product.brand,
                     style: GoogleFonts.tajawal(fontSize: 12, color: kGrey900),
-                    textAlign: TextAlign.right,
-                  ),
+                    textAlign: TextAlign.right),
                 ],
                 const SizedBox(height: 6),
                 Align(
@@ -327,13 +298,9 @@ class _AlternativesScreenState extends State<AlternativesScreen> {
                       border: Border.all(color: cardColor.withOpacity(isLlm ? 0.5 : 0.4)),
                     ),
                     child: Text(
-                      isLlm
-                          ? 'قد لا يكون متاحاً في السوق السعودي'
-                          : 'متاح في السوق السعودي',
-                      style: GoogleFonts.tajawal(
-                        fontSize: 11,
-                        color: isLlm ? kYellow : Colors.green.shade700,
-                      ),
+                      isLlm ? 'قد لا يكون متاحاً في السوق السعودي' : 'متاح في السوق السعودي',
+                      style: GoogleFonts.tajawal(fontSize: 11,
+                          color: isLlm ? kYellow : Colors.green.shade700),
                     ),
                   ),
                 ),
@@ -346,10 +313,7 @@ class _AlternativesScreenState extends State<AlternativesScreen> {
   }
 
   Widget _imagePlaceholder(bool isLlm) {
-    return Center(child: Icon(
-      Icons.shopping_bag_outlined,
-      size: 30,
-      color: isLlm ? kYellow.withOpacity(0.5) : Colors.green.shade300,
-    ));
+    return Center(child: Icon(Icons.shopping_bag_outlined, size: 30,
+        color: isLlm ? kYellow.withOpacity(0.5) : Colors.green.shade300));
   }
 }

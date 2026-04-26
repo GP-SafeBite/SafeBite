@@ -20,7 +20,7 @@ import '../scanning/unsafe_result_screen.dart';
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
-    static void clearCache() {
+  static void clearCache() {
     _HomeScreenState._cachedUser = null;
     _HomeScreenState._cachedHistory = null;
   }
@@ -31,19 +31,16 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   static const Color kPrimary = Color(0xFF9CCB7A);
-  static const Color kBackground = Color(0xFFFFFDF6);
-  static const Color kCardBg = Color(0xFFFAF6E9);
   static const Color kGrey900 = Color(0xFF818898);
   static const Color kRed = Color(0xFFD32F2F);
 
-static Map<String, dynamic>? _cachedUser;
-static List<Map<String, dynamic>>? _cachedHistory;
-
+  static Map<String, dynamic>? _cachedUser;
+  static List<Map<String, dynamic>>? _cachedHistory;
 
   String _userName = '';
   String _userPhotoUrl = '';
   String _cachedPhotoPath = '';
-  int _photoVersion = 0; // ✅ Bug 1: force re-render
+  int _photoVersion = 0;
   int _totalScans = 0;
   int _safeScans = 0;
   int _unsafeScans = 0;
@@ -55,49 +52,51 @@ static List<Map<String, dynamic>>? _cachedHistory;
     super.initState();
     _loadData();
   }
+
   @override
-void didChangeDependencies() {
-  super.didChangeDependencies();
-  _loadData();
-}
-Future<void> _loadData({bool forceRefresh = false}) async {
-  if (forceRefresh) {
-    _cachedUser = null;
-    _cachedHistory = null;
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loadData();
   }
 
-  _cachedUser ??= await AuthService.getCurrentUser();
-  if (_cachedUser == null) {
-    if (mounted) setState(() => _isLoading = false);
-    return;
-  }
+  Future<void> _loadData({bool forceRefresh = false}) async {
+    if (forceRefresh) {
+      _cachedUser = null;
+      _cachedHistory = null;
+    }
 
-  if (_cachedHistory == null) {
-    final result = await ScanService.getScanHistory(userId: _cachedUser!['user_id']);
-    final raw = result.success ? (result.data as List? ?? []) : [];
-    _cachedHistory = raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
-  }
+    _cachedUser ??= await AuthService.getCurrentUser();
+    if (_cachedUser == null) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
 
-  final photoUrl = _cachedUser!['photo_url'] ?? '';
-  String cachedPath = '';
-  if (photoUrl.isNotEmpty) {
-    cachedPath = await _getCachedPhotoPath(_cachedUser!['user_id'], photoUrl);
-  }
+    if (_cachedHistory == null) {
+      final result = await ScanService.getScanHistory(userId: _cachedUser!['user_id']);
+      final raw = result.success ? (result.data as List? ?? []) : [];
+      _cachedHistory = raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    }
 
-  if (mounted) {
-    setState(() {
-      _userName = _cachedUser!['name'] ?? '';
-      _userPhotoUrl = photoUrl;
-      _cachedPhotoPath = cachedPath;
-      _photoVersion++;
-      _safeScans = _cachedHistory!.where((h) => h['safety_status'] == 'safe').length;
-      _unsafeScans = _cachedHistory!.where((h) => h['safety_status'] == 'unsafe').length;
-      _totalScans = _safeScans + _unsafeScans;
-      _lastScan = _cachedHistory!.isNotEmpty ? _cachedHistory!.first : null;
-      _isLoading = false;
-    });
+    final photoUrl = _cachedUser!['photo_url'] ?? '';
+    String cachedPath = '';
+    if (photoUrl.isNotEmpty) {
+      cachedPath = await _getCachedPhotoPath(_cachedUser!['user_id'], photoUrl);
+    }
+
+    if (mounted) {
+      setState(() {
+        _userName = _cachedUser!['name'] ?? '';
+        _userPhotoUrl = photoUrl;
+        _cachedPhotoPath = cachedPath;
+        _photoVersion++;
+        _safeScans = _cachedHistory!.where((h) => h['safety_status'] == 'safe').length;
+        _unsafeScans = _cachedHistory!.where((h) => h['safety_status'] == 'unsafe').length;
+        _totalScans = _safeScans + _unsafeScans;
+        _lastScan = _cachedHistory!.isNotEmpty ? _cachedHistory!.first : null;
+        _isLoading = false;
+      });
+    }
   }
-}
 
   static Future<String> _getCachedPhotoPath(String userId, String photoUrl) async {
     try {
@@ -126,7 +125,6 @@ Future<void> _loadData({bool forceRefresh = false}) async {
     return '';
   }
 
-  // ✅ Bug 1: Image.file primary, network fallback, ValueKey forces re-render
   Widget _buildProfilePhoto(double size) {
     if (_cachedPhotoPath.isNotEmpty) {
       return Image.file(
@@ -149,10 +147,13 @@ Future<void> _loadData({bool forceRefresh = false}) async {
 
   @override
   Widget build(BuildContext context) {
+    final Color kBackground = Theme.of(context).scaffoldBackgroundColor; // [FIXED Dark Mode]
+    final Color kCardBg = Theme.of(context).cardColor; // [FIXED Dark Mode]
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: kBackground,
+        backgroundColor: kBackground, // [FIXED Dark Mode]
         body: SafeArea(
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
@@ -174,7 +175,8 @@ Future<void> _loadData({bool forceRefresh = false}) async {
                                   const SizedBox(width: 12),
                                   Flexible(
                                     child: Text('مرحباً، $_userName 👋',
-                                      style: GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.black),
+                                      style: GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w600,
+                                          color: Theme.of(context).colorScheme.onSurface), // [FIXED Dark Mode]
                                       overflow: TextOverflow.ellipsis),
                                   ),
                                 ],
@@ -216,7 +218,7 @@ Future<void> _loadData({bool forceRefresh = false}) async {
                               child: Container(
                                 width: double.infinity,
                                 padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(color: kCardBg, borderRadius: BorderRadius.circular(16)),
+                                decoration: BoxDecoration(color: kCardBg, borderRadius: BorderRadius.circular(16)), // [FIXED Dark Mode]
                                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                                   Text('• إجمالي الفحوصات: $_totalScans', style: GoogleFonts.tajawal(fontSize: 14, fontWeight: FontWeight.w600)),
                                   const SizedBox(height: 8),
@@ -250,7 +252,7 @@ Future<void> _loadData({bool forceRefresh = false}) async {
 
                     Container(
                       height: 70,
-                      decoration: const BoxDecoration(color: kBackground),
+                      decoration: BoxDecoration(color: kBackground), // [FIXED Dark Mode]
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
