@@ -6,6 +6,7 @@ import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/scan_service.dart';
+import '../../services/camera_service.dart';
 import 'safe_result_screen.dart';
 import 'unsafe_result_screen.dart';
 
@@ -36,18 +37,7 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
 
   Future<void> _initCamera() async {
     try {
-      final cameras = await availableCameras();
-      if (cameras.isEmpty) return;
-      final backCamera = cameras.firstWhere(
-        (cam) => cam.lensDirection == CameraLensDirection.back,
-        orElse: () => cameras.first,
-      );
-      _cameraController = CameraController(
-        backCamera,
-        ResolutionPreset.medium,
-        enableAudio: false,
-      );
-      await _cameraController!.initialize();
+      _cameraController = await CameraService.getController();
       if (mounted) setState(() => _isCameraReady = true);
     } catch (e) {
       print('Camera error: $e');
@@ -56,7 +46,7 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
 
   @override
   void dispose() {
-    _cameraController?.dispose();
+    // Do NOT dispose the controller — the singleton manages its lifetime.
     super.dispose();
   }
 

@@ -14,7 +14,7 @@ class LocalDB {
     String path = join(await getDatabasesPath(), 'safebite_local.db');
     return await openDatabase(
       path,
-      version: 6,
+      version: 7,
       onCreate: (Database db, int version) async {
         await db.execute('''
           CREATE TABLE current_user (
@@ -54,6 +54,9 @@ class LocalDB {
             scan_date TEXT NOT NULL
           )
         ''');
+        await db.execute(
+          'CREATE INDEX idx_scan_history_user_id ON scan_history(user_id)',
+        );
       },
       onUpgrade: (Database db, int oldVersion, int newVersion) async {
         if (oldVersion < 2) {
@@ -80,6 +83,11 @@ class LocalDB {
         }
         if (oldVersion < 6) {
           try { await db.execute('ALTER TABLE scan_history ADD COLUMN supabase_id TEXT'); } catch (_) {}
+        }
+        if (oldVersion < 7) {
+          await db.execute(
+            'CREATE INDEX IF NOT EXISTS idx_scan_history_user_id ON scan_history(user_id)',
+          );
         }
       },
     );

@@ -133,6 +133,17 @@ class AlternativesService {
     'dairy-free cooking-cream'   : ['dairy-free cooking-cream'],
     'free-from soup'             : ['free-from soup'],
     'free-from sauce'            : ['free-from sauce'],
+    'gluten-free chocolate'  : ['gluten-free chocolate'],
+'gluten-free wrap'       : ['gluten-free wrap'],
+'gluten-free cracker'    : ['gluten-free cracker'],
+'gluten-free couscous'   : ['gluten-free couscous'],
+'gluten-free waffle'     : ['gluten-free waffle'],
+'gluten-free cake'       : ['gluten-free cake'],
+'dairy-free whipped-cream': ['dairy-free whipped-cream'],
+'free-from hummus'       : ['free-from hummus'],
+'free-from date-bar'     : ['free-from date-bar'],
+'free-from energy-bar'   : ['free-from energy-bar'],
+'sesame-free bread'      : ['sesame-free bread'],
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -152,14 +163,14 @@ class AlternativesService {
     'ice-cream'         : ['dairy-free ice cream'],
     'milkshake'         : ['dairy-free milkshake'],
     'custard'           : ['dairy-free custard'],
-    'chocolate'         : ['dairy-free chocolate', 'nut-free chocolate'],
+    //'chocolate'         : ['dairy-free chocolate', 'nut-free chocolate'],
     'chocolate-spread'  : ['dairy-free chocolate-spread'],
     'candy'             : ['free-from candy'],
     'halawa'            : ['free-from halawa'],
-    'bread'             : ['gluten-free bread'],
+    //'bread'             : ['gluten-free bread'],
     'pita'              : ['gluten-free pita'],
     'pastry'            : ['gluten-free pastry'],
-    'cake'              : ['dairy-free cake'],
+    //'cake'              : ['dairy-free cake'],
     'pancake-mix'       : ['free-from pancake-mix'],
     'pasta'             : ['gluten-free pasta'],
     'noodles'           : ['gluten-free noodles'],
@@ -183,6 +194,18 @@ class AlternativesService {
     'protein-shake'     : ['free-from protein-shake'],
     'cooking-cream'     : ['dairy-free cooking-cream'],
     'soup'              : ['free-from soup'],
+    'chocolate' : ['dairy-free chocolate', 'nut-free chocolate', 'gluten-free chocolate'],
+'cake'      : ['dairy-free cake', 'gluten-free cake'],
+'bread'     : ['gluten-free bread', 'sesame-free bread'],
+// add new ones:
+'wrap'          : ['gluten-free wrap'],
+'cracker'       : ['gluten-free cracker'],
+'couscous'      : ['gluten-free couscous'],
+'waffle'        : ['gluten-free waffle'],
+'whipped-cream' : ['dairy-free whipped-cream'],
+'hummus'        : ['free-from hummus'],
+'date-bar'      : ['free-from date-bar'],
+'energy-bar'    : ['free-from energy-bar'],
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -259,9 +282,16 @@ class AlternativesService {
     'مبيض'           : 'coffee-creamer',
     'شوكولاتة ساخنة' : 'hot-chocolate',
     'بروتين'         : 'protein-shake',
-    'كريمة طبخ'      : 'cooking-cream',
+   'كريمة طبخ'      : 'cooking-cream',
     'شوربة'          : 'soup',
     'صوص'            : 'sauce',
+    'شوكولاتة خالية من الجلوتين' : 'chocolate',
+'تورتيلا'    : 'wrap',
+'راب'        : 'wrap',
+'كريمة مخفوقة': 'whipped-cream',
+'حمص'        : 'hummus',
+'بار تمر'    : 'date-bar',
+'تمر'        : 'date-bar',
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -312,48 +342,45 @@ class AlternativesService {
     final List<AlternativeProduct> dbProducts = [];
 
     try {
-      // ── Step 3: Direct category query — no junction table ─────────────────
-      // Fetch all alternatives matching the target categories.
-      // Safety is determined entirely by allergens_present, not junction rows.
-      dynamic query = _supabase
-          .from('alternatives')
-          .select('id, name_ar, name_en, brand, category, image_url, allergens_present');
+  // ── Step 3: Direct category query — no junction table ─────────────────
+  if (targetCategories.isEmpty) {
+    print('⚠️ No target categories — skipping DB query entirely.');
+  } else {
+    final productsResponse = await _supabase
+        .from('alternatives')
+        .select('id, name_ar, name_en, brand, category, image_url, allergens_present')
+        .inFilter('category', targetCategories);
 
-      if (targetCategories.isNotEmpty) {
-        query = query.inFilter('category', targetCategories);
+    // ── Step 4: Safety filter — pure integer intersection ─────────────────
+    for (final row in productsResponse as List) {
+      final map = row as Map<String, dynamic>;
+      final List<int> productAllergenIds = _parseAllergensPresent(map['allergens_present']);
+
+      final bool safeForUser = userAllergyIds.isEmpty ||
+          !userAllergyIds.any((id) => productAllergenIds.contains(id));
+
+      if (!safeForUser) {
+        final conflicts = userAllergyIds
+            .where((id) => productAllergenIds.contains(id))
+            .toList();
+        print('⚠️ Excluded ${map['name_en']} — allergens_present conflicts: $conflicts');
+        continue;
       }
 
-      final productsResponse = await query;
-
-      // ── Step 4: Safety filter — pure integer intersection ─────────────────
-      for (final row in productsResponse as List) {
-        final map = row as Map<String, dynamic>;
-        final List<int> productAllergenIds = _parseAllergensPresent(map['allergens_present']);
-
-        final bool safeForUser = userAllergyIds.isEmpty ||
-            !userAllergyIds.any((id) => productAllergenIds.contains(id));
-
-        if (!safeForUser) {
-          final conflicts = userAllergyIds
-              .where((id) => productAllergenIds.contains(id))
-              .toList();
-          print('⚠️ Excluded ${map['name_en']} — allergens_present conflicts: $conflicts');
-          continue;
-        }
-
-        dbProducts.add(AlternativeProduct.fromDb(map));
-      }
-      print('✅ DB products after safety filter: ${dbProducts.length}');
-    } catch (e) {
-      print('❌ DB query error: $e');
+      dbProducts.add(AlternativeProduct.fromDb(map));
     }
+    print('✅ DB products after safety filter: ${dbProducts.length}');
+  }
+} catch (e) {
+  print('❌ DB query error: $e');
+}
 
     // ── Step 4b: Arabic fallback retry — if DB returned 0 results ─────────
     // Handles cases where Gemini returned empty/wrong product_category
     // but product_type_ar contains a recognisable Arabic keyword.
     // Also handles spelling variants: "زبادى" / "زبادة" still contain "زبادي"
     // because _arabicFallbackToCanonical uses contains() not exact match.
-    if (dbProducts.isEmpty && productTypeAr.isNotEmpty) {
+    if (dbProducts.isEmpty && productTypeAr.isNotEmpty&&targetCategories.isEmpty) {
       print('🔄 DB returned 0 — retrying with Arabic fallback for "$productTypeAr"');
       try {
         final fallbackCategories = _resolveFromArabicOnly(productTypeAr);

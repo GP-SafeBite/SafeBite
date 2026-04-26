@@ -6,7 +6,8 @@ import '../alternatives/alternatives_screen.dart';
 import '../scanning/scan_ingredients_screen.dart';
 import '../../services/alternatives_service.dart';
 
-class UnsafeResultScreen extends StatelessWidget {
+// ── Optimization 9: Convert to StatefulWidget for lazy alternatives ──────────
+class UnsafeResultScreen extends StatefulWidget {
   final String productName;
   final List<String> detectedAllergens;
   final List<String> detectedAllergenTypes;
@@ -34,9 +35,27 @@ class UnsafeResultScreen extends StatelessWidget {
     this.localImagePath = '',
   });
 
+  @override
+  State<UnsafeResultScreen> createState() => _UnsafeResultScreenState();
+}
+
+class _UnsafeResultScreenState extends State<UnsafeResultScreen> {
   static const Color kPrimary = Color(0xFF9CCB7A);
   static const Color kBackground = Color(0xFFFFFDF6);
   static const Color kRed = Color(0xFFD32F2F);
+
+  late Future<List<AlternativeProduct>> _alternativesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    // Resolve immediately — the result is already available from the scan.
+    if (widget.savedAlternatives != null) {
+      _alternativesFuture = Future.value(widget.savedAlternatives);
+    } else {
+      _alternativesFuture = Future.value(const []);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -80,17 +99,17 @@ class UnsafeResultScreen extends StatelessWidget {
                     child: Container(
                       width: double.infinity, height: 250,
                       color: Colors.grey.shade200,
-                      child: _SmartImage(remoteUrl: remoteImageUrl, localPath: localImagePath),
+                      child: _SmartImage(remoteUrl: widget.remoteImageUrl, localPath: widget.localImagePath),
                     ),
                   ),
                 ),
 
                 const SizedBox(height: 20),
 
-                if (productName.isNotEmpty && productName != 'منتج من صورة')
+                if (widget.productName.isNotEmpty && widget.productName != 'منتج من صورة')
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Text(productName,
+                    child: Text(widget.productName,
                         style: GoogleFonts.tajawal(fontSize: 16, fontWeight: FontWeight.bold),
                         textAlign: TextAlign.center),
                   ),
@@ -134,7 +153,7 @@ class UnsafeResultScreen extends StatelessWidget {
                                   fontSize: 15, fontWeight: FontWeight.bold, color: kRed))),
                         ]),
                         const SizedBox(height: 10),
-                        ...detectedAllergens.map((a) => Padding(
+                        ...widget.detectedAllergens.map((a) => Padding(
                           padding: const EdgeInsets.only(bottom: 6),
                           child: Row(children: [
                             const Icon(Icons.circle, size: 8, color: Colors.red),
@@ -152,7 +171,7 @@ class UnsafeResultScreen extends StatelessWidget {
                 const SizedBox(height: 16),
 
                 // ── المواد المكتشفة — plain text list, consistent with history ─
-                if (ingredients.isNotEmpty || traceWarnings.isNotEmpty)
+                if (widget.ingredients.isNotEmpty || widget.traceWarnings.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Container(
@@ -173,8 +192,8 @@ class UnsafeResultScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 10),
                           ...[
-                            ...ingredients.map((e) => e.toString()),
-                            ...traceWarnings,
+                            ...widget.ingredients.map((e) => e.toString()),
+                            ...widget.traceWarnings,
                           ].map(
                             (item) => Padding(
                               padding: const EdgeInsets.only(bottom: 8),
@@ -201,29 +220,55 @@ class UnsafeResultScreen extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Column(
                     children: [
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () => Navigator.push(context, MaterialPageRoute(
-                            builder: (_) => AlternativesScreen(
-                              unsafeProductName: productName,
-                              detectedAllergens: detectedAllergens,
-                              detectedAllergenTypes: detectedAllergenTypes,
-                              llmSuggestedAlternatives: llmSuggestedAlternatives,
-                              llmRawAlternatives: llmRawAlternatives,
-                              productTypeAr: productTypeAr,
-                              savedAlternatives: savedAlternatives,
+                      // Optimization 9: FutureBuilder wraps only the alternatives button
+                      FutureBuilder<List<AlternativeProduct>>(
+                        future: _alternativesFuture,
+                        builder: (context, snapshot) {
+                          final alternatives = snapshot.data;
+                          final isReady = snapshot.connectionState == ConnectionState.done;
+
+                          return SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: isReady
+                                  ? () => Navigator.push(context, MaterialPageRoute(
+                                        builder: (_) => AlternativesScreen(
+                                          unsafeProductName: widget.productName,
+                                          detectedAllergens: widget.detectedAllergens,
+                                          detectedAllergenTypes: widget.detectedAllergenTypes,
+                                          llmSuggestedAlternatives: widget.llmSuggestedAlternatives,
+                                          llmRawAlternatives: widget.llmRawAlternatives,
+                                          productTypeAr: widget.productTypeAr,
+                                          savedAlternatives: alternatives,
+                                        ),
+                                      ))
+                                  : null,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: isReady ? kPrimary : Colors.grey.shade300,
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              child: isReady
+                                  ? Text('عرض البدائل الآمنة',
+                                      style: GoogleFonts.tajawal(
+                                          fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white))
+                                  : Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const SizedBox(
+                                          width: 16, height: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2, color: Colors.white70),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Text('جاري التحميل...',
+                                            style: GoogleFonts.tajawal(
+                                                fontSize: 16, color: Colors.white70)),
+                                      ],
+                                    ),
                             ),
-                          )),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: kPrimary,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                          child: Text('عرض البدائل الآمنة',
-                              style: GoogleFonts.tajawal(
-                                  fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
-                        ),
+                          );
+                        },
                       ),
                       const SizedBox(height: 12),
                       SizedBox(
