@@ -188,7 +188,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 20),
                               child: AspectRatio(
-                                aspectRatio: 1,
+                                aspectRatio: 1.7,
                                 child: GestureDetector(
                                   onTap: () => Get.to(() => const ScanIngredientsScreen())?.then((_) => _loadData(forceRefresh: true)),
                                   child: Container(
