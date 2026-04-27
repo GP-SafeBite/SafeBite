@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../database/local_db.dart';
 import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 
 class AuthResult {
   final bool success;
@@ -113,27 +114,26 @@ class AuthService {
 
       final user = response.user!;
 
-     // 🔴 fetch real name AND photo from User table
-String name = '';
-String photoUrl = '';
-try {
-  final userData = await _supabase
-      .from('User')
-      .select('name, photo_url')
-      .eq('user_id', user.id)
-      .single();
-  name = userData['name'] ?? user.userMetadata?['name'] ?? '';
-  photoUrl = userData['photo_url'] ?? '';
-} catch (e) {
-  name = user.userMetadata?['name'] ?? '';
-}
+      String name = '';
+      String photoUrl = '';
+      try {
+        final userData = await _supabase
+            .from('User')
+            .select('name, photo_url')
+            .eq('user_id', user.id)
+            .single();
+        name = userData['name'] ?? user.userMetadata?['name'] ?? '';
+        photoUrl = userData['photo_url'] ?? '';
+      } catch (e) {
+        name = user.userMetadata?['name'] ?? '';
+      }
 
-await LocalDB.saveUser(
-  userId: user.id,
-  email: email,
-  name: name,
-  photoUrl: photoUrl, // 🔴 added
-);
+      await LocalDB.saveUser(
+        userId: user.id,
+        email: email,
+        name: name,
+        photoUrl: photoUrl,
+      );
 
       return AuthResult(
         success: true,
@@ -209,29 +209,27 @@ await LocalDB.saveUser(
 
       final user = response.user!;
 
-      // 🔴 fetch real name AND photo from User table
-String name = '';
-String photoUrl = '';
-try {
-  final userData = await _supabase
-      .from('User')
-      .select('name, photo_url')
-      .eq('user_id', user.id)
-      .single();
-  name = userData['name'] ?? user.userMetadata?['name'] ?? '';
-  photoUrl = userData['photo_url'] ?? '';
-} catch (e) {
-  name = user.userMetadata?['name'] ?? '';
-}
+      String name = '';
+      String photoUrl = '';
+      try {
+        final userData = await _supabase
+            .from('User')
+            .select('name, photo_url')
+            .eq('user_id', user.id)
+            .single();
+        name = userData['name'] ?? user.userMetadata?['name'] ?? '';
+        photoUrl = userData['photo_url'] ?? '';
+      } catch (e) {
+        name = user.userMetadata?['name'] ?? '';
+      }
 
-await LocalDB.saveUser(
-  userId: user.id,
-  email: email,
-  name: name,
-  photoUrl: photoUrl, // 🔴 added
-);
+      await LocalDB.saveUser(
+        userId: user.id,
+        email: email,
+        name: name,
+        photoUrl: photoUrl,
+      );
 
-      // 🔴 reload allergies from Supabase into SQLite
       try {
         final allergies = await _supabase
             .from('userallergy')
@@ -343,29 +341,27 @@ await LocalDB.saveUser(
 
       final user = response.user!;
 
-  // 🔴 fetch real name AND photo from User table
-String name = '';
-String photoUrl = '';
-try {
-  final userData = await _supabase
-      .from('User')
-      .select('name, photo_url')
-      .eq('user_id', user.id)
-      .single();
-  name = userData['name'] ?? user.userMetadata?['name'] ?? '';
-  photoUrl = userData['photo_url'] ?? '';
-} catch (e) {
-  name = user.userMetadata?['name'] ?? '';
-}
+      String name = '';
+      String photoUrl = '';
+      try {
+        final userData = await _supabase
+            .from('User')
+            .select('name, photo_url')
+            .eq('user_id', user.id)
+            .single();
+        name = userData['name'] ?? user.userMetadata?['name'] ?? '';
+        photoUrl = userData['photo_url'] ?? '';
+      } catch (e) {
+        name = user.userMetadata?['name'] ?? '';
+      }
 
-await LocalDB.saveUser(
-  userId: user.id,
-  email: email,
-  name: name,
-  photoUrl: photoUrl, // 🔴 added
-);
+      await LocalDB.saveUser(
+        userId: user.id,
+        email: email,
+        name: name,
+        photoUrl: photoUrl,
+      );
 
-      // 🔴 reload allergies from Supabase into SQLite
       try {
         final allergies = await _supabase
             .from('userallergy')
@@ -454,94 +450,107 @@ await LocalDB.saveUser(
       return false;
     }
   }
-// ──────────────────────────────────────────────
-// UPLOAD PROFILE PHOTO
-// ──────────────────────────────────────────────
-static Future<String?> uploadProfilePhoto({
-  required String userId,
-  required String filePath,
-}) async {
-  try {
-    // 🔴 Get current session
-    final session = _supabase.auth.currentSession;
-    
-    if (session == null) {
-      print('❌ No active session - user not authenticated');
+
+  // ──────────────────────────────────────────────
+  // UPLOAD PROFILE PHOTO
+  // ──────────────────────────────────────────────
+  static Future<String?> uploadProfilePhoto({
+    required String userId,
+    required String filePath,
+  }) async {
+    try {
+      final session = _supabase.auth.currentSession;
+      if (session == null) {
+        print('❌ No active session - user not authenticated');
+        return null;
+      }
+
+      final file = File(filePath);
+      final fileName = '$userId/avatar.jpg';
+
+      await _supabase.storage
+          .from('avatars')
+          .upload(
+            fileName,
+            file,
+            fileOptions: const FileOptions(
+              upsert: true,
+              contentType: 'image/jpeg',
+            ),
+          );
+
+      // ✅ FIX: append timestamp so the URL changes on every upload.
+      // Without this, Supabase always returns the same URL for the same
+      // file path (userId/avatar.jpg), so _getCachedPhotoPath sees
+      // urlChanged=false and NEVER re-downloads the new image.
+      final baseUrl = _supabase.storage.from('avatars').getPublicUrl(fileName);
+      final photoUrl = '$baseUrl?v=${DateTime.now().millisecondsSinceEpoch}';
+
+      // ✅ FIX: delete the old local cache file immediately so that even
+      // if there is a race condition, the stale image is never served.
+      try {
+        final dir = await getApplicationDocumentsDirectory();
+        final cacheFile = File('${dir.path}/profile_$userId.jpg');
+        if (await cacheFile.exists()) await cacheFile.delete();
+      } catch (_) {}
+
+      // Save versioned URL to Supabase User table
+      await _supabase
+          .from('User')
+          .update({'photo_url': photoUrl})
+          .eq('user_id', userId);
+
+      // Save versioned URL to SQLite
+      final db = await LocalDB.getDatabase();
+      await db.update(
+        'current_user',
+        {'photo_url': photoUrl},
+        where: 'user_id = ?',
+        whereArgs: [userId],
+      );
+
+      return photoUrl;
+    } catch (e) {
+      print('❌ Upload photo error: $e');
       return null;
     }
-    
-    print('✅ Session active for user: ${session.user.id}');
-    
-    final file = File(filePath);
-    final fileName = '$userId/avatar.jpg';
-
-    // 🔴 upload to Supabase Storage avatars bucket
-    await _supabase.storage
-        .from('avatars')
-        .upload(
-          fileName,
-          file,
-          fileOptions: const FileOptions(
-            upsert: true, // replace if exists
-            contentType: 'image/jpeg',
-          ),
-        );
-
-    // 🔴 get public URL
-    final photoUrl = _supabase.storage
-        .from('avatars')
-        .getPublicUrl(fileName);
-
-    // 🔴 save URL to Supabase User table
-    await _supabase
-        .from('User')
-        .update({'photo_url': photoUrl})
-        .eq('user_id', userId);
-
-    // 🔴 save URL to SQLite
-    final db = await LocalDB.getDatabase();
-    await db.update(
-      'current_user',
-      {'photo_url': photoUrl},
-      where: 'user_id = ?',
-      whereArgs: [userId],
-    );
-
-    return photoUrl;
-  } catch (e) {
-    print('❌ Upload photo error: $e');
-    return null;
   }
-}
-// ──────────────────────────────────────────────
-// DELETE PROFILE PHOTO
-// ──────────────────────────────────────────────
-static Future<bool> deleteProfilePhoto({required String userId}) async {
-  try {
-    // Delete from Supabase Storage
-    await _supabase.storage
-        .from('avatars')
-        .remove(['$userId/avatar.jpg']);
 
-    // Clear URL in Supabase User table
-    await _supabase
-        .from('User')
-        .update({'photo_url': null})
-        .eq('user_id', userId);
+  // ──────────────────────────────────────────────
+  // DELETE PROFILE PHOTO
+  // ──────────────────────────────────────────────
+  static Future<bool> deleteProfilePhoto({required String userId}) async {
+    try {
+      await _supabase.storage
+          .from('avatars')
+          .remove(['$userId/avatar.jpg']);
 
-    // Clear URL in SQLite
-    final db = await LocalDB.getDatabase();
-    await db.update(
-      'current_user',
-      {'photo_url': ''},
-      where: 'user_id = ?',
-      whereArgs: [userId],
-    );
+      await _supabase
+          .from('User')
+          .update({'photo_url': null})
+          .eq('user_id', userId);
 
-    return true;
-  } catch (e) {
-    print('❌ Delete photo error: $e');
-    return false;
+      final db = await LocalDB.getDatabase();
+      await db.update(
+        'current_user',
+        {'photo_url': ''},
+        where: 'user_id = ?',
+        whereArgs: [userId],
+      );
+
+      // ✅ Also delete the local cache file when photo is removed
+      try {
+        final dir = await getApplicationDocumentsDirectory();
+        final cacheFile = File('${dir.path}/profile_$userId.jpg');
+        if (await cacheFile.exists()) await cacheFile.delete();
+        final urlFile = File('${dir.path}/profile_${userId}_url.txt');
+        if (await urlFile.exists()) await urlFile.delete();
+      } catch (_) {}
+
+      return true;
+    } catch (e) {
+      print('❌ Delete photo error: $e');
+      return false;
+    }
   }
-}
 }
