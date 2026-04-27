@@ -206,45 +206,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             const SizedBox(height: 40),
                             Text('ملف الحساسية', style: GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface)),
                             const SizedBox(height: 20),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              children: [
-                                if (_userAllergyIds.isEmpty)
-                                  Text('لم تختر أي حساسية بعد', style: GoogleFonts.tajawal(fontSize: 14, color: kGrey900))
-                                else
+                            if (_userAllergyIds.isEmpty)
+                              Text('لم تختر أي حساسية بعد', style: GoogleFonts.tajawal(fontSize: 14, color: kGrey900))
+                            else
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
                                   ..._allAllergies
                                       .where((a) => _userAllergyIds.contains(a['id'] as String))
-                                      .take(3)
-                                      .map((a) => Padding(
-                                            padding: const EdgeInsets.only(left: 6),
-                                            child: _buildAllergyIcon(context: context, assetPath: a['icon'], label: a['name'], cardBg: kCardBg),
-                                          )),
-                                if (_userAllergyIds.length > 3)
-                                  Padding(
-                                    padding: const EdgeInsets.only(left: 6),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                                      decoration: BoxDecoration(color: kCardBg, borderRadius: BorderRadius.circular(16)),
-                                      child: Text('+${_userAllergyIds.length - 3}', style: GoogleFonts.tajawal(fontSize: 14, fontWeight: FontWeight.w700, color: kPrimary)),
-                                    ),
-                                  ),
-                                const Spacer(),
-                                GestureDetector(
-                                  onTap: () async {
-                                    await Get.to(() => const EditAllergiesScreen());
-                                    _loadUserData();
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                    decoration: BoxDecoration(color: kPrimary, borderRadius: BorderRadius.circular(14)),
-                                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                      const Icon(Icons.edit, size: 16, color: Colors.white),
-                                      const SizedBox(width: 4),
-                                      Text('تعديل', style: GoogleFonts.tajawal(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white)),
-                                    ]),
-                                  ),
+                                      .map((a) => _buildAllergyIcon(context: context, assetPath: a['icon'], label: a['name'], cardBg: kCardBg)),
+                                  if (_userAllergyIds.length > 3)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),                                    ),
+                                ],
+                              ),
+                            const SizedBox(height: 16),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: GestureDetector(
+                                onTap: () async {
+                                  await Get.to(() => const EditAllergiesScreen());
+                                  _loadUserData();
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(color: kPrimary, borderRadius: BorderRadius.circular(14)),
+                                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                    const Icon(Icons.edit, size: 16, color: Colors.white),
+                                    const SizedBox(width: 4),
+                                    Text('تعديل', style: GoogleFonts.tajawal(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white)),
+                                  ]),
                                 ),
-                              ],
+                              ),
                             ),
                             const SizedBox(height: 40),
                             _buildSettingItem(context: context, icon: Icons.info_outline, label: 'حول التطبيق', cardBg: kCardBg, onTap: () => Get.to(() => const AboutAppScreen())),
