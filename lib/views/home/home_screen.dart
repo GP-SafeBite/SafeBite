@@ -34,6 +34,18 @@ class _HomeScreenState extends State<HomeScreen> {
   static const Color kGrey900 = Color(0xFF818898);
   static const Color kRed = Color(0xFFD32F2F);
 
+  // ✅ Problem 3 Solution: Font constants - created once only
+  static final _headerStyle = GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w600);
+  static final _buttonTitleStyle = GoogleFonts.tajawal(fontSize: 17, fontWeight: FontWeight.w700, color: Colors.white);
+  static final _buttonSubtitleStyle = GoogleFonts.tajawal(fontSize: 14, color: Colors.white);
+  static final _sectionTitleStyle = GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w700);
+  static final _statsTextBoldStyle = GoogleFonts.tajawal(fontSize: 14, fontWeight: FontWeight.w600);
+  static final _statsTextNormalStyle = GoogleFonts.tajawal(fontSize: 14);
+  static final _statsTextColoredBoldStyle = GoogleFonts.tajawal(fontSize: 14, fontWeight: FontWeight.bold);
+  static final _emptyTextStyle = GoogleFonts.tajawal(fontSize: 14, color: kGrey900);
+  static final _navLabelStyle = GoogleFonts.tajawal(fontSize: 11, fontWeight: FontWeight.w500);
+  static final _navLabelActiveStyle = GoogleFonts.tajawal(fontSize: 11, fontWeight: FontWeight.w700);
+
   static Map<String, dynamic>? _cachedUser;
   static List<Map<String, dynamic>>? _cachedHistory;
 
@@ -50,12 +62,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadData();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
     _loadData();
   }
 
@@ -147,13 +153,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final Color kBackground = Theme.of(context).scaffoldBackgroundColor; // [FIXED Dark Mode]
-    final Color kCardBg = Theme.of(context).cardColor; // [FIXED Dark Mode]
+    final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
+    final Color kCardBg = Theme.of(context).cardColor;
 
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: kBackground, // [FIXED Dark Mode]
+        backgroundColor: kBackground,
         body: SafeArea(
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
@@ -175,8 +181,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   const SizedBox(width: 12),
                                   Flexible(
                                     child: Text('مرحباً، $_userName 👋',
-                                      style: GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w600,
-                                          color: Theme.of(context).colorScheme.onSurface), // [FIXED Dark Mode]
+                                      style: _headerStyle.copyWith(color: Theme.of(context).colorScheme.onSurface),
                                       overflow: TextOverflow.ellipsis),
                                   ),
                                 ],
@@ -196,9 +201,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                     child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                                       const Icon(Icons.camera_alt_outlined, size: 56, color: Colors.white),
                                       const SizedBox(height: 16),
-                                      Text('مسح المكونات', style: GoogleFonts.tajawal(fontSize: 17, fontWeight: FontWeight.w700, color: Colors.white)),
+                                      Text('مسح المكونات', style: _buttonTitleStyle),
                                       const SizedBox(height: 6),
-                                      Text('صورة قائمة المكونات', style: GoogleFonts.tajawal(fontSize: 14, color: Colors.white)),
+                                      Text('صورة قائمة المكونات', style: _buttonSubtitleStyle),
                                     ]),
                                   ),
                                 ),
@@ -210,7 +215,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 20),
                               child: Align(alignment: Alignment.centerRight,
-                                child: Text('إحصائياتك', style: GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w700))),
+                                child: Text('إحصائياتك', style: _sectionTitleStyle)),
                             ),
                             const SizedBox(height: 12),
                             Padding(
@@ -218,15 +223,15 @@ class _HomeScreenState extends State<HomeScreen> {
                               child: Container(
                                 width: double.infinity,
                                 padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(color: kCardBg, borderRadius: BorderRadius.circular(16)), // [FIXED Dark Mode]
+                                decoration: BoxDecoration(color: kCardBg, borderRadius: BorderRadius.circular(16)),
                                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                  Text('• إجمالي الفحوصات: $_totalScans', style: GoogleFonts.tajawal(fontSize: 14, fontWeight: FontWeight.w600)),
+                                  Text('• إجمالي الفحوصات: $_totalScans', style: _statsTextBoldStyle),
                                   const SizedBox(height: 8),
                                   Row(children: [
-                                    Text('• آمن: ', style: GoogleFonts.tajawal(fontSize: 14)),
-                                    Text('$_safeScans', style: GoogleFonts.tajawal(fontSize: 14, color: kPrimary, fontWeight: FontWeight.bold)),
-                                    Text('  |  غير آمن: ', style: GoogleFonts.tajawal(fontSize: 14)),
-                                    Text('$_unsafeScans', style: GoogleFonts.tajawal(fontSize: 14, color: kRed, fontWeight: FontWeight.bold)),
+                                    Text('• آمن: ', style: _statsTextNormalStyle),
+                                    Text('$_safeScans', style: _statsTextColoredBoldStyle.copyWith(color: kPrimary)),
+                                    Text('  |  غير آمن: ', style: _statsTextNormalStyle),
+                                    Text('$_unsafeScans', style: _statsTextColoredBoldStyle.copyWith(color: kRed)),
                                   ]),
                                 ]),
                               ),
@@ -237,7 +242,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 20),
                               child: Align(alignment: Alignment.centerRight,
-                                child: Text('آخر فحص', style: GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w700))),
+                                child: Text('آخر فحص', style: _sectionTitleStyle)),
                             ),
                             const SizedBox(height: 12),
                             Padding(
@@ -252,7 +257,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                     Container(
                       height: 70,
-                      decoration: BoxDecoration(color: kBackground), // [FIXED Dark Mode]
+                      decoration: BoxDecoration(color: kBackground),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
@@ -277,7 +282,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_lastScan == null) {
       return Center(child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 20),
-        child: Text('لا توجد فحوصات بعد!', style: GoogleFonts.tajawal(fontSize: 14, color: kGrey900)),
+        child: Text('لا توجد فحوصات بعد!', style: _emptyTextStyle),
       ));
     }
 
@@ -329,9 +334,8 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Icon(icon, color: isActive ? kPrimary : kGrey900, size: 26),
           const SizedBox(height: 4),
-          Text(label, textAlign: TextAlign.center, style: GoogleFonts.tajawal(fontSize: 11,
-            fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-            color: isActive ? kPrimary : kGrey900)),
+          Text(label, textAlign: TextAlign.center, 
+            style: isActive ? _navLabelActiveStyle.copyWith(color: kPrimary) : _navLabelStyle.copyWith(color: kGrey900)),
         ]),
       ),
     );
