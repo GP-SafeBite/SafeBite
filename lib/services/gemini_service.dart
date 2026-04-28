@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 class GeminiService {
-  static const String _apiKey = "AIzaSyCtJbiIuu_eK8_YmBcGWK22Sw81Sk3vNq0";
+  static const String _apiKey = "AIzaSyCaONW2r35n8FYWBffo4cSNDw10Ax7ZvmU";
   final String _baseUrl =
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
@@ -255,7 +255,10 @@ ${userAllergies.isEmpty ? 'لا توجد حساسيات محددة' : userAllerg
 }
 """;
 
-    final response = await http.post(
+  http.Response? response;
+for (int attempt = 1; attempt <= 2; attempt++) {
+  try {
+    response = await http.post(
       url,
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({
@@ -276,9 +279,16 @@ ${userAllergies.isEmpty ? 'لا توجد حساسيات محددة' : userAllerg
       }),
     ).timeout(const Duration(seconds: 30));
 
-    if (response.statusCode != 200) throw Exception(response.body);
+    if (response.statusCode == 200) break;
+    if (attempt == 2) throw Exception(response.body);
 
-    final data = jsonDecode(response.body);
+  } catch (e) {
+    if (attempt == 2) rethrow;
+    await Future.delayed(const Duration(seconds: 2));
+  }
+}
+
+    final data = jsonDecode(response!.body);
     final text = data["candidates"]?[0]?["content"]?["parts"]?[0]?["text"] ?? "";
     print("🧠 RAW AI TEXT: $text");
 
