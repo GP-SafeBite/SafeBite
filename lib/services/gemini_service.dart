@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 class GeminiService {
-  static const String _apiKey = "AIzaSyCaONW2r35n8FYWBffo4cSNDw10Ax7ZvmU";
+  static const String _apiKey = "AIzaSyC0yOjXlFfILJGVopH3NMjmri4NuUDKfrU";
   final String _baseUrl =
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
@@ -280,7 +280,10 @@ for (int attempt = 1; attempt <= 2; attempt++) {
     ).timeout(const Duration(seconds: 30));
 
     if (response.statusCode == 200) break;
-    if (attempt == 2) throw Exception(response.body);
+    if (response.statusCode >= 400 && response.statusCode < 500) {
+  throw Exception(response.body); // don't retry client errors
+}
+if (attempt == 2) throw Exception(response.body);
 
   } catch (e) {
     if (attempt == 2) rethrow;

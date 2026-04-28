@@ -137,8 +137,14 @@ class ScanService {
     required Uint8List imageBytes,
     required String userId,
     String productName = 'منتج من صورة',
-  }) async {
-    try {
+
+  })
+  
+   async {
+    lastCompressMs = 0;
+  lastGeminiMs   = 0;
+  lastAltMs      = 0;
+  try {
       // ── Optimization 1: Start upload + local save immediately in background
       final remoteUrlFuture = _uploadImageToStorage(imageBytes, userId);
       final localPathFuture = _saveImageLocally(imageBytes);
