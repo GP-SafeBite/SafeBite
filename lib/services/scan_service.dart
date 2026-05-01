@@ -319,7 +319,8 @@ class ScanService {
         }
       }
 
-      final safetyStatus = detectedAllergens.isEmpty ? 'safe' : 'unsafe';
+     final bool geminiSaysUnsafe = aiResult['is_safe_for_user'] == false;
+    final safetyStatus = (detectedAllergens.isEmpty && !geminiSaysUnsafe) ? 'safe' : 'unsafe';
 
       final ingredientsText = [...geminiIngredients, ...traceWarnings].join('|||');
 

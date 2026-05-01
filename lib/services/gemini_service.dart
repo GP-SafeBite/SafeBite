@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 class GeminiService {
-  static const String _apiKey = "AIzaSyC0yOjXlFfILJGVopH3NMjmri4NuUDKfrU";
+  static const String _apiKey = "AIzaSyC4B3EAdDJh4Oge_qhJwzkyRLZw0zNMwq8";
   final String _baseUrl =
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
@@ -46,13 +46,22 @@ class GeminiService {
    - إذا كان بلغة واحدة فقط → اكتبه كما هو بدون ترجمة.
    - لا تفصل النسختين في عنصرين منفصلين.
 
-4. المصادر الخفية — ابحث عنها وضعها في hidden_sources:
+4. المصادر الخفية — ابحث عنها وضعها في hidden_sources 
+إذا لم تكن مذكورة صراحة في قائمة المكونات ولكنها معروفة بأنها مشتقة من مكونات أخرى
+بعض الأمثلة الشائعة:
+   - أي مكون يحمل رقم E يجب تحديد مصدره، فبعض المضافات الغذائية مثل المستحلبات والمثبتات قد تكون مشتقة من مصادر تحتوي على مسببات حساسية مثل الصويا أو الحليب أو الغلوتين
    - كازين / مصل اللبن / whey / casein → حليب (milk)
    - ليسيتين الصويا / soy lecithin → صويا (soybeans)
    - مالت الشعير / barley malt → جلوتين (gluten)
    - E220 حتى E228 → كبريتيت (sulfur)
    - أضف فقط ما يخص حساسيات المستخدم المحددة.
    - اكتب النص الكامل كما ورد في الصورة.
+   - المضافات الغذائية التي قد تحتوي على مسببات حساسية:
+	•	E322 / E442 ← صويا أو عباد الشمس
+	•	E471 / E472 ← حليب أو صويا
+	•	E120 ← قد يكون من مصادر حيوانية
+	•	E1404 / E1422 / E1442 ← قمح أو ذرة (غلوتين)
+	•	E153 ← قد يحتوي على غلوتين
 
 5. العبارات التحذيرية — ضعها في warning_statements:
    - "قد يحتوي على آثار من..."
