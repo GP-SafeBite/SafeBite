@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 class GeminiService {
-  static const String _apiKey = "AIzaSyC4B3EAdDJh4Oge_qhJwzkyRLZw0zNMwq8";
+  static const String _apiKey = "AIzaSyCtJbiIuu_eK8_YmBcGWK22Sw81Sk3vNq0";
   final String _baseUrl =
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
@@ -62,6 +62,23 @@ class GeminiService {
 	•	E120 ← قد يكون من مصادر حيوانية
 	•	E1404 / E1422 / E1442 ← قمح أو ذرة (غلوتين)
 	•	E153 ← قد يحتوي على غلوتين
+  يجب أن يكون كل عنصر في hidden_sources على الشكل التالي:
+     - اكتبها بنفس اللغة التي وردت فيها، أو باللغتين إن وُجدتا, افصل بينهم بفاصلة.
+
+{
+  "allergen_type": "نوع مسبب الحساسية بالإنجليزية مثل soybeans أو milk أو gluten",
+  "ingredient": "اسم المكون كما ظهر في قائمة المكونات"
+}
+
+أمثلة:
+{
+  "allergen_type": "soybeans",
+  "ingredient": "ليسيثين الصويا (E322)"
+},
+{
+  "allergen_type": "milk",
+  "ingredient": "كازين (E966)"
+}
 
 5. العبارات التحذيرية — ضعها في warning_statements:
    - "قد يحتوي على آثار من..."
@@ -251,7 +268,12 @@ ${userAllergies.isEmpty ? 'لا توجد حساسيات محددة' : userAllerg
       "ingredients": []
     }
   ],
-  "hidden_sources": [],
+  "hidden_sources": [
+  {
+    "allergen_type": "",
+    "ingredient": ""
+  }
+],
   "warning_statements": [],
   "is_safe_for_user": true,
   "suggested_alternatives": [

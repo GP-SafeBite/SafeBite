@@ -209,16 +209,21 @@ class ScanService {
       }
 
       // ── Extract trace warnings: hidden_sources + warning_statements ────
-      final List<String> traceWarnings = [];
-
-      final rawHiddenSources = aiResult["hidden_sources"] ?? [];
-      for (final source in rawHiddenSources) {
-        if (source is String && source.trim().isNotEmpty) {
-          if (!traceWarnings.contains(source.trim())) {
-            traceWarnings.add(source.trim());
-          }
-        }
-      }
+      // 1. This stays here - extract trace warnings only
+final List<String> traceWarnings = [];
+final rawHiddenSources = aiResult["hidden_sources"] ?? [];
+for (final source in rawHiddenSources) {
+  if (source is Map) {
+    final ingredient = source["ingredient"]?.toString() ?? '';
+    if (ingredient.isNotEmpty && !traceWarnings.contains(ingredient)) {
+      traceWarnings.add(ingredient);
+    }
+  } else if (source is String && source.trim().isNotEmpty) {
+    if (!traceWarnings.contains(source.trim())) {
+      traceWarnings.add(source.trim());
+    }
+  }
+}
 
       final rawWarningStatements = aiResult["warning_statements"] ?? [];
       for (final warning in rawWarningStatements) {
@@ -230,6 +235,25 @@ class ScanService {
       }
 
       print("⚠️ Trace warnings extracted: ${traceWarnings.length}");
+
+      // 2. THEN declare detectedAllergens
+final List<String> detectedAllergens = [];
+final List<String> userDetectedTypes = [];
+
+// 3. THEN add allergen from hidden sources
+final rawHiddenSources2 = aiResult["hidden_sources"] ?? [];
+for (final source in rawHiddenSources2) {
+  if (source is Map) {
+    final allergenType = source["allergen_type"]?.toString() ?? '';
+    if (allergenType.isNotEmpty && userAllergyStrings.contains(allergenType)) {
+      final arabicName = _allergyArabicNames[allergenType] ?? allergenType;
+      if (!detectedAllergens.contains(arabicName)) {
+        detectedAllergens.add(arabicName);
+        userDetectedTypes.add(allergenType);
+      }
+    }
+  }
+}
 
       // ── Extract LLM suggestions ────────────────────────────────────────
       final List<String> llmSuggestedAlternatives = [];
@@ -267,8 +291,8 @@ class ScanService {
       }
 
       // ── Allergen detection from actual ingredients ─────────────────────
-      final List<String> detectedAllergens = [];
-      final List<String> userDetectedTypes = [];
+    //  final List<String> detectedAllergens = [];
+      //final List<String> userDetectedTypes = [];
 
       for (final type in detectedAllergenTypes) {
         if (userAllergyStrings.contains(type)) {
