@@ -215,11 +215,14 @@ final rawHiddenSources = aiResult["hidden_sources"] ?? [];
 for (final source in rawHiddenSources) {
   if (source is Map) {
     final ingredient = source["ingredient"]?.toString() ?? '';
-    if (ingredient.isNotEmpty && !traceWarnings.contains(ingredient)) {
+    if (ingredient.isNotEmpty
+        && !traceWarnings.contains(ingredient)
+        && !geminiIngredients.contains(ingredient)) {
       traceWarnings.add(ingredient);
     }
   } else if (source is String && source.trim().isNotEmpty) {
-    if (!traceWarnings.contains(source.trim())) {
+    if (!traceWarnings.contains(source.trim())
+        && !geminiIngredients.contains(source.trim())) {
       traceWarnings.add(source.trim());
     }
   }
@@ -228,7 +231,8 @@ for (final source in rawHiddenSources) {
       final rawWarningStatements = aiResult["warning_statements"] ?? [];
       for (final warning in rawWarningStatements) {
         if (warning is String && warning.trim().isNotEmpty) {
-          if (!traceWarnings.contains(warning.trim())) {
+          if (!traceWarnings.contains(warning.trim())
+              && !geminiIngredients.contains(warning.trim())) {
             traceWarnings.add(warning.trim());
           }
         }
@@ -249,7 +253,9 @@ for (final source in rawHiddenSources2) {
       final arabicName = _allergyArabicNames[allergenType] ?? allergenType;
       if (!detectedAllergens.contains(arabicName)) {
         detectedAllergens.add(arabicName);
-        userDetectedTypes.add(allergenType);
+        if (!userDetectedTypes.contains(allergenType)) {
+          userDetectedTypes.add(allergenType);
+        }
       }
     }
   }
@@ -299,7 +305,9 @@ for (final source in rawHiddenSources2) {
           final arabicName = _allergyArabicNames[type] ?? type;
           if (!detectedAllergens.contains(arabicName)) {
             detectedAllergens.add(arabicName);
-            userDetectedTypes.add(type);
+            if (!userDetectedTypes.contains(type)) {
+              userDetectedTypes.add(type);
+            }
           }
         }
       }
@@ -314,7 +322,9 @@ for (final source in rawHiddenSources2) {
               final arabicName = _allergyArabicNames[allergyId] ?? allergyId;
               if (!detectedAllergens.contains(arabicName)) {
                 detectedAllergens.add(arabicName);
-                userDetectedTypes.add(allergyId);
+                if (!userDetectedTypes.contains(allergyId)) {
+                  userDetectedTypes.add(allergyId);
+                }
               }
               break;
             }
@@ -333,7 +343,9 @@ for (final source in rawHiddenSources2) {
                 final arabicName = _allergyArabicNames[allergyId] ?? allergyId;
                 if (!detectedAllergens.contains(arabicName)) {
                   detectedAllergens.add(arabicName);
-                  userDetectedTypes.add(allergyId);
+                  if (!userDetectedTypes.contains(allergyId)) {
+                    userDetectedTypes.add(allergyId);
+                  }
                   print('⚠️ Trace warning triggered allergen: $allergyId');
                 }
                 break;
@@ -460,7 +472,7 @@ for (final source in rawHiddenSources2) {
           .select()
           .eq('user_id', userId)
           .order('scan_date', ascending: false)
-          .limit(50);
+          .limit(500);
 
       final merged = (data as List).map((row) {
         final map = Map<String, dynamic>.from(row as Map);
