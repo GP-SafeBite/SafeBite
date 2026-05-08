@@ -18,8 +18,6 @@ class ArticleDetailScreen extends StatefulWidget {
 
 class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
   static const Color kPrimary = Color(0xFF9CCB7A);
-  static const Color kBackground = Color(0xFFFFFDF6);
-  static const Color kFieldBg = Color(0xFFFAF6E9);
   static const Color kGrey900 = Color(0xFF818898);
 
   late final WebViewController _webViewController;
@@ -30,14 +28,12 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
   void initState() {
     super.initState();
 
-    // ✅ If PDF → open in external browser immediately
     if (ArticlesService.isPdf(widget.article.link)) {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await ArticlesService.openPdf(widget.article.link);
         if (mounted) Navigator.pop(context);
       });
     } else {
-      // ✅ Web page → load in WebView
       _webViewController = WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
         ..setNavigationDelegate(NavigationDelegate(
@@ -51,12 +47,15 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final Color kBackground = Theme.of(context).scaffoldBackgroundColor; // [FIXED Dark Mode]
+    final Color kFieldBg = Theme.of(context).cardColor; // [FIXED Dark Mode]
+
     // Show loading while PDF opens in external browser
     if (ArticlesService.isPdf(widget.article.link)) {
       return Directionality(
         textDirection: TextDirection.rtl,
         child: Scaffold(
-          backgroundColor: kBackground,
+          backgroundColor: kBackground, // [FIXED Dark Mode]
           body: Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -80,7 +79,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: kBackground,
+        backgroundColor: kBackground, // [FIXED Dark Mode]
         body: SafeArea(
           child: Column(
             children: [
@@ -95,12 +94,12 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                         width: 40,
                         height: 40,
                         decoration: BoxDecoration(
-                          color: kFieldBg,
+                          color: kFieldBg, // [FIXED Dark Mode]
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.arrow_back,
-                          color: Colors.black,
+                          color: Theme.of(context).colorScheme.onSurface, // [FIXED Dark Mode]
                           size: 20,
                         ),
                       ),
@@ -138,7 +137,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                   style: GoogleFonts.tajawal(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: Colors.black,
+                    color: Theme.of(context).colorScheme.onSurface, // [FIXED Dark Mode]
                   ),
                   textAlign: TextAlign.right,
                 ),

@@ -143,14 +143,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ [Added] Dynamic colors from Theme
     final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
     final Color kFieldBg = Theme.of(context).cardColor;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark; // [FIXED Dark Mode]
+
+    // [FIXED Dark Mode] حقل البريد المعطل — لون مشتق من الثيم
+    final Color kDisabledFieldBg = isDark
+        ? Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5)
+        : Theme.of(context).colorScheme.surfaceContainerHighest; // [FIXED Dark Mode]
+
+    final Color kDisabledTextColor = Theme.of(context).colorScheme.onSurface.withOpacity(0.45); // [FIXED Dark Mode]
 
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: kBackground, // ✅ [Added]
+        backgroundColor: kBackground,
         body: SafeArea(
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
@@ -170,7 +177,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                     width: 40,
                                     height: 40,
                                     decoration: BoxDecoration(
-                                      color: kFieldBg, // ✅ [Added]
+                                      color: kFieldBg,
                                       shape: BoxShape.circle,
                                     ),
                                     child: const Icon(Icons.arrow_back, size: 20),
@@ -182,7 +189,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   style: GoogleFonts.tajawal(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w700,
-                                    color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
+                                    color: Theme.of(context).colorScheme.onSurface,
                                   ),
                                 ),
                                 const Spacer(),
@@ -275,14 +282,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 style: GoogleFonts.tajawal(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
-                                  color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
+                                  color: Theme.of(context).colorScheme.onSurface,
                                 ),
                               ),
                             ),
                             const SizedBox(height: 8),
                             Container(
                               decoration: BoxDecoration(
-                                color: kFieldBg, // ✅ [Added]
+                                color: kFieldBg,
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: TextField(
@@ -308,14 +315,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 style: GoogleFonts.tajawal(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
-                                  color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
+                                  color: Theme.of(context).colorScheme.onSurface,
                                 ),
                               ),
                             ),
                             const SizedBox(height: 8),
                             Container(
                               decoration: BoxDecoration(
-                                color: const Color(0xFFE8E8E8),
+                                color: kDisabledFieldBg, // [FIXED Dark Mode]
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: TextField(
@@ -323,7 +330,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 textAlign: TextAlign.right,
                                 enabled: false,
                                 style: GoogleFonts.tajawal(
-                                    fontSize: 15, color: kGrey900),
+                                    fontSize: 15,
+                                    color: kDisabledTextColor), // [FIXED Dark Mode]
                                 decoration: const InputDecoration(
                                   border: InputBorder.none,
                                   contentPadding: EdgeInsets.symmetric(

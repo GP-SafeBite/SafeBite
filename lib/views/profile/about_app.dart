@@ -11,14 +11,14 @@ class AboutAppScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ [Added] Dynamic colors from Theme
     final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
     final Color kFieldBg = Theme.of(context).cardColor;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark; // [FIXED Dark Mode]
 
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: kBackground, // ✅ [Added]
+        backgroundColor: kBackground,
         body: SafeArea(
           child: Column(
             children: [
@@ -38,7 +38,7 @@ class AboutAppScreen extends StatelessWidget {
                               width: 40,
                               height: 40,
                               decoration: BoxDecoration(
-                                color: kFieldBg, // ✅ [Added]
+                                color: kFieldBg,
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(
@@ -53,7 +53,7 @@ class AboutAppScreen extends StatelessWidget {
                             style: GoogleFonts.tajawal(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
-                              color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
+                              color: Theme.of(context).colorScheme.onSurface,
                             ),
                           ),
                           const Spacer(),
@@ -65,8 +65,9 @@ class AboutAppScreen extends StatelessWidget {
 
                       // ========== شعار التطبيق ==========
                       SvgPicture.asset(
-                      //  'assets/Logo/Logo_LightMode.svg', // ✅ SVG
-                        'assets/logo/logo_lightmode.svg', // ✅ [Fixed] correct path
+                        isDark
+                            ? 'assets/logo/logo_darkmode.svg' // [FIXED Dark Mode]
+                            : 'assets/logo/logo_lightmode.svg', // [FIXED Dark Mode]
                         width: 200,
                         height: 200,
                       ),
@@ -89,7 +90,6 @@ class AboutAppScreen extends StatelessWidget {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: Text(
-                          // ✅ [Fixed] removed barcode mention — ingredients scan only
                           'SafeBite هو تطبيق متخصص في الكشف عن مسببات الحساسية الغذائية، يساعد الأفراد الذين يعانون من حساسية تجاه أنواع معينة من الأطعمة. يوفر التطبيق فحصاً ذكياً وسريعاً للمنتجات الغذائية من خلال تصوير قائمة المكونات المكتوبة على العبوة.\n\nيمكن للمستخدمين إنشاء ملف شخصي يحدد أنواع الحساسية من بين 14 نوعاً شائعاً، ويحصلون على تقرير واضح يوضح إذا كان المنتج آمناً أو يحتوي على مكونات خطرة، مع إمكانية اقتراح بدائل آمنة ومحتوى تعليمي موثوق.',
                           style: GoogleFonts.tajawal(
                             fontSize: 12,
