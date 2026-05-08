@@ -183,7 +183,7 @@ class LocalDB {
       where: 'user_id = ?',
       whereArgs: [userId],
       orderBy: 'scan_date DESC',
-      limit: 50,
+      limit: 500,
     );
   }
 

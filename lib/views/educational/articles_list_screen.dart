@@ -21,6 +21,14 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
   static const Color kGrey900 = Color(0xFF818898);
   static const Color kGrey400 = Color(0xFFB3B3B3);
 
+  // ✅ Problem 3 Solution: Font constants
+  static final _titleStyle = GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w700);
+  static final _searchTextStyle = GoogleFonts.tajawal(fontSize: 14);
+  static final _searchHintStyle = GoogleFonts.tajawal(fontSize: 14, color: kGrey400);
+  static final _emptyTextStyle = GoogleFonts.tajawal(fontSize: 14, color: kGrey900);
+  static final _navLabelStyle = GoogleFonts.tajawal(fontSize: 11, fontWeight: FontWeight.w500);
+  static final _navLabelActiveStyle = GoogleFonts.tajawal(fontSize: 11, fontWeight: FontWeight.w700);
+
   final TextEditingController _searchController = TextEditingController();
 
   List<ArticleModel> _allArticles = [];
@@ -77,7 +85,6 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ [Added] Dynamic colors from Theme
     final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
     final Color kFieldBg = Theme.of(context).cardColor;
 
@@ -88,7 +95,6 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
         body: SafeArea(
           child: Column(
             children: [
-              // ========== HEADER ==========
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
                 child: Row(
@@ -101,7 +107,7 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
                         width: 40,
                         height: 40,
                         decoration: BoxDecoration(
-                          color: kFieldBg, // ✅ [Added]
+                          color: kFieldBg,
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
@@ -113,11 +119,7 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
                     const Spacer(),
                     Text(
                       'المحتوى التوعوي',
-                      style: GoogleFonts.tajawal(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
-                      ),
+                      style: _titleStyle.copyWith(color: Theme.of(context).colorScheme.onSurface),
                     ),
                     const Spacer(),
                     const SizedBox(width: 40),
@@ -125,28 +127,21 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
                 ),
               ),
 
-              // ========== SEARCH BAR ==========
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Container(
                   height: 50,
                   decoration: BoxDecoration(
-                    color: kFieldBg, // ✅ [Added]
+                    color: kFieldBg,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: TextField(
                     controller: _searchController,
                     textAlign: TextAlign.right,
-                    style: GoogleFonts.tajawal(
-                      fontSize: 14,
-                      color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
-                    ),
+                    style: _searchTextStyle.copyWith(color: Theme.of(context).colorScheme.onSurface),
                     decoration: InputDecoration(
                       hintText: 'بحث',
-                      hintStyle: GoogleFonts.tajawal(
-                        fontSize: 14,
-                        color: kGrey400,
-                      ),
+                      hintStyle: _searchHintStyle,
                       prefixIcon: Icon(
                         Icons.search,
                         color: kGrey400,
@@ -164,7 +159,6 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
 
               const SizedBox(height: 24),
 
-              // ========== ARTICLES LIST ==========
               Expanded(
                 child: _isLoading
                     ? const Center(child: CircularProgressIndicator())
@@ -172,10 +166,7 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
                         ? Center(
                             child: Text(
                               _errorMessage!,
-                              style: GoogleFonts.tajawal(
-                                fontSize: 14,
-                                color: kGrey900,
-                              ),
+                              style: _emptyTextStyle,
                             ),
                           )
                         : ListView.separated(
@@ -199,27 +190,18 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
                           ),
               ),
 
-              // ========== BOTTOM NAVIGATION ==========
               Container(
                 height: 70,
                 decoration: BoxDecoration(
-                  color: kBackground, // ✅ [Added]
+                  color: kBackground,
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    _buildNavItem(Icons.home, 'الرئيسية', false, () {
-                      Get.offAll(() => HomeScreen());
-                    }),
-                    _buildNavItem(Icons.history, 'السجل', false, () {
-                      Get.offAll(() => HistoryScreen());
-                    }),
-                    _buildNavItem(
-                        Icons.description_outlined, 'محتوى توعوي', true, () {}),
-                    _buildNavItem(
-                        Icons.person_outline, 'الملف الشخصي', false, () {
-                      Get.offAll(() => ProfileScreen());
-                    }),
+                    _buildNavItem(Icons.home, 'الرئيسية', false, () => Get.to(() => const HomeScreen())),
+                    _buildNavItem(Icons.history, 'السجل', false, () => Get.to(() => const HistoryScreen())),
+                    _buildNavItem(Icons.description_outlined, 'محتوى توعوي', true, () {}),
+                    _buildNavItem(Icons.person_outline, 'الملف الشخصي', false, () => Get.to(() => const ProfileScreen())),
                   ],
                 ),
               ),
@@ -251,11 +233,7 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
             Text(
               label,
               textAlign: TextAlign.center,
-              style: GoogleFonts.tajawal(
-                fontSize: 11,
-                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                color: isActive ? kPrimary : kGrey900,
-              ),
+              style: isActive ? _navLabelActiveStyle.copyWith(color: kPrimary) : _navLabelStyle.copyWith(color: kGrey900),
             ),
           ],
         ),

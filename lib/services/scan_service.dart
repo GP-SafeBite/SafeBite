@@ -50,6 +50,11 @@ class ProductScanData {
 class ScanService {
   static final _supabase = Supabase.instance.client;
 
+  // ── Timing fields (populated on each scan) ────────────────────────────
+  static int lastCompressMs = 0;
+  static int lastGeminiMs   = 0;
+  static int lastAltMs      = 0;
+
   // ── Optimization 3: In-memory allergy cache ──────────────────────────
   static final Map<String, List<String>> _allergyCache = {};
 
@@ -132,8 +137,14 @@ class ScanService {
     required Uint8List imageBytes,
     required String userId,
     String productName = 'منتج من صورة',
-  }) async {
-    try {
+
+  })
+  
+   async {
+    lastCompressMs = 0;
+  lastGeminiMs   = 0;
+  lastAltMs      = 0;
+  try {
       // ── Optimization 1: Start upload + local save immediately in background
       final remoteUrlFuture = _uploadImageToStorage(imageBytes, userId);
       final localPathFuture = _saveImageLocally(imageBytes);
@@ -156,14 +167,21 @@ class ScanService {
           .join('، ');
 
       // ── Optimization 2: Compress only bytes that go to Gemini ─────────
+      final compSw = Stopwatch()..start();
       final geminiBytes = await _compressForGemini(imageBytes);
+      lastCompressMs = compSw.elapsedMilliseconds;
+      print('🗜 [2/4] compression: ${lastCompressMs}ms');
 
       final gemini = GeminiService();
+
+      final aiSw = Stopwatch()..start();
       final aiResult = await gemini.analyzeProductImage(
         geminiBytes,
         productName: productName,
         userAllergies: userAllergiesAr,
       );
+      lastGeminiMs = aiSw.elapsedMilliseconds;
+      print('🤖 [3/4] geminiAPI: ${lastGeminiMs}ms');
       print("🧠 AI RESULT: $aiResult");
 
       // ── Extract actual ingredients from detected_allergens ─────────────────
@@ -191,29 +209,57 @@ class ScanService {
       }
 
       // ── Extract trace warnings: hidden_sources + warning_statements ────
-      // Treated with equal safety weight as actual ingredients.
-      // Stored separately for UI display (yellow chips).
-      final List<String> traceWarnings = [];
-
-      final rawHiddenSources = aiResult["hidden_sources"] ?? [];
-      for (final source in rawHiddenSources) {
-        if (source is String && source.trim().isNotEmpty) {
-          if (!traceWarnings.contains(source.trim())) {
-            traceWarnings.add(source.trim());
-          }
-        }
-      }
+      // 1. This stays here - extract trace warnings only
+final List<String> traceWarnings = [];
+final rawHiddenSources = aiResult["hidden_sources"] ?? [];
+for (final source in rawHiddenSources) {
+  if (source is Map) {
+    final ingredient = source["ingredient"]?.toString() ?? '';
+    if (ingredient.isNotEmpty
+        && !traceWarnings.contains(ingredient)
+        && !geminiIngredients.contains(ingredient)) {
+      traceWarnings.add(ingredient);
+    }
+  } else if (source is String && source.trim().isNotEmpty) {
+    if (!traceWarnings.contains(source.trim())
+        && !geminiIngredients.contains(source.trim())) {
+      traceWarnings.add(source.trim());
+    }
+  }
+}
 
       final rawWarningStatements = aiResult["warning_statements"] ?? [];
       for (final warning in rawWarningStatements) {
         if (warning is String && warning.trim().isNotEmpty) {
-          if (!traceWarnings.contains(warning.trim())) {
+          if (!traceWarnings.contains(warning.trim())
+              && !geminiIngredients.contains(warning.trim())) {
             traceWarnings.add(warning.trim());
           }
         }
       }
 
       print("⚠️ Trace warnings extracted: ${traceWarnings.length}");
+
+      // 2. THEN declare detectedAllergens
+final List<String> detectedAllergens = [];
+final List<String> userDetectedTypes = [];
+
+// 3. THEN add allergen from hidden sources
+final rawHiddenSources2 = aiResult["hidden_sources"] ?? [];
+for (final source in rawHiddenSources2) {
+  if (source is Map) {
+    final allergenType = source["allergen_type"]?.toString() ?? '';
+    if (allergenType.isNotEmpty && userAllergyStrings.contains(allergenType)) {
+      final arabicName = _allergyArabicNames[allergenType] ?? allergenType;
+      if (!detectedAllergens.contains(arabicName)) {
+        detectedAllergens.add(arabicName);
+        if (!userDetectedTypes.contains(allergenType)) {
+          userDetectedTypes.add(allergenType);
+        }
+      }
+    }
+  }
+}
 
       // ── Extract LLM suggestions ────────────────────────────────────────
       final List<String> llmSuggestedAlternatives = [];
@@ -231,41 +277,37 @@ class ScanService {
         }
       }
 
-      // Only fail if Gemini truly couldn't process the image.
-      // is_safe_for_user is ALWAYS present in a valid response (true or false).
-      // Empty detected_allergens is normal for a safe product — NOT a failure.
       final bool aiProcessedImage = aiResult.containsKey('is_safe_for_user');
-if (!aiProcessedImage) {
-  return ScanResult(success: false, message: "لم يتم التعرف على المكونات");
-}
+      if (!aiProcessedImage) {
+        return ScanResult(success: false, message: "لم يتم التعرف على المكونات");
+      }
 
-// Guard against unreadable/dark images.
-// A valid scan always has at least one of: product type, ingredients, or allergens.
-// If all are empty, Gemini couldn't read the image — fail safely.
-final String productType = aiResult["product_type_ar"]?.toString() ?? '';
-final String confidence = aiResult["confidence"]?.toString() ?? 'low';
-final bool hasAnyContent = geminiIngredients.isNotEmpty ||
-    detectedAllergenTypes.isNotEmpty ||
-    traceWarnings.isNotEmpty ||
-    productType.isNotEmpty;
+      final String productType = aiResult["product_type_ar"]?.toString() ?? '';
+      final String confidence = aiResult["confidence"]?.toString() ?? 'low';
+      final bool hasAnyContent = geminiIngredients.isNotEmpty ||
+          detectedAllergenTypes.isNotEmpty ||
+          traceWarnings.isNotEmpty ||
+          productType.isNotEmpty;
 
-if (!hasAnyContent) {
-  return ScanResult(
-    success: false,
-    message: "الصورة غير واضحة، يرجى التصوير في إضاءة جيدة وأن تكون قائمة المكونات ظاهرة بوضوح",
-  );
-}
+      if (!hasAnyContent) {
+        return ScanResult(
+          success: false,
+          message: "الصورة غير واضحة، يرجى التصوير في إضاءة جيدة وأن تكون قائمة المكونات ظاهرة بوضوح",
+        );
+      }
 
       // ── Allergen detection from actual ingredients ─────────────────────
-      final List<String> detectedAllergens = [];
-      final List<String> userDetectedTypes = [];
+    //  final List<String> detectedAllergens = [];
+      //final List<String> userDetectedTypes = [];
 
       for (final type in detectedAllergenTypes) {
         if (userAllergyStrings.contains(type)) {
           final arabicName = _allergyArabicNames[type] ?? type;
           if (!detectedAllergens.contains(arabicName)) {
             detectedAllergens.add(arabicName);
-            userDetectedTypes.add(type);
+            if (!userDetectedTypes.contains(type)) {
+              userDetectedTypes.add(type);
+            }
           }
         }
       }
@@ -280,7 +322,9 @@ if (!hasAnyContent) {
               final arabicName = _allergyArabicNames[allergyId] ?? allergyId;
               if (!detectedAllergens.contains(arabicName)) {
                 detectedAllergens.add(arabicName);
-                userDetectedTypes.add(allergyId);
+                if (!userDetectedTypes.contains(allergyId)) {
+                  userDetectedTypes.add(allergyId);
+                }
               }
               break;
             }
@@ -289,7 +333,6 @@ if (!hasAnyContent) {
       }
 
       // ── Allergen detection from trace warnings ─────────────────────────
-      // "May contain nuts" is treated equally to "contains nuts" for safety.
       if (traceWarnings.isNotEmpty) {
         final lowerTraceText = traceWarnings.join(' ').toLowerCase();
         for (final allergyId in userAllergyStrings) {
@@ -300,7 +343,9 @@ if (!hasAnyContent) {
                 final arabicName = _allergyArabicNames[allergyId] ?? allergyId;
                 if (!detectedAllergens.contains(arabicName)) {
                   detectedAllergens.add(arabicName);
-                  userDetectedTypes.add(allergyId);
+                  if (!userDetectedTypes.contains(allergyId)) {
+                    userDetectedTypes.add(allergyId);
+                  }
                   print('⚠️ Trace warning triggered allergen: $allergyId');
                 }
                 break;
@@ -310,19 +355,16 @@ if (!hasAnyContent) {
         }
       }
 
-      final safetyStatus = detectedAllergens.isEmpty ? 'safe' : 'unsafe';
+     final bool geminiSaysUnsafe = aiResult['is_safe_for_user'] == false;
+    final safetyStatus = (detectedAllergens.isEmpty && !geminiSaysUnsafe) ? 'safe' : 'unsafe';
 
-      // Include trace warnings in history storage text
-      // Use ||| as separator — commas appear inside ingredient names/phrases
-      // and would cause wrong splits when reloading from history.
       final ingredientsText = [...geminiIngredients, ...traceWarnings].join('|||');
 
       List<AlternativeProduct> mergedAlternatives = [];
       if (safetyStatus == 'unsafe') {
         try {
+          final altSw = Stopwatch()..start();
           mergedAlternatives = await AlternativesService.getAlternatives(
-            // Use ALL user profile allergies for junction lookup —
-            // not just what Gemini detected in the scanned product.
             allUserAllergyTypes: userAllergyStrings.toList(),
             detectedAllergenTypes: userDetectedTypes,
             llmSuggestedAlternatives: llmSuggestedAlternatives,
@@ -330,9 +372,14 @@ if (!hasAnyContent) {
             productTypeAr: productTypeAr,
             productCategory: productCategory,
           );
+          lastAltMs = altSw.elapsedMilliseconds;
+          print('🔍 [4/4] alternatives: ${lastAltMs}ms');
         } catch (e) {
+          lastAltMs = 0;
           print('⚠️ Alternatives query failed: $e');
         }
+      } else {
+        lastAltMs = 0;
       }
 
       // ── Optimization 1: Collect background futures now (after Gemini) ──
@@ -425,7 +472,7 @@ if (!hasAnyContent) {
           .select()
           .eq('user_id', userId)
           .order('scan_date', ascending: false)
-          .limit(50);
+          .limit(500);
 
       final merged = (data as List).map((row) {
         final map = Map<String, dynamic>.from(row as Map);
@@ -537,8 +584,6 @@ if (!hasAnyContent) {
     }
   }
 
-  // _allergyKeywords used ONLY for detecting allergens in the SCANNED product
-  // (Gemini ingredients + trace warnings). NOT used for filtering alternatives anymore.
   static const Map<String, List<String>> _allergyKeywords = {
     'milk'        : ['milk', 'dairy', 'lactose', 'whey', 'casein', 'حليب', 'لاكتوز', 'كازين'],
     'eggs'        : ['egg', 'eggs', 'albumin', 'بيض'],

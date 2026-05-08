@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import '../alternatives/alternatives_screen.dart';
 import '../scanning/scan_ingredients_screen.dart';
 import '../../services/alternatives_service.dart';
+import '../home/home_screen.dart';
 
 class UnsafeResultScreen extends StatefulWidget {
   final String productName;
@@ -364,8 +365,10 @@ class _UnsafeResultScreenState extends State<UnsafeResultScreen> {
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton(
-                          onPressed: () =>
-                              Get.to(() => const ScanIngredientsScreen()),
+onPressed: () {
+  HomeScreen.clearCache();
+  Get.to(() => const ScanIngredientsScreen());
+},
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             side: const BorderSide(color: Color(0xFF9CCB7A)),

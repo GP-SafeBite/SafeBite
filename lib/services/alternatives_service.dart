@@ -206,6 +206,8 @@ class AlternativesService {
 'hummus'        : ['free-from hummus'],
 'date-bar'      : ['free-from date-bar'],
 'energy-bar'    : ['free-from energy-bar'],
+//'chocolate' : ['dairy-free chocolate', 'nut-free chocolate', 'gluten-free chocolate'],
+//'granola' : ['gluten-free granola'],
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -292,6 +294,8 @@ class AlternativesService {
 'حمص'        : 'hummus',
 'بار تمر'    : 'date-bar',
 'تمر'        : 'date-bar',
+
+
   };
 
   // ─────────────────────────────────────────────────────────────────────────
