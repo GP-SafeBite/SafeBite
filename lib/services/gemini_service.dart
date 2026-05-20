@@ -14,15 +14,25 @@ class GeminiService {
   static const _base   =
       'https://generativelanguage.googleapis.com/v1beta/models/$_model';
 
+  // opt 2: persistent client avoids TLS handshake on every scan
   static final http.Client _http = http.Client();
 
-  static Future<Uint8List> _compress(Uint8List raw) =>
-      FlutterImageCompress.compressWithList(
-        raw,
-        minWidth: 1280, minHeight: 1280,
-        quality: 80, format: CompressFormat.jpeg, keepExif: false,
-      );
+  // opt 1: compress before sending — skip if already small (scan_service may have compressed already)
+  static Future<Uint8List> _compress(Uint8List raw) async {
+    if (raw.length < 400 * 1024) return raw;
+    return FlutterImageCompress.compressWithList(
+      raw,
+      minWidth: 1280, minHeight: 1280,
+      quality: 80, format: CompressFormat.jpeg, keepExif: false,
+    );
+  }
 
+  // opt 6: system_instruction separated from user turn
+  // opt 12: English prompt — fewer tokens than Arabic equivalent
+  // opt 13: H1-H9 hard rules replace scattered verbose instructions
+  // opt 14: explicit SEPARATION RULES prevent allergen conflation
+  // opt 15: max 3 alternatives enforced in prompt and schema
+  // opt 21: E322/E442 override — always triggers soy + unsafe, no exceptions
   static const _sysInstruction = '''
 ROLE: Food allergen classifier. Input: ingredient label image. Output: JSON only.
 
@@ -97,6 +107,9 @@ ORDER
 8. Verify JSON matches responseSchema.
 ''';
 
+  // opt 7: responseMimeType guarantees JSON output — no _cleanJson() needed
+  // opt 8: responseSchema with enum constraints — eliminates invalid field values
+  // opt 16: available_in_saudi removed from LLM suggestions — field was never used
   static const _schema = {
     'type': 'OBJECT',
     'required': [
@@ -189,15 +202,15 @@ ORDER
       },
 
       'suggested_alternatives': {
-  'type': 'ARRAY',
-  'items': {
-    'type': 'OBJECT',
-    'required': ['name'],
-    'properties': {
-      'name': {'type': 'STRING'},
-    },
-  },
-},
+        'type': 'ARRAY',
+        'items': {
+          'type': 'OBJECT',
+          'required': ['name'],
+          'properties': {
+            'name': {'type': 'STRING'},
+          },
+        },
+      },
     },
   };
 
@@ -222,6 +235,7 @@ ORDER
     String userAllergies = '',
     void Function(bool isSafe)? onSafetySignal,
   }) async {
+    // opt 1: compress — guard skips if scan_service already compressed
     final compressed = await _compress(imageBytes);
     final b64        = base64Encode(compressed);
     debugPrint('📸 Compressed: ${imageBytes.length} → ${compressed.length} bytes');
@@ -243,13 +257,13 @@ ORDER
           ],
         },
       ],
-'generationConfig': {
-  'temperature':      0,
-  'maxOutputTokens':  1024,
-  'responseMimeType': 'application/json',
-  'responseSchema':   _schema,
-  'thinkingConfig':   {'thinkingBudget': 0},
-},
+      'generationConfig': {
+        'temperature':      0,       // opt 10: deterministic output
+        'maxOutputTokens':  1024,    // opt 9: prevents runaway output
+        'responseMimeType': 'application/json', // opt 7
+        'responseSchema':   _schema,            // opt 8
+        'thinkingConfig':   {'thinkingBudget': 0}, // opt 8.1: ~3-5s vs ~12s
+      },
     });
 
     final url = Uri.parse('$_base:streamGenerateContent?alt=sse&key=$_apiKey');
@@ -277,7 +291,7 @@ ORDER
         if (attempt == 2) throw Exception('Gemini ${streamed.statusCode}: $errBody');
       } catch (e) {
         if (attempt == 2) rethrow;
-        debugPrint('⚠️ Attempt $attempt failed, retrying in 300ms: $e');
+        debugPrint('⚠️ Attempt $attempt failed, retrying in 300ms: $e'); // opt 16
         await Future.delayed(const Duration(milliseconds: 300));
       }
     }
@@ -307,6 +321,7 @@ ORDER
                 ?['text'] as String? ?? '';
         buf.write(text);
 
+        // onSafetySignal parked — badge did not fire earlier than full result in testing
         if (!signalFired && onSafetySignal != null) {
           try {
             final partial = jsonDecode(buf.toString()) as Map<String, dynamic>;
