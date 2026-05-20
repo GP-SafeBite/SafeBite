@@ -45,8 +45,24 @@ class ProductScanData {
     this.remoteImageUrl,
     this.mergedAlternatives = const [],
   });
-}
 
+  ProductScanData copyWith({String? remoteImageUrl}) {
+    return ProductScanData(
+      productName: productName,
+      ingredients: ingredients,
+      traceWarnings: traceWarnings,
+      detectedAllergens: detectedAllergens,
+      detectedAllergenTypes: detectedAllergenTypes,
+      llmSuggestedAlternatives: llmSuggestedAlternatives,
+      llmRawAlternatives: llmRawAlternatives,
+      productTypeAr: productTypeAr,
+      safetyStatus: safetyStatus,
+      localImagePath: localImagePath,
+      remoteImageUrl: remoteImageUrl ?? this.remoteImageUrl,
+      mergedAlternatives: mergedAlternatives,
+    );
+  }
+}
 class ScanService {
   static final _supabase = Supabase.instance.client;
 
@@ -339,7 +355,7 @@ for (final source in rawHiddenSources2) {
           if (!userDetectedTypes.contains(allergyId)) {
             final keywords = _allergyKeywords[allergyId] ?? [];
             for (final keyword in keywords) {
-              if (lowerTraceText.contains(keyword)) {
+              if (lowerTraceText.contains(keyword) && !lowerTraceText.contains('no $keyword')) {
                 final arabicName = _allergyArabicNames[allergyId] ?? allergyId;
                 if (!detectedAllergens.contains(arabicName)) {
                   detectedAllergens.add(arabicName);
@@ -381,10 +397,8 @@ for (final source in rawHiddenSources2) {
       } else {
         lastAltMs = 0;
       }
-
-      // ── Optimization 1: Collect background futures now (after Gemini) ──
+// ── Resolve local path only (fast, on-device) ─────────────────────
       final localImagePath = await localPathFuture;
-      final remoteImageUrl = await remoteUrlFuture;
 
       final scanData = ProductScanData(
         productName: productName,
@@ -397,16 +411,23 @@ for (final source in rawHiddenSources2) {
         productTypeAr: productTypeAr,
         safetyStatus: safetyStatus,
         localImagePath: localImagePath,
-        remoteImageUrl: remoteImageUrl,
+        remoteImageUrl: null,
         mergedAlternatives: mergedAlternatives,
       );
 
-      // ── Optimization 4: Fire-and-forget history save ──────────────────
-      unawaited(_saveScanToHistory(
-        userId: userId,
-        scanData: scanData,
-        ingredientsText: ingredientsText,
-      ));
+      // ── Optimization 4: Fire-and-forget upload + history save ─────────
+      unawaited(() async {
+        try {
+          final remoteImageUrl = await remoteUrlFuture;
+          await _saveScanToHistory(
+            userId: userId,
+            scanData: scanData.copyWith(remoteImageUrl: remoteImageUrl),
+            ingredientsText: ingredientsText,
+          );
+        } catch (e) {
+          print('⚠️ Background save failed: $e');
+        }
+      }());
 
       return ScanResult(
         success: true,
