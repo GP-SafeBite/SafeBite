@@ -305,6 +305,13 @@ for (final source in rawHiddenSources2) {
           traceWarnings.isNotEmpty ||
           productType.isNotEmpty;
 
+          if (confidence == 'low') {
+  return ScanResult(
+    success: false,
+    message: "الصورة غير واضحة، يرجى التصوير في إضاءة جيدة وأن تكون قائمة المكونات ظاهرة بوضوح",
+  );
+}
+
       if (!hasAnyContent) {
         return ScanResult(
           success: false,

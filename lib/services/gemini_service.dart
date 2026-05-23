@@ -9,7 +9,7 @@ import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:http/http.dart' as http;
 
 class GeminiService {
-  static const _apiKey = 'AIzaSyCaONW2r35n8FYWBffo4cSNDw10Ax7ZvmU';
+  static const _apiKey = 'AIzaSyC0yOjXlFfILJGVopH3NMjmri4NuUDKfrU';
   static const _model  = 'gemini-2.5-flash';
   static const _base   =
       'https://generativelanguage.googleapis.com/v1beta/models/$_model';
