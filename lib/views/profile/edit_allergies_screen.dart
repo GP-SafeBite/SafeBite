@@ -93,12 +93,27 @@ class _EditAllergiesScreenState extends State<EditAllergiesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ [Added] Dynamic colors from Theme
     final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
     final Color kCardBg = Theme.of(context).cardColor;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark; // [FIXED Dark Mode]
+
+    // [FIXED Dark Mode] لون خلفية العنصر المختار: أخضر فاتح في Light، أخضر داكن شفاف في Dark
+    final Color selectedBg = isDark
+        ? const Color(0xFF9CCB7A).withOpacity(0.25)
+        : const Color(0xFFE8F5E9); // [FIXED Dark Mode]
+
+    // [FIXED Dark Mode] لون النص في العنصر المختار: أبيض تقريباً في Dark، عادي في Light
+    final Color selectedTextColor = isDark
+        ? const Color(0xFFCCEFB8)
+        : Theme.of(context).colorScheme.onSurface; // [FIXED Dark Mode]
+
+    // [FIXED Dark Mode] لون حدود العنصر المختار
+    final Color selectedBorderColor = isDark
+        ? const Color(0xFF9CCB7A).withOpacity(0.7)
+        : const Color(0xFF9CCB7A); // [FIXED Dark Mode]
 
     return Scaffold(
-      backgroundColor: kBackground, // ✅ [Added]
+      backgroundColor: kBackground,
       body: SafeArea(
         child: Column(
           children: [
@@ -112,7 +127,7 @@ class _EditAllergiesScreenState extends State<EditAllergiesScreen> {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: kCardBg, // ✅ [Added]
+                      color: kCardBg,
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.arrow_forward, size: 20),
@@ -129,7 +144,7 @@ class _EditAllergiesScreenState extends State<EditAllergiesScreen> {
                 style: GoogleFonts.tajawal(
                   fontSize: 24,
                   fontWeight: FontWeight.w700,
-                  color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
             ),
@@ -156,7 +171,7 @@ class _EditAllergiesScreenState extends State<EditAllergiesScreen> {
                   style: GoogleFonts.tajawal(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
               ),
@@ -192,12 +207,12 @@ class _EditAllergiesScreenState extends State<EditAllergiesScreen> {
                               ),
                               decoration: BoxDecoration(
                                 color: isSelected
-                                    ? const Color(0xFFE8F5E9)
-                                    : kCardBg, // ✅ [Added]
+                                    ? selectedBg // [FIXED Dark Mode]
+                                    : kCardBg,
                                 borderRadius: BorderRadius.circular(24),
                                 border: Border.all(
                                   color: isSelected
-                                      ? const Color(0xFF9CCB7A)
+                                      ? selectedBorderColor // [FIXED Dark Mode]
                                       : Colors.transparent,
                                   width: 2,
                                 ),
@@ -210,7 +225,9 @@ class _EditAllergiesScreenState extends State<EditAllergiesScreen> {
                                     style: GoogleFonts.tajawal(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w500,
-                                      color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
+                                      color: isSelected
+                                          ? selectedTextColor // [FIXED Dark Mode]
+                                          : Theme.of(context).colorScheme.onSurface,
                                     ),
                                   ),
                                   const SizedBox(width: 8),

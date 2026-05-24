@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:get/get.dart';
 import '../scanning/scan_ingredients_screen.dart';
+import '../home/home_screen.dart';
 
 class SafeResultScreen extends StatelessWidget {
   final String productName;
@@ -138,7 +139,10 @@ class SafeResultScreen extends StatelessWidget {
                   child: SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () => Get.to(() => const ScanIngredientsScreen()),
+                     onPressed: () {
+  HomeScreen.clearCache();
+  Get.to(() => const ScanIngredientsScreen());
+},
                       style: ElevatedButton.styleFrom(backgroundColor: kPrimary, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                       child: Text('فحص منتج آخر', style: GoogleFonts.tajawal(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
                     ),
