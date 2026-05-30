@@ -36,7 +36,7 @@ class ArticlesService {
       link: 'http://www.sfda.gov.sa/ar/awarenessarticle/78126',
       imageUrl: '',
       pubDate: '2019-08-18',
-      source: 'SFDA',
+      source: 'هيئة الغذاء والدواء',
     ),
     ArticleModel(
       title: 'الحساسية الغذائية - دليل شامل (PDF)',
@@ -46,7 +46,7 @@ class ArticlesService {
           'https://www.moh.gov.sa/awarenessplateform/HealthyLifestyle/Documents/Food-Allergy.pdf',
       imageUrl: '',
       pubDate: '2024-01-01',
-      source: 'MOH',
+      source: 'وزارة الصحة',
     ),
     ArticleModel(
       title: 'الإسعافات الأولية لحالات الحساسية',
@@ -56,7 +56,7 @@ class ArticlesService {
           'https://www.moh.gov.sa/healthawareness/educationalcontent/firstaid/pages/009.aspx',
       imageUrl: '',
       pubDate: '2024-01-02',
-      source: 'MOH',
+      source: 'وزارة الصحة',
     ),
     ArticleModel(
       title: 'حساسية الفول السوداني',
@@ -66,7 +66,7 @@ class ArticlesService {
           'https://www.moh.gov.sa/awarenessplateform/healthylifestyle/pages/peanutsallergy.aspx',
       imageUrl: '',
       pubDate: '2024-01-03',
-      source: 'MOH',
+      source: 'وزارة الصحة',
     ),
     ArticleModel(
       title: 'حساسية الفول السوداني - دليل تفصيلي (PDF)',
@@ -76,7 +76,7 @@ class ArticlesService {
           'https://www.moh.gov.sa/awarenessplateform/HealthyLifestyle/Documents/Peanuts-Allergy.pdf',
       imageUrl: '',
       pubDate: '2024-01-04',
-      source: 'MOH',
+      source: 'وزارة الصحة',
     ),
     ArticleModel(
       title: 'مرض السيلياك وحساسية الغلوتين',
@@ -86,7 +86,7 @@ class ArticlesService {
           'https://www.moh.gov.sa/healthawareness/educationalcontent/diseases/noncommunicable/pages/celiacdisease.aspx',
       imageUrl: '',
       pubDate: '2024-01-05',
-      source: 'MOH',
+      source: 'وزارة الصحة',
     ),
     ArticleModel(
       title: 'برنامج الغذاء الخالي من الغلوتين (PDF)',
@@ -96,7 +96,7 @@ class ArticlesService {
           'https://www.moh.gov.sa/en/Ministry/MediaCenter/Ads/Documents/Gluten-Free-Food-Program.pdf',
       imageUrl: '',
       pubDate: '2024-01-06',
-      source: 'MOH',
+      source: 'وزاؤة الصحة',
     ),
     ArticleModel(
       title: 'عدم تحمل اللاكتوز',
@@ -106,7 +106,7 @@ class ArticlesService {
           'https://www.moh.gov.sa/awarenessplateform/healthylifestyle/pages/lactoseintolerance.aspx',
       imageUrl: '',
       pubDate: '2024-01-07',
-      source: 'MOH',
+      source: 'وزارة الصحة',
     ),
     ArticleModel(
       title: 'مرض السيلياك - دليل شامل (PDF)',
@@ -116,7 +116,7 @@ class ArticlesService {
           'https://www.moh.gov.sa/awarenessplateform/HealthyLifestyle/Documents/Celiac-Disease.pdf',
       imageUrl: '',
       pubDate: '2024-01-08',
-      source: 'MOH',
+      source: 'وزارة الصحة',
     ),
   ];
 

@@ -133,12 +133,39 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
         return;
       }
 
+      final totalSw = Stopwatch()..start();
+
+      // ── Step 1: Read image bytes ───────────────────────────────────────
+      final readSw = Stopwatch()..start();
       final imageBytes = await imageFile.readAsBytes();
+      final readMs = readSw.elapsedMilliseconds;
+      print('📸 [1/4] readBytes: ${readMs}ms');
+
+      // ── Step 2-4: Full scan (compression + Gemini + alternatives) ──────
       final scanResult = await ScanService.scanFromImage(
         imageBytes: imageBytes,
         userId: userId,
         productName: productName,
       );
+
+      final totalMs = totalSw.elapsedMilliseconds;
+      totalSw.stop();
+
+      // ── Summary table ──────────────────────────────────────────────────
+      print('');
+      print('┌─────────────────────────────────────┐');
+      print('│         ⏱ SCAN TIMING REPORT         │');
+      print('├──────────────────────┬──────────────┤');
+      print('│ Step                 │ Time         │');
+      print('├──────────────────────┼──────────────┤');
+      print('│ 📸 Image read        │ ${readMs.toString().padLeft(8)}ms   │');
+      print('│ 🗜 Compression       │ ${ScanService.lastCompressMs.toString().padLeft(8)}ms   │');
+      print('│ 🤖 Gemini API        │ ${ScanService.lastGeminiMs.toString().padLeft(8)}ms   │');
+      print('│ 🔍 Alternatives      │ ${ScanService.lastAltMs.toString().padLeft(8)}ms   │');
+      print('├──────────────────────┼──────────────┤');
+      print('│ ✅ TOTAL             │ ${totalMs.toString().padLeft(8)}ms   │');
+      print('└──────────────────────┴──────────────┘');
+      print('');
 
       if (!scanResult.success || scanResult.data == null) {
         if (mounted) {
