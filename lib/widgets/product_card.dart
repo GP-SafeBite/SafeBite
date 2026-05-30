@@ -20,19 +20,24 @@ class ProductCard extends StatelessWidget {
     this.onTap,
   });
 
-  static const Color kRed = Color(0xFFD32F2F);
+  static const Color kRed   = Color(0xFFD32F2F);
   static const Color kGreen = Color(0xFF9CCB7A);
   static const Color kGrey900 = Color(0xFF818898);
 
+  // [PERF] Font constants — created once, not on every build()
+  static final _nameStyle = GoogleFonts.tajawal(fontSize: 15, fontWeight: FontWeight.w600);
+  static final _badgeStyle = GoogleFonts.tajawal(fontSize: 13, fontWeight: FontWeight.w600);
+  static final _timeStyle  = GoogleFonts.tajawal(fontSize: 13, fontWeight: FontWeight.w500, color: kGrey900);
+
   @override
   Widget build(BuildContext context) {
-    final Color kCardBg = Theme.of(context).cardColor; // [FIXED Dark Mode]
+    final Color kCardBg = Theme.of(context).cardColor;
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: double.infinity,
-        decoration: BoxDecoration(color: kCardBg, borderRadius: BorderRadius.circular(16)), // [FIXED Dark Mode]
+        decoration: BoxDecoration(color: kCardBg, borderRadius: BorderRadius.circular(16)),
         clipBehavior: Clip.hardEdge,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -63,18 +68,24 @@ class ProductCard extends StatelessWidget {
                           textAlign: TextAlign.right,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.tajawal(fontSize: 15, fontWeight: FontWeight.w600,
-                              color: Theme.of(context).colorScheme.onSurface), // [FIXED Dark Mode]
+                          style: _nameStyle.copyWith(
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
                         ),
                         const SizedBox(height: 8),
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(isSafe ? Icons.check_circle : Icons.cancel, size: 20, color: isSafe ? kGreen : kRed),
+                            Icon(
+                              isSafe ? Icons.check_circle : Icons.cancel,
+                              size: 20,
+                              color: isSafe ? kGreen : kRed,
+                            ),
                             const SizedBox(width: 6),
-                            Text(isSafe ? 'آمن' : 'غير آمن',
-                                style: GoogleFonts.tajawal(fontSize: 13, fontWeight: FontWeight.w600,
-                                    color: isSafe ? kGreen : kRed)),
+                            Text(
+                              isSafe ? 'آمن' : 'غير آمن',
+                              style: _badgeStyle.copyWith(color: isSafe ? kGreen : kRed),
+                            ),
                           ],
                         ),
                       ],
@@ -82,7 +93,7 @@ class ProductCard extends StatelessWidget {
                   ),
                   if (time != null) ...[
                     const SizedBox(width: 8),
-                    Text(time!, style: GoogleFonts.tajawal(fontSize: 13, fontWeight: FontWeight.w500, color: kGrey900)),
+                    Text(time!, style: _timeStyle),
                   ],
                 ],
               ),
@@ -118,23 +129,34 @@ class _SmartImageState extends State<_SmartImage> {
   @override
   Widget build(BuildContext context) {
     if (_hasLocalFile) {
-      return Image.file(File(widget.localPath), fit: BoxFit.cover,
-        width: double.infinity, height: widget.height,
-        errorBuilder: (_, __, ___) => _tryRemote());
+      return Image.file(
+        File(widget.localPath),
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: widget.height,
+        errorBuilder: (_, __, ___) => _tryRemote(),
+      );
     }
     return _tryRemote();
   }
 
   Widget _tryRemote() {
     if (widget.remoteUrl.isNotEmpty) {
-      return Image.network(widget.remoteUrl, fit: BoxFit.cover,
-        width: double.infinity, height: widget.height,
+      return Image.network(
+        widget.remoteUrl,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: widget.height,
+        // [PERF] Limit decoded image size in memory — card is 120px tall
+        cacheWidth: 600,
+        cacheHeight: 240,
         loadingBuilder: (ctx, child, progress) {
           if (progress == null) return child;
           if (widget.localPath.isNotEmpty) {
             final f = File(widget.localPath);
             if (f.existsSync()) {
-              return Image.file(f, fit: BoxFit.cover, width: double.infinity, height: widget.height);
+              return Image.file(f, fit: BoxFit.cover,
+                  width: double.infinity, height: widget.height);
             }
           }
           return _placeholder();
@@ -143,7 +165,8 @@ class _SmartImageState extends State<_SmartImage> {
           if (widget.localPath.isNotEmpty) {
             final f = File(widget.localPath);
             if (f.existsSync()) {
-              return Image.file(f, fit: BoxFit.cover, width: double.infinity, height: widget.height);
+              return Image.file(f, fit: BoxFit.cover,
+                  width: double.infinity, height: widget.height);
             }
           }
           return _placeholder();

@@ -11,8 +11,10 @@ class GetStartedScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark; // [FIXED Dark Mode]
+
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor, // ✅ [Added]
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -20,7 +22,9 @@ class GetStartedScreen extends StatelessWidget {
             const Spacer(),
 
             SvgPicture.asset(
-              'assets/logo/logo_lightmode.svg',
+              isDark
+                  ? 'assets/logo/logo_darkmode.svg'   // [FIXED Dark Mode]
+                  : 'assets/logo/logo_lightmode.svg',
               width: 180,
             ),
 

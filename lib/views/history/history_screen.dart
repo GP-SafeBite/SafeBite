@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -21,38 +22,44 @@ class HistoryScreen extends StatefulWidget {
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
-  static const Color kPrimary = Color(0xFF9CCB7A);
-  static const Color kGrey900 = Color(0xFF818898);
-  static const Color kGrey400 = Color(0xFFB3B3B3);
-  static const Color kRed = Color(0xFFD32F2F);
+  static const Color kPrimary  = Color(0xFF9CCB7A);
+  static const Color kGrey900  = Color(0xFF818898);
+  static const Color kGrey400  = Color(0xFFB3B3B3);
+  static const Color kRed      = Color(0xFFD32F2F);
 
-  // ✅ Problem 3 Solution: Font constants
-  static final _titleStyle = GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w700);
-  static final _searchTextStyle = GoogleFonts.tajawal(fontSize: 14);
-  static final _searchHintStyle = GoogleFonts.tajawal(fontSize: 14, color: kGrey400);
-  static final _emptyTextStyle = GoogleFonts.tajawal(fontSize: 14, color: kGrey900);
-  static final _dateLabelStyle = GoogleFonts.tajawal(fontSize: 16, fontWeight: FontWeight.w700);
-  static final _dialogTitleStyle = GoogleFonts.tajawal(fontWeight: FontWeight.bold);
-  static final _dialogContentStyle = GoogleFonts.tajawal();
+  // [PERF] Font constants — created once
+  static final _titleStyle        = GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w700);
+  static final _searchTextStyle   = GoogleFonts.tajawal(fontSize: 14);
+  static final _searchHintStyle   = GoogleFonts.tajawal(fontSize: 14, color: kGrey400);
+  static final _emptyTextStyle    = GoogleFonts.tajawal(fontSize: 14, color: kGrey900);
+  static final _dateLabelStyle    = GoogleFonts.tajawal(fontSize: 16, fontWeight: FontWeight.w700);
+  static final _dialogTitleStyle  = GoogleFonts.tajawal(fontWeight: FontWeight.bold);
+  static final _dialogContentStyle= GoogleFonts.tajawal();
   static final _dialogButtonStyle = GoogleFonts.tajawal(color: Colors.white);
-  static final _navLabelStyle = GoogleFonts.tajawal(fontSize: 11, fontWeight: FontWeight.w500);
+  static final _navLabelStyle     = GoogleFonts.tajawal(fontSize: 11, fontWeight: FontWeight.w500);
   static final _navLabelActiveStyle = GoogleFonts.tajawal(fontSize: 11, fontWeight: FontWeight.w700);
 
   final TextEditingController _searchController = TextEditingController();
-  List<Map<String, dynamic>> _allHistory = [];
-  List<Map<String, dynamic>> _filteredHistory = [];
-  bool _isLoading = true;
+
+  // [PERF] Pre-parsed items — all heavy work done once at load time
+  List<_ParsedItem> _allHistory      = [];
+  List<_ParsedItem> _filteredHistory = [];
+  bool    _isLoading = true;
   String? _userId;
+
+  // [PERF] Debounce timer — search fires 300ms after last keystroke
+  Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
     _loadHistory();
-    _searchController.addListener(_filterHistory);
+    _searchController.addListener(_onSearchChanged);
   }
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -64,15 +71,53 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
     final result = await ScanService.getScanHistoryCached(userId: _userId!);
     final raw = result.success ? (result.data as List? ?? []) : [];
-    final history = raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    final rawList = raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+
+    // [PERF] Parse ALL heavy data here — jsonDecode, split, fromJsonList
+    // None of this runs inside build() or itemBuilder
+    final parsed = rawList.map((item) {
+      List<String> allergens = [];
+      try {
+        allergens = List<String>.from(
+            jsonDecode(item['found_allergens'] ?? '[]'));
+      } catch (_) {}
+
+      final ingredientsText = (item['ingredients_text'] ?? '') as String;
+      final ingredients = ingredientsText.isNotEmpty
+          ? ingredientsText
+              .split('|||')
+              .map<String>((e) => e.trim())
+              .where((e) => e.isNotEmpty)
+              .toList()
+          : <String>[];
+
+      List<AlternativeProduct> savedAlts = [];
+      try {
+        savedAlts = AlternativesService.fromJsonList(
+            item['alternatives_json'] ?? '[]');
+      } catch (_) {}
+
+      return _ParsedItem(
+        raw: item,
+        allergens: allergens,
+        ingredients: ingredients,
+        savedAlternatives: savedAlts,
+      );
+    }).toList();
 
     if (mounted) {
       setState(() {
-        _allHistory = history;
-        _filteredHistory = history;
-        _isLoading = false;
+        _allHistory      = parsed;
+        _filteredHistory = parsed;
+        _isLoading       = false;
       });
     }
+  }
+
+  // [PERF] Debounce: setState fires only after 300ms of no typing
+  void _onSearchChanged() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), _filterHistory);
   }
 
   void _filterHistory() {
@@ -81,8 +126,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
       _filteredHistory = query.isEmpty
           ? _allHistory
           : _allHistory.where((item) {
-              final name = (item['product_name'] ?? '').toString().toLowerCase();
-              final allergens = (item['found_allergens'] ?? '').toString().toLowerCase();
+              final name = (item.raw['product_name'] ?? '')
+                  .toString().toLowerCase();
+              final allergens = (item.raw['found_allergens'] ?? '')
+                  .toString().toLowerCase();
               return name.contains(query) || allergens.contains(query);
             }).toList();
     });
@@ -91,11 +138,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
   String _getDateLabel(String scanDate) {
     final date = DateTime.tryParse(scanDate);
     if (date == null) return 'قبل ذلك';
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
+    final now       = DateTime.now();
+    final today     = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
-    final itemDate = DateTime(date.year, date.month, date.day);
-    if (itemDate == today) return 'اليوم';
+    final itemDate  = DateTime(date.year, date.month, date.day);
+    if (itemDate == today)     return 'اليوم';
     if (itemDate == yesterday) return 'أمس';
     return '${date.day}/${date.month}/${date.year}';
   }
@@ -103,7 +150,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   String _formatTime(String scanDate) {
     final date = DateTime.tryParse(scanDate);
     if (date == null) return '';
-    final hour = date.hour;
+    final hour   = date.hour;
     final minute = date.minute.toString().padLeft(2, '0');
     final period = hour >= 12 ? 'م' : 'ص';
     final hour12 = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
@@ -116,10 +163,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
       builder: (ctx) => Directionality(
         textDirection: TextDirection.rtl,
         child: AlertDialog(
-          title: Text('حذف السجل', style: _dialogTitleStyle),
+          title:   Text('حذف السجل', style: _dialogTitleStyle),
           content: Text('هل تريد حذف جميع الفحوصات؟', style: _dialogContentStyle),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('إلغاء', style: _dialogContentStyle)),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text('إلغاء', style: _dialogContentStyle),
+            ),
             ElevatedButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: ElevatedButton.styleFrom(backgroundColor: kRed),
@@ -136,14 +186,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
   }
 
-  Future<void> _deleteSingle(Map<String, dynamic> item) async {
-    final historyId = item['history_id'] as int?;
+  Future<void> _deleteSingle(Map<String, dynamic> raw) async {
+    final historyId = raw['history_id'] as int?;
     if (historyId == null || _userId == null) return;
-    final scanDate = item['scan_date']?.toString() ?? '';
     await ScanService.deleteSingleScan(
-      userId: _userId!,
+      userId:    _userId!,
       historyId: historyId,
-      scanDate: scanDate,
+      scanDate:  raw['scan_date']?.toString() ?? '',
     );
     HomeScreen.clearCache();
     _loadHistory();
@@ -152,7 +201,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   Widget build(BuildContext context) {
     final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
-    final Color kFieldBg = Theme.of(context).cardColor;
+    final Color kFieldBg    = Theme.of(context).cardColor;
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -161,6 +210,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         body: SafeArea(
           child: Column(
             children: [
+              // ── Header ───────────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
                 child: Row(
@@ -169,20 +219,28 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       onTap: () => Get.back(),
                       child: Container(
                         width: 40, height: 40,
-                        decoration: BoxDecoration(color: kFieldBg, shape: BoxShape.circle),
-                        child: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.onSurface, size: 20),
+                        decoration: BoxDecoration(
+                            color: kFieldBg, shape: BoxShape.circle),
+                        child: Icon(Icons.arrow_back,
+                            color: Theme.of(context).colorScheme.onSurface,
+                            size: 20),
                       ),
                     ),
                     const Spacer(),
-                    Text('سجل الفحوصات', style: _titleStyle.copyWith(color: Theme.of(context).colorScheme.onSurface)),
+                    Text('سجل الفحوصات',
+                        style: _titleStyle.copyWith(
+                            color: Theme.of(context).colorScheme.onSurface)),
                     const Spacer(),
                     if (_allHistory.isNotEmpty)
                       GestureDetector(
                         onTap: _deleteAll,
                         child: Container(
                           width: 40, height: 40,
-                          decoration: BoxDecoration(color: kRed.withOpacity(0.1), shape: BoxShape.circle),
-                          child: Icon(Icons.delete_outline, color: kRed, size: 20),
+                          decoration: BoxDecoration(
+                              color: kRed.withOpacity(0.1),
+                              shape: BoxShape.circle),
+                          child: Icon(Icons.delete_outline,
+                              color: kRed, size: 20),
                         ),
                       )
                     else
@@ -191,21 +249,27 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ),
               ),
 
+              // ── Search bar ───────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Container(
                   height: 50,
-                  decoration: BoxDecoration(color: kFieldBg, borderRadius: BorderRadius.circular(12)),
+                  decoration: BoxDecoration(
+                      color: kFieldBg,
+                      borderRadius: BorderRadius.circular(12)),
                   child: TextField(
                     controller: _searchController,
                     textAlign: TextAlign.right,
-                    style: _searchTextStyle.copyWith(color: Theme.of(context).colorScheme.onSurface),
+                    style: _searchTextStyle.copyWith(
+                        color: Theme.of(context).colorScheme.onSurface),
                     decoration: InputDecoration(
                       hintText: 'ابحث في السجل',
                       hintStyle: _searchHintStyle,
-                      prefixIcon: Icon(Icons.search, color: kGrey400, size: 22),
+                      prefixIcon:
+                          Icon(Icons.search, color: kGrey400, size: 22),
                       border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 14),
                     ),
                   ),
                 ),
@@ -213,24 +277,31 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
               const SizedBox(height: 24),
 
+              // ── List ─────────────────────────────────────────────────
               Expanded(
                 child: _isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : _filteredHistory.isEmpty
-                        ? Center(child: Text('لا توجد فحوصات بعد!', style: _emptyTextStyle))
-                        : _buildHistoryList(),
+                        ? Center(
+                            child: Text('لا توجد فحوصات بعد!',
+                                style: _emptyTextStyle))
+                        : _buildList(),
               ),
 
+              // ── Bottom nav ───────────────────────────────────────────
               Container(
                 height: 70,
                 decoration: BoxDecoration(color: kBackground),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    _buildNavItem(Icons.home, 'الرئيسية', false, () => Get.to(() => const HomeScreen())),
+                    _buildNavItem(Icons.home, 'الرئيسية', false,
+                        () => Get.to(() => const HomeScreen())),
                     _buildNavItem(Icons.history, 'السجل', true, () {}),
-                    _buildNavItem(Icons.description_outlined, 'محتوى توعوي', false, () => Get.to(() => const ArticlesListScreen())),
-                    _buildNavItem(Icons.person_outline, 'الملف الشخصي', false, () => Get.to(() => const ProfileScreen())),
+                    _buildNavItem(Icons.description_outlined, 'محتوى توعوي',
+                        false, () => Get.to(() => const ArticlesListScreen())),
+                    _buildNavItem(Icons.person_outline, 'الملف الشخصي', false,
+                        () => Get.to(() => const ProfileScreen())),
                   ],
                 ),
               ),
@@ -241,99 +312,134 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
-  Widget _buildHistoryList() {
-    final Map<String, List<Map<String, dynamic>>> grouped = {};
+  Widget _buildList() {
+    // Group by date label
+    final Map<String, List<_ParsedItem>> grouped = {};
     for (final item in _filteredHistory) {
-      final label = _getDateLabel(item['scan_date'] ?? '');
-      grouped.putIfAbsent(label, () => []);
-      grouped[label]!.add(item);
+      final label = _getDateLabel(item.raw['scan_date'] ?? '');
+      grouped.putIfAbsent(label, () => []).add(item);
     }
 
-    return ListView(
+    // [PERF] Flatten to a single list for ListView.builder
+    // Only visible items are built — no full upfront render
+    final List<Object> flat = [];
+    for (final entry in grouped.entries) {
+      flat.add(_SectionLabel(entry.key));
+      flat.addAll(entry.value);
+    }
+
+    return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      children: [
-        for (final entry in grouped.entries) ...[
-          Align(alignment: Alignment.centerRight,
-            child: Text('${entry.key}:', style: _dateLabelStyle.copyWith(color: Theme.of(context).colorScheme.onSurface))),
-          const SizedBox(height: 12),
-          for (final item in entry.value) ...[
-            _buildHistoryItem(item: item),
-            const SizedBox(height: 12),
-          ],
-          const SizedBox(height: 12),
-        ],
-        const SizedBox(height: 80),
-      ],
-    );
-  }
+      itemCount: flat.length + 1, // +1 for bottom spacer
+      itemBuilder: (context, index) {
+        // Bottom spacer
+        if (index == flat.length) return const SizedBox(height: 80);
 
-  Widget _buildHistoryItem({required Map<String, dynamic> item}) {
-    List<String> allergens = [];
-    try { allergens = List<String>.from(jsonDecode(item['found_allergens'] ?? '[]')); } catch (_) {}
+        final entry = flat[index];
 
-    final isSafe = item['safety_status'] == 'safe';
-    final localImagePath = (item['local_image_path'] ?? '') as String;
-    final remoteImageUrl = (item['remote_image_url'] ?? '') as String;
-    final productName = (item['product_name'] ?? 'فحص مكونات') as String;
-    final ingredientsText = (item['ingredients_text'] ?? '') as String;
+        // Section header
+        if (entry is _SectionLabel) {
+          return Padding(
+            padding: const EdgeInsets.only(top: 12, bottom: 12),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Text('${entry.label}:',
+                  style: _dateLabelStyle.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface)),
+            ),
+          );
+        }
 
-    final List<String> ingredients = ingredientsText.isNotEmpty
-        ? ingredientsText.split('|||').map<String>((e) => e.trim()).where((e) => e.isNotEmpty).toList()
-        : <String>[];
-
-    List<AlternativeProduct> savedAlternatives = [];
-    try {
-      final altJson = item['alternatives_json'] ?? '[]';
-      savedAlternatives = AlternativesService.fromJsonList(altJson);
-    } catch (_) {}
-
-    return Dismissible(
-      key: Key('scan_${item['history_id']}'),
-      direction: DismissDirection.startToEnd,
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        decoration: BoxDecoration(color: kRed.withOpacity(0.15), borderRadius: BorderRadius.circular(16)),
-        child: Icon(Icons.delete_outline, color: kRed, size: 28),
-      ),
-      confirmDismiss: (_) async {
-        await _deleteSingle(item);
-        return false;
+        // History item — all data already parsed, no work here
+        final item = entry as _ParsedItem;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Dismissible(
+            key: Key('scan_${item.raw['history_id']}'),
+            direction: DismissDirection.startToEnd,
+            background: Container(
+              alignment: Alignment.centerRight,
+              padding: const EdgeInsets.only(right: 20),
+              decoration: BoxDecoration(
+                  color: kRed.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(16)),
+              child: Icon(Icons.delete_outline, color: kRed, size: 28),
+            ),
+            confirmDismiss: (_) async {
+              await _deleteSingle(item.raw);
+              return false;
+            },
+            child: ProductCard(
+              productName:    item.raw['product_name'] ?? 'فحص مكونات',
+              remoteImageUrl: (item.raw['remote_image_url'] ?? '') as String,
+              localImagePath: (item.raw['local_image_path'] ?? '') as String,
+              isSafe:         item.raw['safety_status'] == 'safe',
+              time:           _formatTime(item.raw['scan_date'] ?? ''),
+              onTap: () {
+                if (item.raw['safety_status'] == 'safe') {
+                  Get.to(() => SafeResultScreen(
+                        productName:    item.raw['product_name'] ?? '',
+                        ingredients:    item.ingredients,
+                        allergens:      item.allergens,
+                        localImagePath: (item.raw['local_image_path'] ?? '') as String,
+                        remoteImageUrl: (item.raw['remote_image_url'] ?? '') as String,
+                      ));
+                } else {
+                  Get.to(() => UnsafeResultScreen(
+                        productName:    item.raw['product_name'] ?? '',
+                        ingredients:    item.ingredients,
+                        detectedAllergens: item.allergens,
+                        localImagePath: (item.raw['local_image_path'] ?? '') as String,
+                        remoteImageUrl: (item.raw['remote_image_url'] ?? '') as String,
+                        savedAlternatives: item.savedAlternatives.isNotEmpty
+                            ? item.savedAlternatives
+                            : null,
+                      ));
+                }
+              },
+            ),
+          ),
+        );
       },
-      child: ProductCard(
-        productName: productName,
-        remoteImageUrl: remoteImageUrl,
-        localImagePath: localImagePath,
-        isSafe: isSafe,
-        time: _formatTime(item['scan_date'] ?? ''),
-        onTap: () {
-          if (isSafe) {
-            Get.to(() => SafeResultScreen(
-              productName: productName, ingredients: ingredients, allergens: allergens,
-              localImagePath: localImagePath, remoteImageUrl: remoteImageUrl,
-            ));
-          } else {
-            Get.to(() => UnsafeResultScreen(
-              productName: productName, ingredients: ingredients, detectedAllergens: allergens,
-              localImagePath: localImagePath, remoteImageUrl: remoteImageUrl,
-              savedAlternatives: savedAlternatives.isNotEmpty ? savedAlternatives : null,
-            ));
-          }
-        },
-      ),
     );
   }
 
-  Widget _buildNavItem(IconData icon, String label, bool isActive, VoidCallback onTap) {
+  Widget _buildNavItem(
+      IconData icon, String label, bool isActive, VoidCallback onTap) {
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Icon(icon, color: isActive ? kPrimary : kGrey900, size: 26),
           const SizedBox(height: 4),
-          Text(label, textAlign: TextAlign.center, style: isActive ? _navLabelActiveStyle.copyWith(color: kPrimary) : _navLabelStyle.copyWith(color: kGrey900)),
+          Text(label,
+              textAlign: TextAlign.center,
+              style: isActive
+                  ? _navLabelActiveStyle.copyWith(color: kPrimary)
+                  : _navLabelStyle.copyWith(color: kGrey900)),
         ]),
       ),
     );
   }
+}
+
+// [PERF] Pre-parsed history item — heavy parsing done once at load time
+class _ParsedItem {
+  final Map<String, dynamic>   raw;
+  final List<String>           allergens;
+  final List<String>           ingredients;
+  final List<AlternativeProduct> savedAlternatives;
+
+  const _ParsedItem({
+    required this.raw,
+    required this.allergens,
+    required this.ingredients,
+    required this.savedAlternatives,
+  });
+}
+
+// [PERF] Marker object for section headers in flat ListView
+class _SectionLabel {
+  final String label;
+  const _SectionLabel(this.label);
 }
