@@ -1,376 +1,347 @@
+// gemini_service.dart — SafeBite optimised build
+
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:http/http.dart' as http;
 
 class GeminiService {
-  static const String _apiKey = "AIzaSyAWeLFW1G5H-qGPHeIy86_T3dslEHeCGNE";
-  final String _baseUrl =
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+  static const _apiKey = 'AIzaSyC0yOjXlFfILJGVopH3NMjmri4NuUDKfrU';
+  static const _model  = 'gemini-2.5-flash';
+  static const _base   =
+      'https://generativelanguage.googleapis.com/v1beta/models/$_model';
 
-  String _cleanJson(String text) {
-    return text.replaceAll("```json", "").replaceAll("```", "").trim();
+  // opt 2: persistent client avoids TLS handshake on every scan
+  static final http.Client _http = http.Client();
+
+  // opt 1: compress before sending — skip if already small (scan_service may have compressed already)
+  static Future<Uint8List> _compress(Uint8List raw) async {
+    if (raw.length < 400 * 1024) return raw;
+    return FlutterImageCompress.compressWithList(
+      raw,
+      minWidth: 1280, minHeight: 1280,
+      quality: 80, format: CompressFormat.jpeg, keepExif: false,
+    );
   }
+
+  // opt 6: system_instruction separated from user turn
+  // opt 12: English prompt — fewer tokens than Arabic equivalent
+  // opt 13: H1-H9 hard rules replace scattered verbose instructions
+  // opt 14: explicit SEPARATION RULES prevent allergen conflation
+  // opt 15: max 3 alternatives enforced in prompt and schema
+  // opt 21: E322/E442 override — always triggers soy + unsafe, no exceptions
+  static const _sysInstruction = '''
+ROLE: Food allergen classifier. Input: ingredient label image. Output: JSON only.
+
+HARD RULES
+H1: Read ONLY text visible in image. Do not infer or add unseen ingredients.
+H2: Do not use world knowledge unless ingredient is visible on label.
+H3: unreadable image OR no ingredient list => confidence=low, all arrays=[], is_safe_for_user=true.
+H4: readable but uncertain ingredient/allergen mapping => treat as unsafe.
+H5: is_safe_for_user=false if ANY user allergen detected. No exceptions.
+H6: is_safe_for_user=true => detected_allergens=[], hidden_sources=[], warning_statements=[].
+H7: No duplicate ingredient across detected_allergens, hidden_sources, warning_statements.
+H8: detected_allergens and hidden_sources must only contain allergens relevant to the user's allergy list.
+H9: Every allergen in detected_allergens must link to a visible ingredient string.
+
+PRODUCT CATEGORY RULE
+1. If productName is provided OR product label is clearly visible => use it as primary signal.
+2. If not clear => infer category from ingredients.
+3. If still uncertain => set product_category = "other".
+
+E-NUMBER RULES
+E322, E442 => soybeans. ALWAYS place in hidden_sources with allergen_type=soybeans if user
+  has soy allergy. Do NOT skip even if soy/sunflower source is unlabelled on the package.
+  Exception ONLY if label explicitly contains "sunflower lecithin" or "tournesol".
+E471, E472 => milk OR soybeans (flag whichever matches user allergy; flag both if both match).
+E120 => animal-derived (flag if relevant allergy).
+E220-E228 => sulfur (flag if sulfur allergy).
+E1404, E1422, E1442 => gluten (flag if gluten allergy).
+E153 => warning only.
+unknown E-number => warning_statements.
+
+E-NUMBER OVERRIDE
+If label contains E322 or E442 AND user has soybeans allergy:
+  - hidden_sources MUST include { allergen_type: "soybeans", ingredient: "E322" } (or E442).
+  - is_safe_for_user MUST be false.
+  - This overrides H3 and H6. No exceptions.
+
+SEPARATION RULES
+peanuts ≠ treenuts. Always separate even when both in profile.
+coconut ≠ treenuts. sesame ≠ treenuts.
+"(no peanuts)" on label => never flag peanuts regardless of treenuts in profile.
+
+CLAIM VERIFICATION
+Marketing claims ("Dairy Free", "Vegan") never override ingredient evidence.
+Flavor words alone (cream, butter) are insufficient unless explicit milk derivative also appears.
+
+FIELD BOUNDARIES
+detected_allergens.ingredients: direct visible allergen ingredients only.
+hidden_sources: derivatives not already in detected_allergens (casein, soy lecithin, barley malt, E-numbers).
+warning_statements: may-contain / cross-contamination text matching user allergies only.
+No item appears in more than one of these three fields.
+
+INGREDIENT FORMAT
+Arabic+English both visible => merge as "عربي (English)" — Arabic first, English in parentheses.
+Arabic only => Arabic as-is.
+English only => English as-is.
+Never list the same ingredient twice in different formats.
+
+ALTERNATIVES
+Max 3. Free from ALL user allergies.
+Allowed brands: Alpro, Oatly, Violife, Schär, Enjoy Life, Bob\'s Red Mill, So Delicious, Silk, Kite Hill, Barilla GF, San-J, Hellmann\'s Vegan, Follow Your Heart, Daiya, Good Karma, Califia Farms.
+Format: "Brand ProductName" only. No descriptions.
+Safe product => suggested_alternatives=[].
+
+ORDER
+1. Extract all visible ingredient text verbatim from image.
+2. Apply E-number rules to every E-number found. Apply E-NUMBER OVERRIDE before anything else.
+3. Match each ingredient against user allergies.
+4. Identify hidden sources not already in detected_allergens.
+5. Extract warning statements matching user allergies only.
+6. Set is_safe_for_user=false if any match found.
+7. Select up to 3 alternatives free from ALL user allergies.
+8. Verify JSON matches responseSchema.
+''';
+
+  // opt 7: responseMimeType guarantees JSON output — no _cleanJson() needed
+  // opt 8: responseSchema with enum constraints — eliminates invalid field values
+  // opt 16: available_in_saudi removed from LLM suggestions — field was never used
+  static const _schema = {
+    'type': 'OBJECT',
+    'required': [
+      'is_safe_for_user',
+      'product_type_ar',
+      'product_category',
+      'confidence',
+      'detected_allergens',
+      'hidden_sources',
+      'warning_statements',
+      'suggested_alternatives',
+    ],
+    'properties': {
+      'is_safe_for_user': {'type': 'BOOLEAN'},
+
+      'product_type_ar': {'type': 'STRING'},
+
+      'product_category': {
+        'type': 'STRING',
+        'enum': [
+          'milk', 'yogurt', 'labneh', 'cheese', 'butter', 'ghee',
+          'cream', 'ice-cream', 'milkshake', 'custard', 'cooking-cream',
+          'chocolate', 'chocolate-spread', 'candy', 'halawa',
+          'bread', 'pita', 'pastry', 'cake', 'pancake-mix',
+          'pasta', 'noodles', 'cereal', 'oats', 'granola', 'flour-mix',
+          'biscuit', 'chips', 'snack-bar', 'popcorn',
+          'mayo', 'salad-dressing', 'soy-sauce', 'pesto', 'sauce',
+          'coffee-creamer', 'hot-chocolate', 'protein-shake', 'soup',
+          'plant-based milk', 'plant-based labneh',
+          'dairy-free custard', 'dairy-free cooking-cream',
+          'dairy-free chocolate-spread', 'dairy-free cake',
+          'gluten-free pasta', 'gluten-free cereal', 'gluten-free biscuit',
+          'gluten-free cracker', 'gluten-free bread', 'gluten-free flour-mix',
+          'gluten-free oats', 'gluten-free granola', 'gluten-free chocolate',
+          'free-from chips', 'free-from energy-bar', 'free-from candy',
+          'free-from pancake-mix', 'other',
+        ],
+      },
+
+      'confidence': {
+        'type': 'STRING',
+        'enum': ['high', 'medium', 'low'],
+      },
+
+      'detected_allergens': {
+        'type': 'ARRAY',
+        'items': {
+          'type': 'OBJECT',
+          'required': ['allergen_type', 'allergen_ar', 'ingredients'],
+          'properties': {
+            'allergen_type': {
+              'type': 'STRING',
+              'enum': [
+                'milk', 'eggs', 'gluten', 'fish', 'peanuts', 'soybeans',
+                'treenuts', 'sesame', 'crustaceans', 'celery', 'mustard',
+                'sulfur', 'lupin', 'mollusks',
+              ],
+            },
+            'allergen_ar':  {'type': 'STRING'},
+            'ingredients': {
+              'type': 'ARRAY',
+              'items': {'type': 'STRING'},
+            },
+          },
+        },
+      },
+
+      'hidden_sources': {
+        'type': 'ARRAY',
+        'items': {
+          'type': 'OBJECT',
+          'required': ['allergen_type', 'ingredient'],
+          'properties': {
+            'allergen_type': {
+              'type': 'STRING',
+              'enum': [
+                'milk', 'eggs', 'gluten', 'fish', 'peanuts', 'soybeans',
+                'treenuts', 'sesame', 'crustaceans', 'celery', 'mustard',
+                'sulfur', 'lupin', 'mollusks',
+              ],
+            },
+            'ingredient': {'type': 'STRING'},
+          },
+        },
+      },
+
+      'warning_statements': {
+        'type': 'ARRAY',
+        'items': {'type': 'STRING'},
+      },
+
+      'suggested_alternatives': {
+        'type': 'ARRAY',
+        'items': {
+          'type': 'OBJECT',
+          'required': ['name'],
+          'properties': {
+            'name': {'type': 'STRING'},
+          },
+        },
+      },
+    },
+  };
+
+  String _buildPrompt(String productName, String userAllergies) =>
+      'Product: ${productName.isEmpty ? 'not provided' : productName}\n'
+      'Allergies: ${userAllergies.isEmpty ? 'none' : userAllergies}';
+
+  static Map<String, dynamic> _empty() => {
+    'is_safe_for_user':      true,
+    'product_type_ar':       '',
+    'product_category':      'other',
+    'confidence':            'low',
+    'detected_allergens':    <dynamic>[],
+    'hidden_sources':        <dynamic>[],
+    'warning_statements':    <dynamic>[],
+    'suggested_alternatives': <dynamic>[],
+  };
 
   Future<Map<String, dynamic>> analyzeProductImage(
     Uint8List imageBytes, {
-    String productName = '',
+    String productName   = '',
     String userAllergies = '',
+    void Function(bool isSafe)? onSafetySignal,
   }) async {
-    final url = Uri.parse("$_baseUrl?key=$_apiKey");
+    // opt 1: compress — guard skips if scan_service already compressed
+    final compressed = await _compress(imageBytes);
+    final b64        = base64Encode(compressed);
+    debugPrint('📸 Compressed: ${imageBytes.length} → ${compressed.length} bytes');
 
-    final prompt = """
-أنت خبير تغذية وسلامة غذائية متخصص في قراءة ملصقات الأغذية واكتشاف مسببات الحساسية.
+    final body = jsonEncode({
+      'system_instruction': {
+        'parts': [{'text': _sysInstruction}],
+      },
+      'contents': [
+        {
+          'parts': [
+            {
+              'inline_data': {
+                'mime_type': 'image/jpeg',
+                'data':      b64,
+              },
+            },
+            {'text': _buildPrompt(productName, userAllergies)},
+          ],
+        },
+      ],
+      'generationConfig': {
+        'temperature':      0,       // opt 10: deterministic output
+        'maxOutputTokens':  1024,    // opt 9: prevents runaway output
+        'responseMimeType': 'application/json', // opt 7
+        'responseSchema':   _schema,            // opt 8
+        'thinkingConfig':   {'thinkingBudget': 0}, // opt 8.1: ~3-5s vs ~12s
+      },
+    });
 
-المهمة:
-تحليل صورة قائمة مكونات منتج غذائي واستخراج مسببات الحساسية بدقة تامة.
+    final url = Uri.parse('$_base:streamGenerateContent?alt=sse&key=$_apiKey');
 
-السياق:
-اسم المنتج المُدخل من المستخدم: ${productName.isEmpty ? 'غير محدد' : productName}
-الحساسيات التي يجب تجنبها: ${userAllergies.isEmpty ? 'غير محددة' : userAllergies}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-تعليمات استخراج المكونات:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-1. اقرأ النص الظاهر في الصورة فقط. لا تخمّن ولا تضف مكونات غير موجودة.
-
-2. تحديد نوع المنتج:
-   - إذا كان اسم المنتج واضحاً → استخدمه لتحديد النوع.
-   - إذا كان فارغاً أو غير واضح → استنتج النوع من المكونات الظاهرة.
-
-3. استخراج المكونات في detected_allergens:
-   - استخرج فقط المسببات التي تطابق حساسيات المستخدم المحددة أعلاه.
-   - لكل مسبب حساسية مكتشف، أنشئ كائناً يحتوي على:
-     • allergen_type: نوع الحساسية بالإنجليزية الصغيرة (من القائمة المعتمدة أدناه)
-     • allergen_ar: الاسم العربي لمسبب الحساسية — مثال: "الحليب ومشتقاته" أو "القمح / الجلوتين" أو "فول الصويا"
-     • ingredients: قائمة بكل المكونات الموجودة في النص التي تنتمي لهذا المسبب — يجب أن تكون القائمة مكتملة وغير فارغة
-   - قاعدة كتابة كل مكون في ingredients (مُلزمة لجميع أنواع الحساسية بدون استثناء — سواء كانت صويا أو حليب أو غيرها):
-     • إذا ظهر المكون بالعربية والإنجليزية في الصورة → ادمجهما: العربية أولاً ثم الإنجليزية بين قوسين
-       ✅ صحيح: "ليسيثين الصويا (soy lecithin)" أو "دقيق القمح (wheat flour)" أو "حليب (milk)"
-     • إذا ظهر بالعربية فقط → اكتبه بالعربي كما ورد
-     • إذا ظهر بالإنجليزية فقط → اكتبه بالإنجليزي كما ورد
-     • ممنوع الفصل بفاصلة أو شرطة أو سطر جديد بين النسختين
-
-   ⚠️ مهم جداً: حقل ingredients يجب أن يكون دائماً قائمة غير فارغة — اذكر كل مكون وجدته في النص ينتمي لهذا المسبب.
-
-   مثال كامل على detected_allergens (لاحظ الفورمات موحّد بغض النظر عن نوع الحساسية):
-   [
-     {
-       "allergen_type": "soybeans",
-       "allergen_ar": "فول الصويا",
-       "ingredients": ["ليسيثين الصويا (soy lecithin)", "زيت الصويا (soybean oil)"]
-     },
-     {
-       "allergen_type": "milk",
-       "allergen_ar": "الحليب ومشتقاته",
-       "ingredients": ["حليب كامل الدسم (whole milk)", "مصل اللبن (whey)"]
-     },
-     {
-       "allergen_type": "gluten",
-       "allergen_ar": "القمح / الجلوتين",
-       "ingredients": ["دقيق القمح (wheat flour)", "نشا القمح (wheat starch)"]
-     }
-   ]
-
-4. المصادر الخفية — ابحث عنها وضعها في hidden_sources 
-⚠️ قاعدة أساسية: hidden_sources فقط للمكونات التي لم تُذكر صراحة في قائمة المكونات — أي مكون موجود بالفعل في detected_allergens.ingredients يجب أن لا يُكرر هنا أبداً.
-إذا لم تكن مذكورة صراحة في قائمة المكونات ولكنها معروفة بأنها مشتقة من مكونات أخرى
-بعض الأمثلة الشائعة:
-   - أي مكون يحمل رقم E يجب تحديد مصدره، فبعض المضافات الغذائية مثل المستحلبات والمثبتات قد تكون مشتقة من مصادر تحتوي على مسببات حساسية مثل الصويا أو الحليب أو الغلوتين
-   - كازين / مصل اللبن / whey / casein → حليب (milk)
-   - ليسيتين الصويا / soy lecithin → صويا (soybeans)
-   - مالت الشعير / barley malt → جلوتين (gluten)
-   - E220 حتى E228 → كبريتيت (sulfur)
-   - أضف فقط ما يخص حساسيات المستخدم المحددة.
-   - اكتب النص الكامل كما ورد في الصورة.
-   - المضافات الغذائية التي قد تحتوي على مسببات حساسية:
-	•	E322 / E442 ← صويا أو عباد الشمس
-	•	E471 / E472 ← حليب أو صويا
-	•	E120 ← قد يكون من مصادر حيوانية
-	•	E1404 / E1422 / E1442 ← قمح أو ذرة (غلوتين)
-	•	E153 ← قد يحتوي على غلوتين
-  يجب أن يكون كل عنصر في hidden_sources على الشكل التالي:
-     - إذا ورد بلغتين: اكتب العربية أولاً ثم الإنجليزية بين قوسين في نص واحد — مثال: "مصل اللبن (whey)" أو "كازين (casein)" — ممنوع الفصل بفاصلة أو شرطة أو سطر جديد.
-
-{
-  "allergen_type": "نوع مسبب الحساسية بالإنجليزية مثل soybeans أو milk أو gluten",
-  "ingredient": "اسم المكون كما ظهر في قائمة المكونات"
-}
-
-أمثلة:
-{
-  "allergen_type": "soybeans",
-  "ingredient": "ليسيثين الصويا (E322)"
-},
-{
-  "allergen_type": "milk",
-  "ingredient": "كازين (E966)"
-}
-
-⚠️ مهم: إذا كان المصدر الخفي يتعلق بحساسية المستخدم، أضفه أيضاً إلى detected_allergens مع تحديد allergen_type والمكونات المكتشفة. هذا يضمن ظهور مسبب الحساسية بوضوح للمستخدم.
-
-5. العبارات التحذيرية — ضعها في warning_statements:
-   - "قد يحتوي على آثار من..."
-   - "May contain traces of..."
-   - "مُصنَّع في منشأة تتعامل مع..."
-   - "Manufactured in a facility that also processes..."
-   - "Contains:" / "يحتوي على:"
-   - استخرج فقط التحذيرات المتعلقة بحساسيات المستخدم.
-   - إذا وردت التحذيرة بالعربية والإنجليزية معاً: اكتب العربية أولاً ثم الإنجليزية بين قوسين في نص واحد — مثال: "قد يحتوي على آثار من المكسرات (may contain traces of tree nuts)" — ممنوع الفصل بفاصلة أو شرطة أو سطر جديد.
-
-6. قاعدة التحقق من الادعاءات الغذائية (Claims vs. Flavors):
-   - إذا ذكر المنتج صراحة أنه "خالٍ من الألبان" (Free from dairy) أو "نباتي" (Vegan):
-     * تعامل مع أوصاف النكهات مثل "[cream]" أو "[butter]" على أنها "بروفايل نكهة" وليست مكونات ألبان حقيقية.
-     * لا تصنفها كمسبب حساسية إلا إذا وُجد مشتق حليبي صريح (مثل: كازين، مصل لبن، casein, whey).
-     * في هذه الحالة، يجب أن تكون قيمة is_safe_for_user هي true.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-تصنيفات الحساسية المعتمدة (14 فئة):
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- الحليب ومشتقاته (Milk & Dairy) — يشمل: حليب البقر، الماعز، الأغنام، الجاموس
-- البيض (Eggs)
-- الفول السوداني (Peanuts) — تنبيه: الفول السوداني بقولة وليس مكسرات
-- المكسرات (Tree Nuts) — يشمل: لوز، كاجو، جوز، فستق، بندق، بيكان، ماكاديميا، جوز البرازيل، جوز الصنوبر، كستناء
-  ⚠️ مهم: جوز الهند (coconut) ليس مكسرة وليس من Tree Nuts — لا تصنفه كحساسية مكسرات
-  ⚠️ مهم: السمسم (sesame) له تصنيف منفصل — لا تضعه ضمن Tree Nuts
-- صويا (Soy/Soybeans) — يشمل: فول الصويا، ليسيتين الصويا، توفو
-- القمح / الجلوتين (Wheat / Gluten) — يشمل: قمح، شعير، جاودار، هجين القمح، مالت
-  ⚠️ مهم: الشوفان (oat) يُدرج هنا فقط إذا كان مُلوثاً بالجلوتين أو غير معتمد خالٍ من الجلوتين
-- السمك (Fish) — يشمل: جميع أنواع الأسماك، أنشوجة، سردين
-- المحار / القشريات (Shellfish/Crustaceans) — روبيان، كابوريا، جراد البحر
-- السمسم (Sesame) — يشمل: بذور السمسم، طحينة، زيت السمسم
-- الكرفس (Celery)
-- الخردل (Mustard)
-- الترمس (Lupin)
-- الكبريتيت (Sulfites) — E220 حتى E228
-- الرخويات (Molluscs) — حبار، محار، بطلينوس
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-قيم allergen_type المسموح بها (إنجليزية صغيرة فقط):
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-milk, eggs, gluten, fish, peanuts, soybeans, treenuts, sesame, crustaceans, celery, mustard, sulfur, lupin, mollusks
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-حقل product_category — نوع المنتج فقط (بغض النظر عن الحساسية):
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-⚠️ مهم جداً: هذا الحقل يصف نوع المنتج فقط، وليس الحساسية.
-لا تضع كلمات مثل "gluten-free" أو "dairy-free" أو "nut-free".
-فقط اسم نوع المنتج كما هو موضح أدناه.
-
--- الحليب ومنتجات الألبان --
-milk        → حليب سائل (أبقار، ماعز، كامل الدسم، خالي الدسم...)
-yogurt      → زبادي / لبن رائب
-labneh      → لبنة
-cheese      → جبن (شيدر، موزاريلا، كريم تشيز...)
-butter      → زبدة / مارجرين
-ghee        → سمن
-cream       → كريمة طبخ / كريمة خفق
-ice-cream   → آيس كريم / جيلاتو
-milkshake   → ميلك شيك / مشروب حليب منكّه
-custard     → كاسترد / كريم بروليه
-cooking-cream    → كريمة طبخ 
-
--- الشوكولاتة والحلويات --
-chocolate         → شوكولاتة ألواح
-chocolate-spread  → سبريد شوكولاتة (نوتيلا وما شابه)
-candy             → حلوى / ماصات / جيلي
-halawa            → حلاوة طحينية
-
--- المخبوزات --
-bread         → خبز / توست / باغيت / صمون
-pita          → خبز عربي / خبز مسطح / خبز تنور
-pastry        → كرواسان / دانيش / باستري
-cake          → كيك / مافن / كب كيك / براونيز
-pancake-mix   → خليط بان كيك / وافل
-
--- المعكرونة والحبوب --
-pasta       → معكرونة / باستا
-noodles     → نودلز / شعرية
-cereal      → حبوب إفطار / كورن فليكس / مسلي
-oats        → شوفان
-granola     → غرانولا
-flour-mix   → دقيق / خليط خبيز
-
--- البسكويت والسناكس --
-biscuit     → بسكويت / كوكيز / ويفر / كراكر
-chips       → شيبس / كرسبي
-snack-bar   → بار طاقة / بار حبوب
-popcorn     → فشار
-
--- المنكّهات والصلصات --
-mayo                → مايونيز
-peanut-butter-alt   → زبدة فول سوداني
-tahini-alt          → طحينة / سبريد سمسم
-salad-dressing      → صوص سلطة / ديب
-soy-sauce           → صلصة صويا / تاماري
-pesto               → بيستو
-sauce               → صوص جاهز (بيتزا، مكرونة...)
-cooking-cream    → كريمة طبخ 
-
--- المشروبات --
-coffee-creamer   → كريمر / مبيض قهوة
-hot-chocolate    → مسحوق شوكولاتة ساخنة
-protein-shake    → مسحوق بروتين / ميل ريبليسمنت
-
--- الشوربات --
-soup   → شوربة جاهزة / مركز شوربة
-
-⚠️ إذا لم يتطابق المنتج مع أي فئة أعلاه بشكل مباشر:
-   - حاول تحديد أقرب فئة ممكنة بناءً على المكونات الظاهرة في الصورة أو اسم المنتج.
-   - لا تترك product_category فارغاً إلا إذا كان المنتج غير غذائي تماماً.
-   - تجاهل الأخطاء الإملائية الطفيفة في اسم المنتج وحاول تفسيره.
-   - أمثلة: "زبادى" أو "زبادة" → yogurt / "لبنه" → labneh / "شوكولاته" → chocolate
-   - إذا كان المنتج غير غذائي أو لا يمكن تصنيفه بأي شكل → ""
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-البدائل المقترحة — suggested_alternatives:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⛔ قاعدة السلامة الأولى — غير قابلة للتجاوز:
-يجب أن يكون كل بديل مقترح خالياً تماماً من جميع حساسيات المستخدم المذكورة أعلاه:
-${userAllergies.isEmpty ? 'لا توجد حساسيات محددة' : userAllergies}
-لا تتحقق فقط من الحساسية المكتشفة في هذا المنتج — تحقق من القائمة الكاملة.
-مثال خاطئ: المستخدم حساس للحليب والمكسرات → اقتراح حليب اللوز أو حليب الكاجو خطأ لأنها تحتوي على مكسرات.
-مثال صحيح: في نفس الحالة → اقترح حليب الشوفان أو حليب الأرز أو حليب الصويا (إذا لم يكن المستخدم حساساً للصويا).
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-قواعد اختيار البدائل — اقرأها بعناية:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-✅ مهمتك: اقتراح منتجات حقيقية موجودة في أي مكان بالعالم.
-   لا يهم إن كانت متوفرة في السعودية أم لا — هذا ليس دورك.
-   دورك فقط: هل هذا المنتج موجود فعلاً في الأسواق العالمية؟
-
-✅ اقترح فقط علامات تجارية عالمية معروفة وموثوقة تعرفها بيقين تام:
-   Alpro, Oatly, Violife, Schär, Enjoy Life, Bob's Red Mill,
-   So Delicious, Silk, Kite Hill, Barilla GF, San-J, Hellmann's Vegan,
-   Follow Your Heart, Daiya, Good Karma, Califia Farms
-
-✅ اسم المنتج: اكتب العلامة التجارية + اسم المنتج فقط، بدون وصف إضافي.
-   صحيح: "Alpro Oat Milk" أو "Oatly Barista Edition"
-   خاطئ: "Alpro Plant-Based Yogurt Alternative (e.g., Soy, Oat, Coconut)"
-
-❌ يُمنع منعاً باتاً:
-   - اختراع منتج غير موجود أو إضافة كلمة "vegan" أو "plant-based" لعلامة محلية لا تصنعه
-   - ذكر علامات سعودية محلية (Nada، Al Saudia) إلا إذا كنت متأكداً 100% أن هذا المنتج تحديداً موجود
-     مثال مسموح: "Nada Oat Drink" — موجود فعلاً
-     مثال ممنوع: "Nada Vegan Yogurt" — غير موجود
-   - إضافة أي وصف أو أقواس أو أمثلة داخل اسم المنتج
-   - اقتراح نفس المنتج بأسماء مختلفة
-
-⚠️ القاعدة الذهبية: بديل واحد حقيقي مؤكد أفضل بكثير من خمسة مخترعة.
-   إذا لم تكن متأكداً → اترك القائمة فارغة [] أو اقترح واحداً فقط مؤكداً.
-
-- إذا كان المنتج آمناً → suggested_alternatives = []
-- available_in_saudi: true فقط إذا كنت متأكداً 100% أن هذا المنتج موجود في السوق السعودي
-- available_in_saudi: false إذا كان المنتج عالمي لكن لا تعرف إن كان في السعودية
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-قواعد عامة:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- إذا لم تجد مسببات تطابق حساسيات المستخدم → detected_allergens = [].
-- لا تذكر مسببات غير مطلوبة من المستخدم.
-- لا تخترع مكونات غير موجودة في الصورة.
-- مراجعة الادعاءات الكبيرة على العبوة (مثل Dairy Free) قبل اتخاذ القرار النهائي في حقل is_safe_for_user.
-- is_safe_for_user: false إذا وُجد أي مسبب حساسية من قائمة المستخدم.
-- is_safe_for_user: true إذا لم يوجد أي تطابق.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-حقل confidence:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- "high" → الصورة واضحة والمكونات مقروءة بوضوح
-- "medium" → الصورة مقبولة لكن بعض المكونات غير واضحة
-- "low" → الصورة غير واضحة أو مظلمة أو لا تحتوي على قائمة مكونات مرئية
-  في حالة low: أعد جميع الحقول فارغة، product_type_ar = ""، product_category = ""،
-  detected_allergens = []، is_safe_for_user = true، suggested_alternatives = []
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-المخرجات JSON فقط بدون أي شرح وبدون علامات التنصيص:
-{
-  "product_type_ar": "",
-  "product_category": "",
-  "detected_allergens": [
-    {
-      "allergen_type": "",
-      "allergen_ar": "",
-      "ingredients": []
-    }
-  ],
-  "hidden_sources": [
-  {
-    "allergen_type": "",
-    "ingredient": ""
-  }
-],
-  "warning_statements": [],
-  "is_safe_for_user": true,
-  "suggested_alternatives": [
-    {
-      "name": "",
-      "available_in_saudi": false
-    }
-  ],
-  "confidence": "high"
-}
-""";
-
-    http.Response? response;
     for (int attempt = 1; attempt <= 2; attempt++) {
       try {
-        response = await http.post(
-          url,
-          headers: {"Content-Type": "application/json"},
-          body: jsonEncode({
-            "contents": [
-              {
-                "parts": [
-                  {"text": prompt},
-                  {
-                    "inline_data": {
-                      "mime_type": "image/jpeg",
-                      "data": base64Encode(imageBytes)
-                    }
-                  }
-                ]
-              }
-            ],
-            "generationConfig": {"temperature": 0}
-          }),
-        ).timeout(const Duration(seconds: 30));
+        final req = http.Request('POST', url)
+          ..headers['Content-Type'] = 'application/json'
+          ..body = body;
 
-        if (response.statusCode == 200) break;
-        if (response.statusCode >= 400 && response.statusCode < 500) {
-          throw Exception(response.body);
+        final streamed = await _http.send(req)
+            .timeout(const Duration(seconds: 30));
+
+        if (streamed.statusCode == 200) {
+          return await _collectStream(
+            streamed.stream,
+            onSafetySignal: onSafetySignal,
+          );
         }
-        if (attempt == 2) throw Exception(response.body);
+
+        final errBody = await streamed.stream.bytesToString();
+        if (streamed.statusCode >= 400 && streamed.statusCode < 500) {
+          throw Exception('Gemini ${streamed.statusCode}: $errBody');
+        }
+        if (attempt == 2) throw Exception('Gemini ${streamed.statusCode}: $errBody');
       } catch (e) {
         if (attempt == 2) rethrow;
-        await Future.delayed(const Duration(seconds: 2));
+        debugPrint('⚠️ Attempt $attempt failed, retrying in 300ms: $e'); // opt 16
+        await Future.delayed(const Duration(milliseconds: 300));
       }
     }
 
-    final data = jsonDecode(response!.body);
-    final text = data["candidates"]?[0]?["content"]?["parts"]?[0]?["text"] ?? "";
-    print("🧠 RAW AI TEXT: $text");
+    return _empty();
+  }
 
-    final cleaned = _cleanJson(text);
-    print("🧠 CLEANED TEXT: $cleaned");
+  Future<Map<String, dynamic>> _collectStream(
+    Stream<List<int>> raw, {
+    void Function(bool isSafe)? onSafetySignal,
+  }) async {
+    final buf        = StringBuffer();
+    bool signalFired = false;
+
+    final lines = raw
+        .transform(utf8.decoder)
+        .transform(const LineSplitter());
+
+    await for (final line in lines) {
+      if (!line.startsWith('data: ')) continue;
+      final data = line.substring(6).trim();
+      if (data.isEmpty || data == '[DONE]') continue;
+
+      try {
+        final chunk = jsonDecode(data) as Map<String, dynamic>;
+        final text  = chunk['candidates']?[0]?['content']?['parts']?[0]
+                ?['text'] as String? ?? '';
+        buf.write(text);
+
+        // onSafetySignal parked — badge did not fire earlier than full result in testing
+        if (!signalFired && onSafetySignal != null) {
+          try {
+            final partial = jsonDecode(buf.toString()) as Map<String, dynamic>;
+            if (partial.containsKey('is_safe_for_user')) {
+              signalFired = true;
+              onSafetySignal(partial['is_safe_for_user'] as bool? ?? true);
+            }
+          } catch (_) {}
+        }
+      } catch (_) {}
+    }
+
+    final full = buf.toString();
+    debugPrint('🧠 AI RESULT: $full');
 
     try {
-      return jsonDecode(cleaned);
+      return jsonDecode(full) as Map<String, dynamic>;
     } catch (e) {
-      print("❌ JSON ERROR: $e");
-      return {
-        "product_type_ar": "",
-        "product_category": "",
-        "detected_allergens": [],
-        "hidden_sources": [],
-        "warning_statements": [],
-        "is_safe_for_user": true,
-        "suggested_alternatives": [],
-        "confidence": "low",
-        "raw": cleaned
-      };
+      debugPrint('❌ JSON ERROR: $e');
+      return _empty();
     }
   }
 }
