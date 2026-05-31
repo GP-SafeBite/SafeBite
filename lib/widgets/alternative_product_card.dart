@@ -13,9 +13,14 @@ class AlternativeProductCard extends StatelessWidget {
     this.onTap,
   });
 
+  // [PERF] Font constant — created once
+  static final _titleStyle = GoogleFonts.tajawal(
+    fontSize: 14,
+    fontWeight: FontWeight.w500,
+  );
+
   @override
   Widget build(BuildContext context) {
-    // ✅ [Added] Dynamic colors from Theme
     final Color kCardBg = Theme.of(context).cardColor;
 
     return GestureDetector(
@@ -28,7 +33,6 @@ class AlternativeProductCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // ===== صورة المنتج (يسار) =====
             ClipRRect(
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(16),
@@ -41,6 +45,9 @@ class AlternativeProductCard extends StatelessWidget {
                     ? Image.network(
                         imagePathOrUrl,
                         fit: BoxFit.cover,
+                        // [PERF] Card thumbnail is 90×90 — limit memory
+                        cacheWidth: 180,
+                        cacheHeight: 180,
                         errorBuilder: (_, __, ___) => _placeholder(),
                       )
                     : Image.asset(
@@ -50,17 +57,14 @@ class AlternativeProductCard extends StatelessWidget {
                       ),
               ),
             ),
-            // ===== اسم المنتج (يمين) =====
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Text(
                   title,
                   textAlign: TextAlign.right,
-                  style: GoogleFonts.tajawal(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
+                  style: _titleStyle.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
               ),
@@ -74,7 +78,8 @@ class AlternativeProductCard extends StatelessWidget {
   Widget _placeholder() {
     return Container(
       color: const Color(0xFFEDE8D8),
-      child: const Icon(Icons.image_outlined, color: Color(0xFFB3B3B3), size: 36),
+      child: const Icon(Icons.image_outlined,
+          color: Color(0xFFB3B3B3), size: 36),
     );
   }
 }

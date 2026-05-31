@@ -11,6 +11,13 @@ class CustomButton extends StatelessWidget {
     required this.onTap,
   });
 
+  // [PERF] Font constant — created once for all instances
+  static final _textStyle = GoogleFonts.tajawal(
+    fontSize: 16,
+    fontWeight: FontWeight.w700,
+    color: Colors.white,
+  );
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -27,14 +34,7 @@ class CustomButton extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
           ),
-          child: Text(
-            text,
-            style: GoogleFonts.tajawal(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,  // ✅ غيّرت من w600 لـ w700 (Bold)
-              color: Colors.white,
-            ),
-          ),
+          child: Text(text, style: _textStyle),
         ),
       ),
     );
