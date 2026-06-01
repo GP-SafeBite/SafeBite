@@ -34,7 +34,6 @@ class _HomeScreenState extends State<HomeScreen> {
   static const Color kGrey900 = Color(0xFF818898);
   static const Color kRed = Color(0xFFD32F2F);
 
-  // ✅ Problem 3 Solution: Font constants - created once only
   static final _headerStyle = GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w600);
   static final _buttonTitleStyle = GoogleFonts.tajawal(fontSize: 17, fontWeight: FontWeight.w700, color: Colors.white);
   static final _buttonSubtitleStyle = GoogleFonts.tajawal(fontSize: 14, color: Colors.white);
@@ -76,6 +75,9 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) setState(() => _isLoading = false);
       return;
     }
+
+    // [PERF] Prefetch history in background while user is on home screen
+    ScanService.prefetchHistory(userId: _cachedUser!['user_id']);
 
     if (_cachedHistory == null) {
       final result = await ScanService.getScanHistory(userId: _cachedUser!['user_id']);
@@ -334,7 +336,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Icon(icon, color: isActive ? kPrimary : kGrey900, size: 26),
           const SizedBox(height: 4),
-          Text(label, textAlign: TextAlign.center, 
+          Text(label, textAlign: TextAlign.center,
             style: isActive ? _navLabelActiveStyle.copyWith(color: kPrimary) : _navLabelStyle.copyWith(color: kGrey900)),
         ]),
       ),
