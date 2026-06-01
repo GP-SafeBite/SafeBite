@@ -357,7 +357,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Icon(icon, color: isActive ? kPrimary : kGrey900, size: 26),
           const SizedBox(height: 4),
-          Text(label, textAlign: TextAlign.center, 
+          Text(label, textAlign: TextAlign.center,
             style: isActive ? _navLabelActiveStyle.copyWith(color: kPrimary) : _navLabelStyle.copyWith(color: kGrey900)),
         ]),
       ),
