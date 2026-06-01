@@ -1,3 +1,5 @@
+// Scan Ingredients Screen - Camera-based ingredient scanning and analysis
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -34,6 +36,8 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
     _initCamera();
   }
 
+  // ── Camera Initialization Methods ─────────────────────────────
+  // Initialize camera controller and set ready state
   Future<void> _initCamera() async {
     try {
       _cameraController = await CameraService.getController();
@@ -48,6 +52,8 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
     super.dispose();
   }
 
+  // ── Image Capture Methods ─────────────────────────────────────
+  // Capture image from camera and show product name dialog
   Future<void> _captureImage() async {
     if (_cameraController == null ||
         !_cameraController!.value.isInitialized ||
@@ -62,6 +68,7 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
     }
   }
 
+  // Pick image from gallery and show product name dialog
   Future<void> _pickFromGallery() async {
     if (_isScanning) return;
     final XFile? image = await _imagePicker.pickImage(
@@ -73,6 +80,8 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
     await _showProductNameDialog(File(image.path));
   }
 
+  // ── Product Name Dialog Methods ──────────────────────────────
+  // Show dialog to enter product name before processing
   Future<void> _showProductNameDialog(File imageFile) async {
     final controller = TextEditingController();
     final productName = await showDialog<String>(
@@ -121,6 +130,8 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
     await _processImage(imageFile, productName ?? 'منتج من صورة');
   }
 
+  // ── Image Processing Methods ────────────────────────────────
+  // Process image with Gemini API and navigate to results screen
   Future<void> _processImage(File imageFile, String productName) async {
     try {
       final userId = Supabase.instance.client.auth.currentUser?.id;
@@ -215,24 +226,27 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
     }
   }
 
+  // ── Flash Toggle Methods ────────────────────────────────────
+  // Toggle camera flash on/off
   Future<void> _toggleFlash() async {
     if (_cameraController == null || !_cameraController!.value.isInitialized) return;
     setState(() => _isFlashOn = !_isFlashOn);
     await _cameraController!.setFlashMode(_isFlashOn ? FlashMode.torch : FlashMode.off);
   }
 
+  // ── Main UI Build Method ────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    final Color kBackground = Theme.of(context).scaffoldBackgroundColor; // [FIXED Dark Mode]
-    final Color kCardBg = Theme.of(context).cardColor; // [FIXED Dark Mode]
-
+    final Color kBackground = Theme.of(context).scaffoldBackgroundColor; 
+    final Color kCardBg = Theme.of(context).cardColor; 
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: kBackground, // [FIXED Dark Mode]
+        backgroundColor: kBackground, 
         body: SafeArea(
           child: Column(
             children: [
+              // ── Header ────────────────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.all(20),
                 child: Row(
@@ -243,11 +257,11 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
                         width: 40,
                         height: 40,
                         decoration: BoxDecoration(
-                          color: kCardBg, // [FIXED Dark Mode]
+                          color: kCardBg, 
                           shape: BoxShape.circle,
                         ),
                         child: Icon(Icons.arrow_back,
-                            color: Theme.of(context).colorScheme.onSurface, size: 20), // [FIXED Dark Mode]
+                            color: Theme.of(context).colorScheme.onSurface, size: 20), 
                       ),
                     ),
                     const Spacer(),
@@ -259,6 +273,8 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
                 ),
               ),
               const SizedBox(height: 20),
+
+              // ── Camera Preview ────────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: ClipRRect(
@@ -309,10 +325,14 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
                 ),
               ),
               const SizedBox(height: 24),
+
+              // ── Instructions ──────────────────────────────────────────────
               Text('صوّر قائمة المكونات المكتوبة على العبوة',
                   style: GoogleFonts.tajawal(fontSize: 14, color: kGrey900),
                   textAlign: TextAlign.center),
               const Spacer(),
+
+              // ── Camera Controls ───────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 60),
                 child: Row(

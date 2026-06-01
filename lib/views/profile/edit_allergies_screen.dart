@@ -1,3 +1,5 @@
+// Edit Allergies Screen - User allergen selection and preferences management
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -40,6 +42,8 @@ class _EditAllergiesScreenState extends State<EditAllergiesScreen> {
     _loadExistingSelections();
   }
 
+  // ── Data Loading Methods ──────────────────────────────────────
+  // Load user's existing allergen selections from Supabase
   Future<void> _loadExistingSelections() async {
     final user = await AuthService.getCurrentUser();
     if (user == null) {
@@ -61,6 +65,8 @@ class _EditAllergiesScreenState extends State<EditAllergiesScreen> {
     }
   }
 
+  // ── Save Methods ──────────────────────────────────────────────
+  // Save allergen selections and clear cache
   Future<void> _saveChanges() async {
     setState(() => _isLoading = true);
 
@@ -91,32 +97,31 @@ class _EditAllergiesScreenState extends State<EditAllergiesScreen> {
     }
   }
 
+  // ── Main UI Build Method ──────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
     final Color kCardBg = Theme.of(context).cardColor;
-    final bool isDark = Theme.of(context).brightness == Brightness.dark; // [FIXED Dark Mode]
+    final bool isDark = Theme.of(context).brightness == Brightness.dark; 
 
-    // [FIXED Dark Mode] لون خلفية العنصر المختار: أخضر فاتح في Light، أخضر داكن شفاف في Dark
     final Color selectedBg = isDark
         ? const Color(0xFF9CCB7A).withOpacity(0.25)
-        : const Color(0xFFE8F5E9); // [FIXED Dark Mode]
+        : const Color(0xFFE8F5E9); 
 
-    // [FIXED Dark Mode] لون النص في العنصر المختار: أبيض تقريباً في Dark، عادي في Light
     final Color selectedTextColor = isDark
         ? const Color(0xFFCCEFB8)
-        : Theme.of(context).colorScheme.onSurface; // [FIXED Dark Mode]
+        : Theme.of(context).colorScheme.onSurface; 
 
-    // [FIXED Dark Mode] لون حدود العنصر المختار
     final Color selectedBorderColor = isDark
         ? const Color(0xFF9CCB7A).withOpacity(0.7)
-        : const Color(0xFF9CCB7A); // [FIXED Dark Mode]
+        : const Color(0xFF9CCB7A); 
 
     return Scaffold(
       backgroundColor: kBackground,
       body: SafeArea(
         child: Column(
           children: [
+            // ── Header ────────────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
               child: Align(
@@ -162,6 +167,8 @@ class _EditAllergiesScreenState extends State<EditAllergiesScreen> {
               ),
             ),
             const SizedBox(height: 32),
+
+            // ── Allergen Selection ────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Align(
@@ -207,12 +214,12 @@ class _EditAllergiesScreenState extends State<EditAllergiesScreen> {
                               ),
                               decoration: BoxDecoration(
                                 color: isSelected
-                                    ? selectedBg // [FIXED Dark Mode]
+                                    ? selectedBg 
                                     : kCardBg,
                                 borderRadius: BorderRadius.circular(24),
                                 border: Border.all(
                                   color: isSelected
-                                      ? selectedBorderColor // [FIXED Dark Mode]
+                                      ? selectedBorderColor 
                                       : Colors.transparent,
                                   width: 2,
                                 ),
@@ -226,7 +233,7 @@ class _EditAllergiesScreenState extends State<EditAllergiesScreen> {
                                       fontSize: 14,
                                       fontWeight: FontWeight.w500,
                                       color: isSelected
-                                          ? selectedTextColor // [FIXED Dark Mode]
+                                          ? selectedTextColor 
                                           : Theme.of(context).colorScheme.onSurface,
                                     ),
                                   ),
@@ -249,6 +256,8 @@ class _EditAllergiesScreenState extends State<EditAllergiesScreen> {
                       ),
                     ),
                   ),
+
+            // ── Save Button ────────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.all(24),
               child: CustomButton(
