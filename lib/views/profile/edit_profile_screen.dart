@@ -1,3 +1,5 @@
+// Edit Profile Screen - User profile editing with photo management
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -39,6 +41,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.dispose();
   }
 
+  // ── User Data Loading Methods ─────────────────────────────────
+  // Load current user profile data from Supabase
   Future<void> _loadUserData() async {
     final user = await AuthService.getCurrentUser();
     if (user != null && mounted) {
@@ -54,6 +58,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
+  // ── Photo Management Methods ──────────────────────────────────
+  // Pick image from gallery with compression
   Future<void> _pickPhoto() async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(
@@ -67,6 +73,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     });
   }
 
+  // Mark photo for deletion on save
   void _removePhoto() {
     setState(() {
       _pendingPhotoFile = null;
@@ -74,6 +81,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     });
   }
 
+  // ── Profile Update Methods ────────────────────────────────────
+  // Save profile changes: name, photo upload, and photo deletion
   Future<void> _saveChanges() async {
     final newName = _nameController.text.trim();
     if (newName.isEmpty) {
@@ -85,14 +94,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     setState(() => _isSaving = true);
 
+    // Update user name in Supabase
     final nameSuccess = await AuthService.updateUserName(newName: newName);
 
+    // Handle photo upload if new photo selected
     if (_pendingPhotoFile != null && _userId != null) {
       await AuthService.uploadProfilePhoto(
         userId: _userId!,
         filePath: _pendingPhotoFile!.path,
       );
     } else if (_deletePhoto && _userId != null) {
+      // Handle photo deletion if user requested
       await AuthService.deleteProfilePhoto(userId: _userId!);
     }
 
@@ -111,6 +123,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
+  // ── Avatar Display Methods ────────────────────────────────────
+  // Build avatar with priority: pending photo > current URL > default icon
   Widget _buildAvatar() {
     if (_deletePhoto) {
       return const Icon(Icons.person, size: 60, color: Colors.white);
@@ -141,18 +155,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return const Icon(Icons.person, size: 60, color: Colors.white);
   }
 
+  // ── Main UI Build Method ──────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
     final Color kFieldBg = Theme.of(context).cardColor;
-    final bool isDark = Theme.of(context).brightness == Brightness.dark; // [FIXED Dark Mode]
+    final bool isDark = Theme.of(context).brightness == Brightness.dark; 
 
-    // [FIXED Dark Mode] حقل البريد المعطل — لون مشتق من الثيم
     final Color kDisabledFieldBg = isDark
         ? Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5)
-        : Theme.of(context).colorScheme.surfaceContainerHighest; // [FIXED Dark Mode]
+        : Theme.of(context).colorScheme.surfaceContainerHighest; 
 
-    final Color kDisabledTextColor = Theme.of(context).colorScheme.onSurface.withOpacity(0.45); // [FIXED Dark Mode]
+    final Color kDisabledTextColor = Theme.of(context).colorScheme.onSurface.withOpacity(0.45); 
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -168,7 +182,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         padding: const EdgeInsets.all(20),
                         child: Column(
                           children: [
-                            // ========== HEADER ==========
+                            // ── Header ────────────────────────────────────────────────────
                             Row(
                               children: [
                                 GestureDetector(
@@ -199,7 +213,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
                             const SizedBox(height: 40),
 
-                            // ========== صورة البروفايل ==========
+                            // ── Profile Photo ────────────────────────────────────────────
                             Stack(
                               children: [
                                 Container(
@@ -274,7 +288,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
                             const SizedBox(height: 40),
 
-                            // ========== الاسم الكامل ==========
+                            // ── Full Name ─────────────────────────────────────────────────
                             Align(
                               alignment: Alignment.centerRight,
                               child: Text(
@@ -307,7 +321,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
                             const SizedBox(height: 24),
 
-                            // ========== البريد الالكتروني ==========
+                            // ── Email ──────────────────────────────────────────────────────
                             Align(
                               alignment: Alignment.centerRight,
                               child: Text(
@@ -322,7 +336,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             const SizedBox(height: 8),
                             Container(
                               decoration: BoxDecoration(
-                                color: kDisabledFieldBg, // [FIXED Dark Mode]
+                                color: kDisabledFieldBg, 
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: TextField(
@@ -331,7 +345,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 enabled: false,
                                 style: GoogleFonts.tajawal(
                                     fontSize: 15,
-                                    color: kDisabledTextColor), // [FIXED Dark Mode]
+                                    color: kDisabledTextColor), 
                                 decoration: const InputDecoration(
                                   border: InputBorder.none,
                                   contentPadding: EdgeInsets.symmetric(
@@ -344,7 +358,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       ),
                     ),
 
-                    // ========== زر حفظ التغييرات ==========
+                    // ── Save Button ────────────────────────────────────────────────────
                     Padding(
                       padding: const EdgeInsets.all(20),
                       child: _isSaving

@@ -1,3 +1,5 @@
+// Login Screen - User authentication with email/password or OTP verification
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -31,6 +33,7 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  // ── Navigation Methods ────────────────────────────────────────
   void _goToRegister() {
     Navigator.push(
       context,
@@ -38,9 +41,12 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  // ── Authentication Methods ────────────────────────────────────
+  // Send OTP to email for verification-based login
   void _goToVerification() async {
     final email = _emailController.text.trim();
 
+    // Validate email format before sending
     if (email.isEmpty || !email.contains('@')) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -53,17 +59,20 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
+    // Show loading indicator while sending OTP
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
 
+    // Call Supabase to send OTP
     final result = await AuthService.sendLoginOTP(email: email);
 
     if (mounted) Navigator.of(context).pop();
     if (!mounted) return;
 
+    // Navigate to verification screen on success
     if (result.success) {
       Navigator.push(
         context,
@@ -83,10 +92,12 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  // Authenticate user with email and password
   void _login() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
+    // Validate fields are not empty
     if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -99,12 +110,14 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
+    // Show loading indicator during authentication
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
 
+    // Call Supabase to verify credentials
     final result = await AuthService.login(
       email: email,
       password: password,
@@ -113,6 +126,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (mounted) Navigator.of(context).pop();
     if (!mounted) return;
 
+    // Navigate to home if successful, or verification if email not verified
     if (result.success) {
       Get.offAll(() => const HomeScreen());
     } else if (result.data != null &&
@@ -132,16 +146,16 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  // ── UI Build Method ───────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    // ✅ [Added] Dynamic colors from Theme
     final Color kBg = Theme.of(context).scaffoldBackgroundColor;
     final Color kField = Theme.of(context).cardColor;
 
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: kBg, // ✅ [Added]
+        backgroundColor: kBg, 
         body: SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -155,7 +169,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: GoogleFonts.tajawal(
                     fontSize: 26,
                     fontWeight: FontWeight.w700,
-                    color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
+                    color: Theme.of(context).colorScheme.onSurface, 
                   ),
                 ),
                 const SizedBox(height: 40),
@@ -172,7 +186,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 CustomTextField(
                   hint: 'أدخل بريدك الإلكتروني',
                   controller: _emailController,
-                  fieldBg: kField, // ✅ [Added]
+                  fieldBg: kField, 
                   grey900: LoginScreen.kGrey900,
                   grey300: LoginScreen.kGrey300,
                 ),
@@ -191,7 +205,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   hint: 'أدخل كلمة المرور',
                   controller: _passwordController,
                   isPassword: true,
-                  fieldBg: kField, // ✅ [Added]
+                  fieldBg: kField, 
                   grey900: LoginScreen.kGrey900,
                   grey300: LoginScreen.kGrey300,
                 ),

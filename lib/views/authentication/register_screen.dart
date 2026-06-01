@@ -1,3 +1,5 @@
+// Register Screen - User account creation with email and password
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../widgets/custom_text_field.dart';
@@ -31,6 +33,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
+  // ── Authentication Methods ────────────────────────────────────
+  // Register new user and send verification email
   void _goToVerification() async {
     if (_isLoading) return;
 
@@ -40,12 +44,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     setState(() => _isLoading = true);
 
+    // Show loading indicator during registration
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
 
+    // Call Supabase to create account
     final result = await AuthService.register(
       name: name,
       email: email,
@@ -57,6 +63,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     setState(() => _isLoading = false);
 
+    // Navigate to verification screen on success
     if (result.success) {
       Navigator.push(
         context,
@@ -73,16 +80,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  // ── Navigation Methods ────────────────────────────────────────
+  void _goToLogin() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+    );
+  }
+
+  // ── UI Build Method ───────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    // ✅ [Added] Dynamic colors from Theme
     final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
     final Color kFieldBg = Theme.of(context).cardColor;
 
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: kBackground, // ✅ [Added]
+        backgroundColor: kBackground, 
         body: SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -96,7 +111,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   style: GoogleFonts.tajawal(
                     fontSize: 26,
                     fontWeight: FontWeight.w700,
-                    color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
+                    color: Theme.of(context).colorScheme.onSurface, 
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -113,7 +128,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 CustomTextField(
                   hint: 'أحمد',
                   controller: _fullNameController,
-                  fieldBg: kFieldBg, // ✅ [Added]
+                  fieldBg: kFieldBg, 
                   grey900: kGrey900,
                   grey300: kGrey300,
                 ),
@@ -131,7 +146,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 CustomTextField(
                   hint: 'aaronramsdale@gmail.com',
                   controller: _emailController,
-                  fieldBg: kFieldBg, // ✅ [Added]
+                  fieldBg: kFieldBg,
                   grey900: kGrey900,
                   grey300: kGrey300,
                 ),
@@ -150,7 +165,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   hint: '************',
                   controller: _passwordController,
                   isPassword: true,
-                  fieldBg: kFieldBg, // ✅ [Added]
+                  fieldBg: kFieldBg,
                   grey900: kGrey900,
                   grey300: kGrey300,
                 ),
@@ -189,13 +204,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ),
                     InkWell(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const LoginScreen()),
-                        );
-                      },
+                      onTap: _goToLogin,
                       child: Text(
                         'سجل دخولك',
                         style: GoogleFonts.tajawal(

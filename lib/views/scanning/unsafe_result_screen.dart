@@ -1,3 +1,5 @@
+// Unsafe Result Screen - Display unsafe product detection with allergen warnings and safe alternatives
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -6,6 +8,8 @@ import '../alternatives/alternatives_screen.dart';
 import '../scanning/scan_ingredients_screen.dart';
 import '../../services/alternatives_service.dart';
 import '../home/home_screen.dart';
+import '../history/history_screen.dart';
+
 
 class UnsafeResultScreen extends StatefulWidget {
   final String productName;
@@ -55,40 +59,39 @@ class _UnsafeResultScreenState extends State<UnsafeResultScreen> {
     }
   }
 
+  // ── Main UI Build Method ──────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    final Color kBackground = Theme.of(
-      context,
-    ).scaffoldBackgroundColor; // [FIXED Dark Mode]
-    final Color kCardBg = Theme.of(context).cardColor; // [FIXED Dark Mode]
+    final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
+    final Color kCardBg = Theme.of(context).cardColor;
 
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: kBackground, // [FIXED Dark Mode]
+        backgroundColor: kBackground,
         body: SafeArea(
           child: SingleChildScrollView(
             child: Column(
               children: [
-                // ── Header ──────────────────────────────────────────────
+                // ── Header ────────────────────────────────────────────────────                
                 Padding(
                   padding: const EdgeInsets.all(20),
                   child: Row(
                     children: [
                       GestureDetector(
-                        onTap: () => Get.until((route) => route.isFirst),
+                        onTap: () => Get.to(() => const HistoryScreen()),
                         child: Container(
                           width: 40,
                           height: 40,
                           decoration: BoxDecoration(
                             color: kCardBg,
                             shape: BoxShape.circle,
-                          ), // [FIXED Dark Mode]
+                          ),
                           child: Icon(
                             Icons.arrow_back,
                             color: Theme.of(context).colorScheme.onSurface,
                             size: 20,
-                          ), // [FIXED Dark Mode]
+                          ),
                         ),
                       ),
                       const Spacer(),
@@ -105,7 +108,7 @@ class _UnsafeResultScreenState extends State<UnsafeResultScreen> {
                   ),
                 ),
 
-                // ── Product image ────────────────────────────────────────
+                // ── Product Image ─────────────────────────────────────────────
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: ClipRRect(
@@ -124,6 +127,7 @@ class _UnsafeResultScreenState extends State<UnsafeResultScreen> {
 
                 const SizedBox(height: 20),
 
+                // ── Product Name ──────────────────────────────────────────────
                 if (widget.productName.isNotEmpty &&
                     widget.productName != 'منتج من صورة')
                   Padding(
@@ -140,7 +144,7 @@ class _UnsafeResultScreenState extends State<UnsafeResultScreen> {
 
                 const SizedBox(height: 12),
 
-                // ── Unsafe badge ─────────────────────────────────────────
+                // ── Safety Status ──────────────────────────────────────────────
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Row(
@@ -165,7 +169,7 @@ class _UnsafeResultScreenState extends State<UnsafeResultScreen> {
 
                 const SizedBox(height: 20),
 
-                // ── Detected allergens ───────────────────────────────────
+                // ── Detected Allergens Warning ────────────────────────────────
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Container(
@@ -232,7 +236,7 @@ class _UnsafeResultScreenState extends State<UnsafeResultScreen> {
 
                 const SizedBox(height: 16),
 
-                // ── المواد المكتشفة ──────────────────────────────────────
+                // ── Detected Ingredients ──────────────────────────────────────
                 if (widget.ingredients.isNotEmpty ||
                     widget.traceWarnings.isNotEmpty)
                   Padding(
@@ -241,7 +245,7 @@ class _UnsafeResultScreenState extends State<UnsafeResultScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: kCardBg, // [FIXED Dark Mode]
+                        color: kCardBg,
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Column(
@@ -280,7 +284,7 @@ class _UnsafeResultScreenState extends State<UnsafeResultScreen> {
 
                 const SizedBox(height: 24),
 
-                // ── Action buttons ───────────────────────────────────────
+                // ── Action Buttons ────────────────────────────────────────────
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Column(
@@ -365,10 +369,10 @@ class _UnsafeResultScreenState extends State<UnsafeResultScreen> {
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton(
-onPressed: () {
-  HomeScreen.clearCache();
-  Get.to(() => const ScanIngredientsScreen());
-},
+                          onPressed: () {
+                            HomeScreen.clearCache();
+                            Get.to(() => const ScanIngredientsScreen());
+                          },
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             side: const BorderSide(color: Color(0xFF9CCB7A)),
@@ -399,6 +403,7 @@ onPressed: () {
   }
 }
 
+// ── Smart Image Widget ────────────────────────────────────────
 class _SmartImage extends StatefulWidget {
   final String remoteUrl;
   final String localPath;
@@ -412,6 +417,8 @@ class _SmartImageState extends State<_SmartImage> {
   bool get _hasLocalFile =>
       widget.localPath.isNotEmpty && File(widget.localPath).existsSync();
 
+  // ── Image Display Methods ─────────────────────────────────────
+  // Display image with priority: local file > remote URL > placeholder
   @override
   Widget build(BuildContext context) {
     if (_hasLocalFile) {
@@ -424,6 +431,7 @@ class _SmartImageState extends State<_SmartImage> {
     return _tryRemote();
   }
 
+  // Try loading remote image if local not available
   Widget _tryRemote() {
     if (widget.remoteUrl.isNotEmpty) {
       return Image.network(
@@ -441,6 +449,7 @@ class _SmartImageState extends State<_SmartImage> {
     return _placeholder();
   }
 
+  // Show placeholder icon when no image available
   Widget _placeholder() => Center(
     child: Icon(
       Icons.image_not_supported,

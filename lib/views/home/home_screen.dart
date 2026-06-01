@@ -1,3 +1,5 @@
+// Home Screen - Main dashboard with scan history, statistics, and navigation
+
 import 'dart:async' show unawaited;
 import 'dart:convert';
 import 'dart:io';
@@ -64,33 +66,39 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadData();
   }
 
+  // ── Data Loading Methods ──────────────────────────────────────
+  // Load user data from Supabase and cache scan history
   Future<void> _loadData({bool forceRefresh = false}) async {
     if (forceRefresh) {
       _cachedUser = null;
       _cachedHistory = null;
     }
 
+    // Fetch current user from Supabase
     _cachedUser ??= await AuthService.getCurrentUser();
     if (_cachedUser == null) {
       if (mounted) setState(() => _isLoading = false);
       return;
     }
 
-    // [PERF] Prefetch history in background while user is on home screen
+    // Prefetch history for performance optimization
     ScanService.prefetchHistory(userId: _cachedUser!['user_id']);
 
+    // Load scan history if not cached
     if (_cachedHistory == null) {
       final result = await ScanService.getScanHistory(userId: _cachedUser!['user_id']);
       final raw = result.success ? (result.data as List? ?? []) : [];
       _cachedHistory = raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
     }
 
+    // Load and cache profile photo
     final photoUrl = _cachedUser!['photo_url'] ?? '';
     String cachedPath = '';
     if (photoUrl.isNotEmpty) {
       cachedPath = await _getCachedPhotoPath(_cachedUser!['user_id'], photoUrl);
     }
 
+    // Update UI with loaded data
     if (mounted) {
       setState(() {
         _userName = _cachedUser!['name'] ?? '';
@@ -106,17 +114,21 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  // ── Photo Caching Methods ─────────────────────────────────────
+  // Cache profile photo locally to reduce network requests
   static Future<String> _getCachedPhotoPath(String userId, String photoUrl) async {
     try {
       final dir = await getApplicationDocumentsDirectory();
       final cacheFile = File('${dir.path}/profile_$userId.jpg');
       final urlFile = File('${dir.path}/profile_${userId}_url.txt');
 
+      // Check if cached URL matches current URL
       String cachedUrl = '';
       if (await urlFile.exists()) cachedUrl = await urlFile.readAsString();
 
       final urlChanged = cachedUrl != photoUrl;
 
+      // Download only if URL changed or cache doesn't exist
       if (urlChanged || !await cacheFile.exists()) {
         if (await cacheFile.exists()) await cacheFile.delete();
         final response = await http.get(Uri.parse(photoUrl)).timeout(const Duration(seconds: 10));
@@ -133,6 +145,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return '';
   }
 
+  // ── Photo Display Methods ─────────────────────────────────────
+  // Build profile photo with fallback to network or default icon
   Widget _buildProfilePhoto(double size) {
     if (_cachedPhotoPath.isNotEmpty) {
       return Image.file(
@@ -153,6 +167,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return const Icon(Icons.person, color: Colors.white, size: 28);
   }
 
+  // ── Main UI Build Method ──────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
@@ -280,6 +295,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // ── Last Scan Display Methods ─────────────────────────────────
+  // Build last scan card with product details and navigation to results
   Widget _buildLastScanSection() {
     if (_lastScan == null) {
       return Center(child: Padding(
@@ -288,6 +305,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ));
     }
 
+    // Parse allergens from JSON
     List<String> allergens = [];
     try { allergens = List<String>.from(jsonDecode(_lastScan!['found_allergens'] ?? '[]')); } catch (_) {}
 
@@ -297,10 +315,12 @@ class _HomeScreenState extends State<HomeScreen> {
     final productName = (_lastScan!['product_name'] ?? 'فحص مكونات') as String;
     final ingredientsText = (_lastScan!['ingredients_text'] ?? '') as String;
 
+    // Parse ingredients from pipe-separated text
     final List<String> ingredients = ingredientsText.isNotEmpty
         ? ingredientsText.split('|||').map<String>((e) => e.trim()).where((e) => e.isNotEmpty).toList()
         : <String>[];
 
+    // Parse cached alternatives
     List<AlternativeProduct> savedAlternatives = [];
     try {
       final altJson = _lastScan!['alternatives_json'] ?? '[]';
@@ -329,6 +349,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // Navigation item for bottom nav - displays icon, label, and changes color if active
   Widget _buildNavItem(IconData icon, String label, bool isActive, VoidCallback onTap) {
     return Expanded(
       child: GestureDetector(

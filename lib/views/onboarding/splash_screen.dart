@@ -1,3 +1,4 @@
+// Splash Screen - Initial app launch and login status check
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -20,6 +21,7 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _checkLoginStatus() async {
+    // Display splash for 3 seconds
     await Future.delayed(const Duration(seconds: 3));
 
     final loggedIn = await AuthService.isLoggedIn();
@@ -35,15 +37,15 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = Theme.of(context).brightness == Brightness.dark; // [FIXED Dark Mode]
+    final bool isDark = Theme.of(context).brightness == Brightness.dark; 
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Center(
         child: SvgPicture.asset(
           isDark
-              ? 'assets/logo/logo_darkmode.svg' // [FIXED Dark Mode]
-              : 'assets/logo/logo_lightmode.svg', // [FIXED Dark Mode]
+              ? 'assets/logo/Logo_DarkMode.svg' 
+              : 'assets/logo/Logo_LightMode.svg', 
           width: 250,
           height: 325,
         ),

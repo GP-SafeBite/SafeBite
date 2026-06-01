@@ -1,3 +1,4 @@
+// Get Started - Onboarding screen with login and register options
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -11,7 +12,7 @@ class GetStartedScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = Theme.of(context).brightness == Brightness.dark; // [FIXED Dark Mode]
+    final bool isDark = Theme.of(context).brightness == Brightness.dark; 
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -22,9 +23,9 @@ class GetStartedScreen extends StatelessWidget {
             const Spacer(),
 
             SvgPicture.asset(
-              isDark
-                  ? 'assets/logo/logo_darkmode.svg'   // [FIXED Dark Mode]
-                  : 'assets/logo/logo_lightmode.svg',
+              isDark 
+                  ? 'assets/logo/Logo_DarkMode.svg' 
+                  : 'assets/logo/Logo_LightMode.svg',
               width: 180,
             ),
 
