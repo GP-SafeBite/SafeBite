@@ -1,3 +1,5 @@
+// Scan Controller - Coordinate product scan workflow and expose result state to the UI
+
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../services/scan_service.dart';
@@ -12,6 +14,7 @@ class ScanController extends ChangeNotifier {
   Map<String, dynamic>? get result => _result;
   String? get error => _error;
 
+  // Analyze a product image and update state with allergen detection results
   Future<void> analyzeImage(File imageFile, String userId, {String productName = 'منتج من صورة'}) async {
     try {
       _isLoading = true;
@@ -41,7 +44,7 @@ class ScanController extends ChangeNotifier {
         "local_image_path": data.localImagePath ?? '',
         "remote_image_url": data.remoteImageUrl ?? '',
         "product_name": data.productName,
-        // ✅ Issue 3: pass merged alternatives to UI
+        // Include pre-fetched alternatives to avoid a second async call in the result screen
         "merged_alternatives": data.mergedAlternatives,
       };
 
@@ -55,6 +58,7 @@ class ScanController extends ChangeNotifier {
     }
   }
 
+  // Reset scan result and error state before starting a new scan
   void clearResult() {
     _result = null;
     _error = null;

@@ -1,8 +1,9 @@
+// Theme Controller - Manage light and dark mode preference with persistent storage
+
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:flutter/material.dart';
 
-// ✅ [Added] ThemeController: handles dark/light mode toggle with persistent storage
 class ThemeController extends GetxController {
   final _box = GetStorage();
   final _key = 'isDarkMode';
@@ -12,11 +13,11 @@ class ThemeController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    // ✅ [Added] Read saved preference, default to false (light)
+    // Read saved preference on startup, defaulting to light mode
     isDarkMode = RxBool(_box.read(_key) ?? false);
   }
 
-  // ✅ [Added] Toggle and persist
+  // Toggle theme mode and persist the new preference
   void toggleTheme() {
     isDarkMode.value = !isDarkMode.value;
     _box.write(_key, isDarkMode.value);

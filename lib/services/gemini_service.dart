@@ -1,4 +1,4 @@
-// gemini_service.dart — SafeBite optimised build
+// Gemini Service - Analyze product ingredient images using the Gemini Vision API
 
 import 'dart:async';
 import 'dart:convert';
@@ -14,10 +14,10 @@ class GeminiService {
   static const _base   =
       'https://generativelanguage.googleapis.com/v1beta/models/$_model';
 
-  // opt 2: persistent client avoids TLS handshake on every scan
+  // Persistent HTTP client to avoid TLS handshake overhead on every scan
   static final http.Client _http = http.Client();
 
-  // opt 1: compress before sending — skip if already small (scan_service may have compressed already)
+  // Compress image bytes before transmission, skipping compression if already below the size threshold
   static Future<Uint8List> _compress(Uint8List raw) async {
     if (raw.length < 400 * 1024) return raw;
     return FlutterImageCompress.compressWithList(
@@ -27,12 +27,6 @@ class GeminiService {
     );
   }
 
-  // opt 6: system_instruction separated from user turn
-  // opt 12: English prompt — fewer tokens than Arabic equivalent
-  // opt 13: H1-H9 hard rules replace scattered verbose instructions
-  // opt 14: explicit SEPARATION RULES prevent allergen conflation
-  // opt 15: max 3 alternatives enforced in prompt and schema
-  // opt 21: E322/E442 override — always triggers soy + unsafe, no exceptions
   static const _sysInstruction = '''
 ROLE: Food allergen classifier. Input: ingredient label image. Output: JSON only.
 
@@ -107,9 +101,6 @@ ORDER
 8. Verify JSON matches responseSchema.
 ''';
 
-  // opt 7: responseMimeType guarantees JSON output — no _cleanJson() needed
-  // opt 8: responseSchema with enum constraints — eliminates invalid field values
-  // opt 16: available_in_saudi removed from LLM suggestions — field was never used
   static const _schema = {
     'type': 'OBJECT',
     'required': [
@@ -124,9 +115,7 @@ ORDER
     ],
     'properties': {
       'is_safe_for_user': {'type': 'BOOLEAN'},
-
       'product_type_ar': {'type': 'STRING'},
-
       'product_category': {
         'type': 'STRING',
         'enum': [
@@ -148,12 +137,10 @@ ORDER
           'free-from pancake-mix', 'other',
         ],
       },
-
       'confidence': {
         'type': 'STRING',
         'enum': ['high', 'medium', 'low'],
       },
-
       'detected_allergens': {
         'type': 'ARRAY',
         'items': {
@@ -176,7 +163,6 @@ ORDER
           },
         },
       },
-
       'hidden_sources': {
         'type': 'ARRAY',
         'items': {
@@ -195,12 +181,10 @@ ORDER
           },
         },
       },
-
       'warning_statements': {
         'type': 'ARRAY',
         'items': {'type': 'STRING'},
       },
-
       'suggested_alternatives': {
         'type': 'ARRAY',
         'items': {
@@ -229,13 +213,14 @@ ORDER
     'suggested_alternatives': <dynamic>[],
   };
 
+  // Send a compressed ingredient label image to the Gemini API and return the parsed allergen detection result.
+  // Retries once on server-side failure before propagating the error.
   Future<Map<String, dynamic>> analyzeProductImage(
     Uint8List imageBytes, {
     String productName   = '',
     String userAllergies = '',
     void Function(bool isSafe)? onSafetySignal,
   }) async {
-    // opt 1: compress — guard skips if scan_service already compressed
     final compressed = await _compress(imageBytes);
     final b64        = base64Encode(compressed);
     debugPrint('📸 Compressed: ${imageBytes.length} → ${compressed.length} bytes');
@@ -258,11 +243,11 @@ ORDER
         },
       ],
       'generationConfig': {
-        'temperature':      0,       // opt 10: deterministic output
-        'maxOutputTokens':  1024,    // opt 9: prevents runaway output
-        'responseMimeType': 'application/json', // opt 7
-        'responseSchema':   _schema,            // opt 8
-        'thinkingConfig':   {'thinkingBudget': 0}, // opt 8.1: ~3-5s vs ~12s
+        'temperature':      0,
+        'maxOutputTokens':  1024,
+        'responseMimeType': 'application/json',
+        'responseSchema':   _schema,
+        'thinkingConfig':   {'thinkingBudget': 0},
       },
     });
 
@@ -291,7 +276,7 @@ ORDER
         if (attempt == 2) throw Exception('Gemini ${streamed.statusCode}: $errBody');
       } catch (e) {
         if (attempt == 2) rethrow;
-        debugPrint('⚠️ Attempt $attempt failed, retrying in 300ms: $e'); // opt 16
+        debugPrint('⚠️ Attempt $attempt failed, retrying in 300ms: $e');
         await Future.delayed(const Duration(milliseconds: 300));
       }
     }
@@ -299,6 +284,8 @@ ORDER
     return _empty();
   }
 
+  // Accumulate SSE stream chunks into a complete JSON response,
+  // firing the optional safety signal callback as soon as the is_safe_for_user field is available
   Future<Map<String, dynamic>> _collectStream(
     Stream<List<int>> raw, {
     void Function(bool isSafe)? onSafetySignal,
@@ -321,7 +308,6 @@ ORDER
                 ?['text'] as String? ?? '';
         buf.write(text);
 
-        // onSafetySignal parked — badge did not fire earlier than full result in testing
         if (!signalFired && onSafetySignal != null) {
           try {
             final partial = jsonDecode(buf.toString()) as Map<String, dynamic>;

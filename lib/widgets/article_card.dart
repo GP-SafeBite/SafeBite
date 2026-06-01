@@ -1,3 +1,5 @@
+// ArticleCard - Display an educational article with thumbnail image and title
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -13,7 +15,6 @@ class ArticleCard extends StatelessWidget {
     this.onTap,
   });
 
-  // [PERF] Font constant — created once
   static final _titleStyle = GoogleFonts.tajawal(
     fontSize: 15,
     fontWeight: FontWeight.w600,
@@ -48,7 +49,7 @@ class ArticleCard extends StatelessWidget {
                   : Image.network(
                       imageUrl,
                       fit: BoxFit.cover,
-                      // [PERF] Limit decoded image size — card is 120px tall
+                      // Constrain decoded size to match card dimensions and reduce memory usage
                       cacheWidth: 800,
                       cacheHeight: 240,
                       errorBuilder: (_, __, ___) => const Center(

@@ -1,3 +1,5 @@
+// ProductCard - Display a scanned product with image, name, and safety status badge
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -20,12 +22,11 @@ class ProductCard extends StatelessWidget {
     this.onTap,
   });
 
-  static const Color kRed   = Color(0xFFD32F2F);
-  static const Color kGreen = Color(0xFF9CCB7A);
+  static const Color kRed     = Color(0xFFD32F2F);
+  static const Color kGreen   = Color(0xFF9CCB7A);
   static const Color kGrey900 = Color(0xFF818898);
 
-  // [PERF] Font constants — created once, not on every build()
-  static final _nameStyle = GoogleFonts.tajawal(fontSize: 15, fontWeight: FontWeight.w600);
+  static final _nameStyle  = GoogleFonts.tajawal(fontSize: 15, fontWeight: FontWeight.w600);
   static final _badgeStyle = GoogleFonts.tajawal(fontSize: 13, fontWeight: FontWeight.w600);
   static final _timeStyle  = GoogleFonts.tajawal(fontSize: 13, fontWeight: FontWeight.w500, color: kGrey900);
 
@@ -105,6 +106,7 @@ class ProductCard extends StatelessWidget {
   }
 }
 
+// Resolves the correct image source — local file takes priority over remote URL
 class _SmartImage extends StatefulWidget {
   final String remoteUrl;
   final String localPath;
@@ -140,6 +142,7 @@ class _SmartImageState extends State<_SmartImage> {
     return _tryRemote();
   }
 
+  // Attempt to load from remote URL, falling back to local file or placeholder on failure
   Widget _tryRemote() {
     if (widget.remoteUrl.isNotEmpty) {
       return Image.network(
@@ -147,7 +150,7 @@ class _SmartImageState extends State<_SmartImage> {
         fit: BoxFit.cover,
         width: double.infinity,
         height: widget.height,
-        // [PERF] Limit decoded image size in memory — card is 120px tall
+        // Constrain decoded image size to card dimensions to reduce memory usage
         cacheWidth: 600,
         cacheHeight: 240,
         loadingBuilder: (ctx, child, progress) {
