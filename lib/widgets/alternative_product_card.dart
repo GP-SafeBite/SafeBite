@@ -1,3 +1,5 @@
+// AlternativeProductCard - Display a single safe alternative product with image and title
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -13,7 +15,6 @@ class AlternativeProductCard extends StatelessWidget {
     this.onTap,
   });
 
-  // [PERF] Font constant — created once
   static final _titleStyle = GoogleFonts.tajawal(
     fontSize: 14,
     fontWeight: FontWeight.w500,
@@ -41,11 +42,11 @@ class AlternativeProductCard extends StatelessWidget {
               child: SizedBox(
                 width: 90,
                 height: 90,
+                // Load from network URL or local asset depending on path format
                 child: imagePathOrUrl.startsWith('http')
                     ? Image.network(
                         imagePathOrUrl,
                         fit: BoxFit.cover,
-                        // [PERF] Card thumbnail is 90×90 — limit memory
                         cacheWidth: 180,
                         cacheHeight: 180,
                         errorBuilder: (_, __, ___) => _placeholder(),

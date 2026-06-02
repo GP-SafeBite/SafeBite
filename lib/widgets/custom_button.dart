@@ -1,3 +1,5 @@
+// CustomButton - Primary action button used across all screens
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -11,7 +13,6 @@ class CustomButton extends StatelessWidget {
     required this.onTap,
   });
 
-  // [PERF] Font constant — created once for all instances
   static final _textStyle = GoogleFonts.tajawal(
     fontSize: 16,
     fontWeight: FontWeight.w700,

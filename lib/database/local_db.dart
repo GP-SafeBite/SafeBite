@@ -1,15 +1,19 @@
+// Local Database - Manage SQLite persistence for user session, allergies, and scan history
+
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
 class LocalDB {
   static Database? _database;
 
+  // Return the existing database instance or initialize it if not yet open
   static Future<Database> getDatabase() async {
     if (_database != null) return _database!;
     _database = await _initDatabase();
     return _database!;
   }
 
+  // Initialize SQLite database and apply schema creation and migrations
   static Future<Database> _initDatabase() async {
     String path = join(await getDatabasesPath(), 'safebite_local.db');
     return await openDatabase(
@@ -63,6 +67,7 @@ class LocalDB {
           await db.execute('ALTER TABLE current_user ADD COLUMN photo_url TEXT');
         }
         if (oldVersion < 4) {
+          // Rebuild scan_history with extended schema — previous version lacked several columns
           await db.execute('DROP TABLE IF EXISTS scan_history');
           await db.execute('''
             CREATE TABLE scan_history (
@@ -93,6 +98,9 @@ class LocalDB {
     );
   }
 
+  // ── User Operations ──────────────────────────────────────────────────────
+
+  // Persist authenticated user data, replacing any existing record
   static Future<void> saveUser({
     required String userId,
     required String email,
@@ -110,6 +118,7 @@ class LocalDB {
     });
   }
 
+  // Retrieve the currently saved user record
   static Future<Map<String, dynamic>?> getUser() async {
     final db = await getDatabase();
     final result = await db.query('current_user', limit: 1);
@@ -117,6 +126,7 @@ class LocalDB {
     return result.first;
   }
 
+  // Update the stored profile photo URL for a given user
   static Future<void> updateUserPhoto({
     required String userId,
     required String photoUrl,
@@ -130,6 +140,9 @@ class LocalDB {
     );
   }
 
+  // ── Allergy Operations ───────────────────────────────────────────────────
+
+  // Replace all saved allergy selections for a user with the provided list
   static Future<void> saveUserAllergies({
     required String userId,
     required List<int> allergyIds,
@@ -141,13 +154,17 @@ class LocalDB {
     }
   }
 
+  // Retrieve all saved allergy IDs for a user
   static Future<List<int>> getUserAllergies({required String userId}) async {
     final db = await getDatabase();
     final result = await db.query('user_allergies', where: 'user_id = ?', whereArgs: [userId]);
     return result.map((row) => row['allergy_id'] as int).toList();
   }
 
-  // ✅ FIX: accept explicit scanDate so SQLite and Supabase store the SAME timestamp
+  // ── Scan History Operations ──────────────────────────────────────────────
+
+  // Save a scan record to local history using the timestamp provided by the caller
+  // to ensure SQLite and Supabase store an identical scan_date value
   static Future<void> saveScanHistory({
     required String userId,
     required String productName,
@@ -158,7 +175,7 @@ class LocalDB {
     String? remoteImageUrl,
     String? alternativesJson,
     String? supabaseId,
-    String? scanDate, // ✅ NEW — caller must pass the same date used for Supabase
+    String? scanDate,
   }) async {
     final db = await getDatabase();
     await db.insert('scan_history', {
@@ -171,11 +188,12 @@ class LocalDB {
       'local_image_path': localImagePath ?? '',
       'remote_image_url': remoteImageUrl ?? '',
       'alternatives_json': alternativesJson ?? '[]',
-      // ✅ Use the provided date, fallback to now() only if truly not provided
+      // Use caller-provided date to keep timestamps consistent across both databases
       'scan_date': scanDate ?? DateTime.now().toIso8601String(),
     });
   }
 
+  // Retrieve scan history records for a user ordered by most recent first
   static Future<List<Map<String, dynamic>>> getScanHistory({required String userId}) async {
     final db = await getDatabase();
     return await db.query(
@@ -187,12 +205,13 @@ class LocalDB {
     );
   }
 
+  // Delete all scan history records for a user
   static Future<void> deleteScanHistory({required String userId}) async {
     final db = await getDatabase();
     await db.delete('scan_history', where: 'user_id = ?', whereArgs: [userId]);
   }
 
-  // ✅ Delete by supabase_id first, fallback to scan_date
+  // Delete a single scan by Supabase ID, falling back to scan_date if no match is found
   static Future<void> deleteSingleScan({
     required int supabaseHistoryId,
     String? scanDate,
@@ -213,6 +232,7 @@ class LocalDB {
     }
   }
 
+  // Clear user session data including profile and allergy selections
   static Future<void> clearUserSession() async {
     final db = await getDatabase();
     await db.delete('current_user');
