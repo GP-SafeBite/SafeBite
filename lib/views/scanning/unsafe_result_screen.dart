@@ -78,7 +78,7 @@ class _UnsafeResultScreenState extends State<UnsafeResultScreen> {
                   child: Row(
                     children: [
                       GestureDetector(
-                        onTap: () => Get.until((route) => route.isFirst),
+                        onTap: () => Get.back(),
                         child: Container(
                           width: 40,
                           height: 40,
