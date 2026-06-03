@@ -429,14 +429,37 @@ Swipe left to delete (optional)
 
 ## 🖼️ Screenshots | لقطات الشاشة
 
-### Main Flow | سير العمل الرئيسي
-[Add GIF: Complete User Journey - Registration to Result | رحلة المستخدم الكاملة - من التسجيل إلى النتيجة]
 
 ### Feature Highlights | إبراز المميزات
-- [Add GIF 1: Home Screen Overview | نظرة عامة على الشاشة الرئيسية]
-- [Add GIF 2: Scanning & Analysis | المسح والتحليل]
-- [Add GIF 3: Results & Alternatives | النتائج والبدائل]
-- [Add GIF 4: History & Management | الإدارة والسجل]
+## 1- تسجيل الدخول والصفحة الرئيسية | Login and Home Screen
+
+https://github.com/user-attachments/assets/5ddeff4e-3d59-4694-a96b-bbea480d5d87
+
+
+## 2- المسح والتحليل مع النتائج والبدائل | Scanning and Analysis with Results and Alternatives
+
+https://github.com/user-attachments/assets/2f2d4aa3-08e1-4cb2-a1ae-bd727bb1e48f
+
+
+## 3- سجل الفحوصات | Scan History
+
+https://github.com/user-attachments/assets/deaa5e63-51d0-418f-a98d-a5493f45908b
+
+
+## 4- المقالات التوعوية | Awareness Articles
+
+https://github.com/user-attachments/assets/17b3ae1b-ed7c-4f80-a2e6-aab62e104eb2
+
+
+## 5- استعراض نتائج آخر فحص مع تعديل الملف الشخصي | Viewing Last Scan Results with Profile Editing
+
+https://github.com/user-attachments/assets/0db2a0d1-26ad-4e34-a2e2-d72a138f1ae6
+
+
+## 6- الوضع الداكن وتعديل ملف الحساسية مع صفحة حول التطبيق | Dark Mode and Allergy Profile Editing with About the App Page
+
+https://github.com/user-attachments/assets/b059e2c6-70fb-4282-8913-c48f4c7177c0
+
 
 ---
 
