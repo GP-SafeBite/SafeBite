@@ -1,3 +1,5 @@
+// Scan Service - Orchestrate product image scanning, allergen detection, and history management
+
 import 'dart:async' show unawaited;
 import 'dart:convert';
 import 'dart:io';
@@ -45,32 +47,55 @@ class ProductScanData {
     this.remoteImageUrl,
     this.mergedAlternatives = const [],
   });
+
+  // Return a copy of this instance with an updated remoteImageUrl
+  ProductScanData copyWith({String? remoteImageUrl}) {
+    return ProductScanData(
+      productName: productName,
+      ingredients: ingredients,
+      traceWarnings: traceWarnings,
+      detectedAllergens: detectedAllergens,
+      detectedAllergenTypes: detectedAllergenTypes,
+      llmSuggestedAlternatives: llmSuggestedAlternatives,
+      llmRawAlternatives: llmRawAlternatives,
+      productTypeAr: productTypeAr,
+      safetyStatus: safetyStatus,
+      localImagePath: localImagePath,
+      remoteImageUrl: remoteImageUrl ?? this.remoteImageUrl,
+      mergedAlternatives: mergedAlternatives,
+    );
+  }
 }
 
 class ScanService {
   static final _supabase = Supabase.instance.client;
 
-  // ── Timing fields (populated on each scan) ────────────────────────────
+  // Timing fields populated on each scan for performance reporting
   static int lastCompressMs = 0;
   static int lastGeminiMs   = 0;
   static int lastAltMs      = 0;
 
-  // ── Optimization 3: In-memory allergy cache ──────────────────────────
+  // ── Caching ──────────────────────────────────────────────────────────────
+
+  // In-memory cache mapping user ID to resolved allergy type strings
   static final Map<String, List<String>> _allergyCache = {};
 
+  // Invalidate the allergy cache for a specific user after allergen profile changes
   static void clearAllergyCache(String userId) {
     _allergyCache.remove(userId);
   }
 
-  // ── Optimization 8: History prefetch cache ───────────────────────────
   static String? _historyCacheUserId;
   static List<Map<String, dynamic>>? _historyCache;
 
+  // Invalidate the history prefetch cache after a new scan is saved
   static void _invalidateHistoryCache() {
     _historyCacheUserId = null;
     _historyCache = null;
   }
 
+  // Prefetch and store scan history in memory while the user is on the home screen
+  // so that HistoryScreen can render instantly from cache without a network request
   static Future<void> prefetchHistory({required String userId}) async {
     try {
       final result = await getScanHistory(userId: userId);
@@ -85,6 +110,8 @@ class ScanService {
     }
   }
 
+  // Return scan history from the in-memory prefetch cache if available,
+  // consuming and clearing the cache on use, then falling back to a live fetch
   static Future<ScanResult> getScanHistoryCached(
       {required String userId}) async {
     if (_historyCacheUserId == userId && _historyCache != null) {
@@ -96,7 +123,10 @@ class ScanService {
     return getScanHistory(userId: userId);
   }
 
-  // ── Optimization 2: Image compression ────────────────────────────────
+  // ── Image Processing ──────────────────────────────────────────────────────
+
+  // Compress image bytes to reduce Gemini API payload size,
+  // skipping compression when the image is already below the size threshold
   static Future<Uint8List> _compressForGemini(Uint8List imageBytes) async {
     if (imageBytes.length < 400 * 1024) return imageBytes;
     try {
@@ -133,23 +163,24 @@ class ScanService {
     }
   }
 
+  // ── Scan Pipeline ─────────────────────────────────────────────────────────
+
+  // Execute the full scan pipeline: compress image, call Gemini for allergen analysis,
+  // query safe alternatives, and persist the result asynchronously
   static Future<ScanResult> scanFromImage({
     required Uint8List imageBytes,
     required String userId,
     String productName = 'منتج من صورة',
-
-  })
-  
-   async {
+  }) async {
     lastCompressMs = 0;
-  lastGeminiMs   = 0;
-  lastAltMs      = 0;
-  try {
-      // ── Optimization 1: Start upload + local save immediately in background
+    lastGeminiMs   = 0;
+    lastAltMs      = 0;
+    try {
+      // Begin image upload and local save in parallel without blocking the scan
       final remoteUrlFuture = _uploadImageToStorage(imageBytes, userId);
       final localPathFuture = _saveImageLocally(imageBytes);
 
-      // ── Optimization 3: Serve allergy data from cache ─────────────────
+      // Serve allergy profile from in-memory cache to avoid repeated database reads
       Set<String> userAllergyStrings;
       if (_allergyCache.containsKey(userId)) {
         userAllergyStrings = Set<String>.from(_allergyCache[userId]!);
@@ -166,7 +197,6 @@ class ScanService {
           .map((s) => _allergyArabicNames[s] ?? s)
           .join('، ');
 
-      // ── Optimization 2: Compress only bytes that go to Gemini ─────────
       final compSw = Stopwatch()..start();
       final geminiBytes = await _compressForGemini(imageBytes);
       lastCompressMs = compSw.elapsedMilliseconds;
@@ -184,7 +214,7 @@ class ScanService {
       print('🤖 [3/4] geminiAPI: ${lastGeminiMs}ms');
       print("🧠 AI RESULT: $aiResult");
 
-      // ── Extract actual ingredients from detected_allergens ─────────────────
+      // Extract detected allergen types and ingredient strings from Gemini response
       final List<String> geminiIngredients = [];
       final List<String> detectedAllergenTypes = [];
       final rawAllergens = aiResult["detected_allergens"] ?? [];
@@ -208,25 +238,25 @@ class ScanService {
         }
       }
 
-      // ── Extract trace warnings: hidden_sources + warning_statements ────
-      // 1. This stays here - extract trace warnings only
-final List<String> traceWarnings = [];
-final rawHiddenSources = aiResult["hidden_sources"] ?? [];
-for (final source in rawHiddenSources) {
-  if (source is Map) {
-    final ingredient = source["ingredient"]?.toString() ?? '';
-    if (ingredient.isNotEmpty
-        && !traceWarnings.contains(ingredient)
-        && !geminiIngredients.contains(ingredient)) {
-      traceWarnings.add(ingredient);
-    }
-  } else if (source is String && source.trim().isNotEmpty) {
-    if (!traceWarnings.contains(source.trim())
-        && !geminiIngredients.contains(source.trim())) {
-      traceWarnings.add(source.trim());
-    }
-  }
-}
+      // Extract trace warnings from hidden_sources and warning_statements,
+      // excluding items already captured as direct ingredients
+      final List<String> traceWarnings = [];
+      final rawHiddenSources = aiResult["hidden_sources"] ?? [];
+      for (final source in rawHiddenSources) {
+        if (source is Map) {
+          final ingredient = source["ingredient"]?.toString() ?? '';
+          if (ingredient.isNotEmpty
+              && !traceWarnings.contains(ingredient)
+              && !geminiIngredients.contains(ingredient)) {
+            traceWarnings.add(ingredient);
+          }
+        } else if (source is String && source.trim().isNotEmpty) {
+          if (!traceWarnings.contains(source.trim())
+              && !geminiIngredients.contains(source.trim())) {
+            traceWarnings.add(source.trim());
+          }
+        }
+      }
 
       final rawWarningStatements = aiResult["warning_statements"] ?? [];
       for (final warning in rawWarningStatements) {
@@ -240,28 +270,26 @@ for (final source in rawHiddenSources) {
 
       print("⚠️ Trace warnings extracted: ${traceWarnings.length}");
 
-      // 2. THEN declare detectedAllergens
-final List<String> detectedAllergens = [];
-final List<String> userDetectedTypes = [];
+      final List<String> detectedAllergens = [];
+      final List<String> userDetectedTypes = [];
 
-// 3. THEN add allergen from hidden sources
-final rawHiddenSources2 = aiResult["hidden_sources"] ?? [];
-for (final source in rawHiddenSources2) {
-  if (source is Map) {
-    final allergenType = source["allergen_type"]?.toString() ?? '';
-    if (allergenType.isNotEmpty && userAllergyStrings.contains(allergenType)) {
-      final arabicName = _allergyArabicNames[allergenType] ?? allergenType;
-      if (!detectedAllergens.contains(arabicName)) {
-        detectedAllergens.add(arabicName);
-        if (!userDetectedTypes.contains(allergenType)) {
-          userDetectedTypes.add(allergenType);
+      // Add allergens identified through hidden sources before processing direct ingredient matches
+      final rawHiddenSources2 = aiResult["hidden_sources"] ?? [];
+      for (final source in rawHiddenSources2) {
+        if (source is Map) {
+          final allergenType = source["allergen_type"]?.toString() ?? '';
+          if (allergenType.isNotEmpty && userAllergyStrings.contains(allergenType)) {
+            final arabicName = _allergyArabicNames[allergenType] ?? allergenType;
+            if (!detectedAllergens.contains(arabicName)) {
+              detectedAllergens.add(arabicName);
+              if (!userDetectedTypes.contains(allergenType)) {
+                userDetectedTypes.add(allergenType);
+              }
+            }
+          }
         }
       }
-    }
-  }
-}
 
-      // ── Extract LLM suggestions ────────────────────────────────────────
       final List<String> llmSuggestedAlternatives = [];
       final List<Map<String, dynamic>> llmRawAlternatives = [];
       final String productTypeAr = aiResult["product_type_ar"]?.toString() ?? '';
@@ -289,6 +317,14 @@ for (final source in rawHiddenSources2) {
           traceWarnings.isNotEmpty ||
           productType.isNotEmpty;
 
+      // Reject low-confidence results to avoid false negatives on unclear images
+      if (confidence == 'low') {
+        return ScanResult(
+          success: false,
+          message: "الصورة غير واضحة، يرجى التصوير في إضاءة جيدة وأن تكون قائمة المكونات ظاهرة بوضوح",
+        );
+      }
+
       if (!hasAnyContent) {
         return ScanResult(
           success: false,
@@ -296,10 +332,7 @@ for (final source in rawHiddenSources2) {
         );
       }
 
-      // ── Allergen detection from actual ingredients ─────────────────────
-    //  final List<String> detectedAllergens = [];
-      //final List<String> userDetectedTypes = [];
-
+      // Match detected allergen types against the user's allergy profile
       for (final type in detectedAllergenTypes) {
         if (userAllergyStrings.contains(type)) {
           final arabicName = _allergyArabicNames[type] ?? type;
@@ -312,7 +345,7 @@ for (final source in rawHiddenSources2) {
         }
       }
 
-      // Fallback: keyword scan on actual ingredients text
+      // Keyword-based fallback scan when Gemini returned no allergen matches
       if (detectedAllergens.isEmpty && geminiIngredients.isNotEmpty) {
         final lowerText = geminiIngredients.join(' ').toLowerCase();
         for (final allergyId in userAllergyStrings) {
@@ -332,14 +365,14 @@ for (final source in rawHiddenSources2) {
         }
       }
 
-      // ── Allergen detection from trace warnings ─────────────────────────
+      // Scan trace warning text for allergen keywords to capture cross-contamination risks
       if (traceWarnings.isNotEmpty) {
         final lowerTraceText = traceWarnings.join(' ').toLowerCase();
         for (final allergyId in userAllergyStrings) {
           if (!userDetectedTypes.contains(allergyId)) {
             final keywords = _allergyKeywords[allergyId] ?? [];
             for (final keyword in keywords) {
-              if (lowerTraceText.contains(keyword)) {
+              if (lowerTraceText.contains(keyword) && !lowerTraceText.contains('no $keyword')) {
                 final arabicName = _allergyArabicNames[allergyId] ?? allergyId;
                 if (!detectedAllergens.contains(arabicName)) {
                   detectedAllergens.add(arabicName);
@@ -355,8 +388,8 @@ for (final source in rawHiddenSources2) {
         }
       }
 
-     final bool geminiSaysUnsafe = aiResult['is_safe_for_user'] == false;
-    final safetyStatus = (detectedAllergens.isEmpty && !geminiSaysUnsafe) ? 'safe' : 'unsafe';
+      final bool geminiSaysUnsafe = aiResult['is_safe_for_user'] == false;
+      final safetyStatus = (detectedAllergens.isEmpty && !geminiSaysUnsafe) ? 'safe' : 'unsafe';
 
       final ingredientsText = [...geminiIngredients, ...traceWarnings].join('|||');
 
@@ -382,9 +415,8 @@ for (final source in rawHiddenSources2) {
         lastAltMs = 0;
       }
 
-      // ── Optimization 1: Collect background futures now (after Gemini) ──
+      // Resolve local image path immediately on-device without waiting for remote upload
       final localImagePath = await localPathFuture;
-      final remoteImageUrl = await remoteUrlFuture;
 
       final scanData = ProductScanData(
         productName: productName,
@@ -397,16 +429,23 @@ for (final source in rawHiddenSources2) {
         productTypeAr: productTypeAr,
         safetyStatus: safetyStatus,
         localImagePath: localImagePath,
-        remoteImageUrl: remoteImageUrl,
+        remoteImageUrl: null,
         mergedAlternatives: mergedAlternatives,
       );
 
-      // ── Optimization 4: Fire-and-forget history save ──────────────────
-      unawaited(_saveScanToHistory(
-        userId: userId,
-        scanData: scanData,
-        ingredientsText: ingredientsText,
-      ));
+      // Fire-and-forget: upload image and save history without blocking the result screen
+      unawaited(() async {
+        try {
+          final remoteImageUrl = await remoteUrlFuture;
+          await _saveScanToHistory(
+            userId: userId,
+            scanData: scanData.copyWith(remoteImageUrl: remoteImageUrl),
+            ingredientsText: ingredientsText,
+          );
+        } catch (e) {
+          print('⚠️ Background save failed: $e');
+        }
+      }());
 
       return ScanResult(
         success: true,
@@ -419,8 +458,9 @@ for (final source in rawHiddenSources2) {
     }
   }
 
-  // ── Everything below is UNTOUCHED ─────────────────────────────────────
+  // ── Storage Operations ───────────────────────────────────────────────────
 
+  // Write image bytes to the device's local documents directory under a scans subdirectory
   static Future<String?> _saveImageLocally(Uint8List imageBytes) async {
     try {
       final dir = await getApplicationDocumentsDirectory();
@@ -436,6 +476,7 @@ for (final source in rawHiddenSources2) {
     }
   }
 
+  // Upload image bytes to Supabase Storage and return the public URL
   static Future<String?> _uploadImageToStorage(Uint8List imageBytes, String userId) async {
     try {
       final fileName = '${userId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
@@ -451,7 +492,10 @@ for (final source in rawHiddenSources2) {
     }
   }
 
-  // ── Optimization 6: History query with .limit(50) ─────────────────────
+  // ── History Operations ───────────────────────────────────────────────────
+
+  // Fetch scan history by merging Supabase records with local image paths and alternatives data.
+  // Falls back to SQLite-only results when Supabase is unavailable.
   static Future<ScanResult> getScanHistory({required String userId}) async {
     final localData = await LocalDB.getScanHistory(userId: userId);
 
@@ -482,6 +526,7 @@ for (final source in rawHiddenSources2) {
           if (local['local_image_path']!.isNotEmpty) {
             map['local_image_path'] = local['local_image_path'];
           }
+          // Prefer local alternatives data when Supabase record is missing or empty
           if ((map['alternatives_json'] == null || map['alternatives_json'] == '[]') &&
               local['alternatives_json']!.isNotEmpty) {
             map['alternatives_json'] = local['alternatives_json'];
@@ -497,6 +542,7 @@ for (final source in rawHiddenSources2) {
     }
   }
 
+  // Delete all scan history records for a user from both SQLite and Supabase
   static Future<void> deleteAllHistory({required String userId}) async {
     await LocalDB.deleteScanHistory(userId: userId);
     try {
@@ -506,6 +552,7 @@ for (final source in rawHiddenSources2) {
     }
   }
 
+  // Delete a single scan record by history ID from both SQLite and Supabase
   static Future<void> deleteSingleScan({
     required String userId,
     required int historyId,
@@ -522,12 +569,14 @@ for (final source in rawHiddenSources2) {
     }
   }
 
+  // Persist a completed scan to Supabase and SQLite with a shared timestamp.
+  // Invalidates the history prefetch cache to ensure subsequent loads reflect the new record.
   static Future<void> _saveScanToHistory({
     required String userId,
     required ProductScanData scanData,
     required String ingredientsText,
   }) async {
-    // ── Optimization 8: Bust stale prefetch cache on every new scan ──────
+    // Bust prefetch cache so next history load fetches fresh data including this scan
     _invalidateHistoryCache();
 
     final scanDate = DateTime.now().toIso8601String();
@@ -584,6 +633,9 @@ for (final source in rawHiddenSources2) {
     }
   }
 
+  // ── Domain Constants ─────────────────────────────────────────────────────
+
+  // Maps allergen keys to ingredient keywords used for fallback text-based allergen detection
   static const Map<String, List<String>> _allergyKeywords = {
     'milk'        : ['milk', 'dairy', 'lactose', 'whey', 'casein', 'حليب', 'لاكتوز', 'كازين'],
     'eggs'        : ['egg', 'eggs', 'albumin', 'بيض'],
@@ -602,6 +654,7 @@ for (final source in rawHiddenSources2) {
     'mollusks'    : ['mollusc', 'squid', 'oyster', 'رخويات'],
   };
 
+  // Maps allergen keys to their Arabic display names for UI presentation
   static const Map<String, String> _allergyArabicNames = {
     'milk'        : 'الحليب ومشتقاته',
     'eggs'        : 'البيض',

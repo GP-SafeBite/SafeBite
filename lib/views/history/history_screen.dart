@@ -1,3 +1,5 @@
+// History Screen - Scan history with search, filter, and delete functionality
+
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -26,7 +28,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
   static const Color kGrey400 = Color(0xFFB3B3B3);
   static const Color kRed = Color(0xFFD32F2F);
 
-  // ✅ Problem 3 Solution: Font constants
   static final _titleStyle = GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w700);
   static final _searchTextStyle = GoogleFonts.tajawal(fontSize: 14);
   static final _searchHintStyle = GoogleFonts.tajawal(fontSize: 14, color: kGrey400);
@@ -57,6 +58,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
     super.dispose();
   }
 
+  // ── Data Loading Methods ──────────────────────────────────────
+  // Fetch scan history from Supabase for current user
   Future<void> _loadHistory() async {
     final user = await AuthService.getCurrentUser();
     if (user == null) { setState(() => _isLoading = false); return; }
@@ -75,6 +78,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
   }
 
+  // ── Search and Filter Methods ─────────────────────────────────
+  // Filter history by product name or allergens based on search query
   void _filterHistory() {
     final query = _searchController.text.trim().toLowerCase();
     setState(() {
@@ -88,6 +93,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
     });
   }
 
+  // ── Date/Time Formatting Methods ──────────────────────────────
+  // Format scan date as "Today", "Yesterday", or date string
   String _getDateLabel(String scanDate) {
     final date = DateTime.tryParse(scanDate);
     if (date == null) return 'قبل ذلك';
@@ -100,6 +107,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return '${date.day}/${date.month}/${date.year}';
   }
 
+  // Convert datetime to 12-hour format with AM/PM indicator
   String _formatTime(String scanDate) {
     final date = DateTime.tryParse(scanDate);
     if (date == null) return '';
@@ -110,6 +118,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return '$period$hour12:$minute';
   }
 
+  // ── Delete Methods ────────────────────────────────────────────
+  // Show confirmation dialog and delete all scan history
   Future<void> _deleteAll() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -136,6 +146,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
   }
 
+  // Delete single scan record with Supabase and local cache sync
   Future<void> _deleteSingle(Map<String, dynamic> item) async {
     final historyId = item['history_id'] as int?;
     if (historyId == null || _userId == null) return;
@@ -149,6 +160,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     _loadHistory();
   }
 
+  // ── Main UI Build Method ──────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
@@ -166,7 +178,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 child: Row(
                   children: [
                     GestureDetector(
-                      onTap: () => Get.back(),
+                      onTap: () => Get.to(() => const HomeScreen()), 
                       child: Container(
                         width: 40, height: 40,
                         decoration: BoxDecoration(color: kFieldBg, shape: BoxShape.circle),
@@ -241,6 +253,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
+  // ── History List Grouping Methods ─────────────────────────────
+  // Group scans by date label (Today, Yesterday, specific dates)
   Widget _buildHistoryList() {
     final Map<String, List<Map<String, dynamic>>> grouped = {};
     for (final item in _filteredHistory) {
@@ -267,6 +281,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
+  // ── History Item Builder ──────────────────────────────────────
+  // Build swipe-to-delete history item card with product details
   Widget _buildHistoryItem({required Map<String, dynamic> item}) {
     List<String> allergens = [];
     try { allergens = List<String>.from(jsonDecode(item['found_allergens'] ?? '[]')); } catch (_) {}

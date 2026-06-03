@@ -1,10 +1,12 @@
+// Article Model - Represent an educational article sourced from SFDA or Ministry of Health
+
 class ArticleModel {
   final String title;
   final String description;
   final String link;
   final String imageUrl;
   final String pubDate;
-  final String source; // 'SFDA' or 'MOH'
+  final String source;
 
   ArticleModel({
     required this.title,

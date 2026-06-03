@@ -1,3 +1,5 @@
+// Profile Screen - User profile management with allergen settings and theme control
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -26,7 +28,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   static const Color kPrimary = Color(0xFF9CCB7A);
   static const Color kGrey900 = Color(0xFF818898);
 
-  // ✅ Problem 3 Solution: Font constants
   static final _userNameStyle = GoogleFonts.tajawal(fontSize: 20, fontWeight: FontWeight.w700);
   static final _userEmailStyle = GoogleFonts.tajawal(fontSize: 14, color: kGrey900);
   static final _sectionTitleStyle = GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w700);
@@ -68,6 +69,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadUserData();
   }
 
+  // ── Data Loading Methods ──────────────────────────────────────
+  // Load user profile data and allergen preferences from Supabase
   Future<void> _loadUserData({bool forceRefresh = false}) async {
     final user = await AuthService.getCurrentUser();
     if (user == null) {
@@ -107,6 +110,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  // ── Photo Caching Methods ─────────────────────────────────────
+  // Cache profile photo locally with URL change detection
   static Future<String> _getCachedPhotoPath(
     String userId,
     String photoUrl, {
@@ -138,6 +143,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return '';
   }
 
+  // ── Photo Display Methods ─────────────────────────────────────
+  // Build profile photo with fallback to network or default icon
   Widget _buildProfilePhoto(double size) {
     if (_cachedPhotoPath.isNotEmpty) {
       final file = File(_cachedPhotoPath);
@@ -159,6 +166,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Icon(Icons.person, size: size * 0.5, color: Colors.white);
   }
 
+  // ── Main UI Build Method ──────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
@@ -275,6 +283,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  // ── Theme Toggle Methods ──────────────────────────────────────
   Widget _buildThemeToggleItem({required BuildContext context, required Color cardBg}) {
     final themeController = Get.find<ThemeController>();
     return Obx(() => Container(
@@ -289,6 +298,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ));
   }
 
+  // ── Setting Item Builder ───────────────────────────────────────
   Widget _buildSettingItem({required BuildContext context, required IconData icon, required String label, required Color cardBg, required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
@@ -305,6 +315,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  // ── Allergy Icon Builder ───────────────────────────────────────
   Widget _buildAllergyIcon({required BuildContext context, required String assetPath, required String label, required Color cardBg}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -317,6 +328,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  // ── Navigation Item Builder ───────────────────────────────────
   Widget _buildNavItem(IconData icon, String label, bool isActive, VoidCallback onTap) {
     return Expanded(
       child: GestureDetector(

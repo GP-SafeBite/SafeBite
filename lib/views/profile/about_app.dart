@@ -1,3 +1,5 @@
+// About App Screen - Display application information and details
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -13,7 +15,7 @@ class AboutAppScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
     final Color kFieldBg = Theme.of(context).cardColor;
-    final bool isDark = Theme.of(context).brightness == Brightness.dark; // [FIXED Dark Mode]
+    final bool isDark = Theme.of(context).brightness == Brightness.dark; 
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -27,7 +29,7 @@ class AboutAppScreen extends StatelessWidget {
                   padding: const EdgeInsets.all(20),
                   child: Column(
                     children: [
-                      // ========== HEADER ==========
+                      // ── Header ────────────────────────────────────────────────────
                       Row(
                         children: [
                           GestureDetector(
@@ -63,18 +65,17 @@ class AboutAppScreen extends StatelessWidget {
 
                       const SizedBox(height: 40),
 
-                      // ========== شعار التطبيق ==========
+                      // ── Logo ───────────────────────────────────────────────────────
                       SvgPicture.asset(
                         isDark
-                            ? 'assets/logo/logo_darkmode.svg' // [FIXED Dark Mode]
-                            : 'assets/logo/logo_lightmode.svg', // [FIXED Dark Mode]
+                            ? 'assets/logo/Logo_DarkMode.svg' 
+                            : 'assets/logo/Logo_LightMode.svg', 
                         width: 200,
                         height: 200,
                       ),
 
                       const SizedBox(height: 16),
 
-                      // ========== الإصدار ==========
                       Text(
                         'الإصدار 1.0.0',
                         style: GoogleFonts.tajawal(
@@ -86,7 +87,7 @@ class AboutAppScreen extends StatelessWidget {
 
                       const SizedBox(height: 32),
 
-                      // ========== نبذة عن التطبيق ==========
+                      // ── Description ───────────────────────────────────────────────
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: Text(
@@ -103,7 +104,7 @@ class AboutAppScreen extends StatelessWidget {
 
                       const SizedBox(height: 80),
 
-                      // ========== حقوق النشر ==========
+                      // ── Footer ────────────────────────────────────────────────────
                       Text(
                         '© 2025 SafeBite',
                         style: GoogleFonts.tajawal(

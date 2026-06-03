@@ -1,4 +1,5 @@
-// lib/widgets/custom_text_field.dart
+// CustomTextField - Reusable form input with optional password visibility toggle
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -26,6 +27,12 @@ class CustomTextField extends StatefulWidget {
 
 class _CustomTextFieldState extends State<CustomTextField> {
   bool _isObscured = true;
+
+  // Shared border instance to avoid redundant object creation across enabled, focused, and default states
+  static final _border = OutlineInputBorder(
+    borderRadius: BorderRadius.circular(12),
+    borderSide: BorderSide.none,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -58,25 +65,12 @@ class _CustomTextFieldState extends State<CustomTextField> {
                   color: widget.grey300,
                   size: 20,
                 ),
-                onPressed: () {
-                  setState(() {
-                    _isObscured = !_isObscured;
-                  });
-                },
+                onPressed: () => setState(() => _isObscured = !_isObscured),
               )
             : null,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,  // ✅ بدون حدود
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,  // ✅ بدون حدود
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,  // ✅ شيلت الحدود هنا
-        ),
+        border: _border,
+        enabledBorder: _border,
+        focusedBorder: _border,
       ),
     );
   }

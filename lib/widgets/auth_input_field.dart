@@ -1,3 +1,5 @@
+// AuthInputField - Reusable text input for authentication screens with optional password toggle
+
 import 'package:flutter/material.dart';
 
 class AuthInputField extends StatefulWidget {
@@ -50,7 +52,7 @@ class _AuthInputFieldState extends State<AuthInputField> {
             fontWeight: FontWeight.w500,
             color: widget.grey300,
           ),
-          // 👁️ على اليسار في RTL
+          // Visibility toggle positioned on leading edge for RTL layout
           suffixIcon: widget.isPassword
               ? IconButton(
                   iconSize: 22,

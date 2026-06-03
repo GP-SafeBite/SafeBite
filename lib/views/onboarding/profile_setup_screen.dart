@@ -1,3 +1,4 @@
+// Profile Setup - User allergen selection during registration
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -17,6 +18,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final Set<String> _selectedAllergies = {};
   bool _isLoading = false;
 
+  // SFDA approved allergen list (14 categories)
   final List<Map<String, dynamic>> _allAllergies = [
     {'name': 'الحليب', 'icon': 'assets/allergies14/milk.png', 'id': 'milk'},
     {'name': 'البيض', 'icon': 'assets/allergies14/eggs.png', 'id': 'eggs'},
@@ -47,6 +49,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       return;
     }
 
+    // Save selected allergens to Supabase
     final result = await ProfileService.saveUserAllergens(
       userId: user['user_id'],
       selectedIds: _selectedAllergies,
@@ -66,12 +69,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ [Added] Dynamic colors from Theme
     final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
     final Color kCardBg = Theme.of(context).cardColor;
 
     return Scaffold(
-      backgroundColor: kBackground, // ✅ [Added]
+      backgroundColor: kBackground, 
       body: SafeArea(
         child: Column(
           children: [
@@ -84,7 +86,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 style: GoogleFonts.tajawal(
                   fontSize: 24,
                   fontWeight: FontWeight.w700,
-                  color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
+                  color: Theme.of(context).colorScheme.onSurface, 
                 ),
               ),
             ),
@@ -111,7 +113,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   style: GoogleFonts.tajawal(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
+                    color: Theme.of(context).colorScheme.onSurface, 
                   ),
                 ),
               ),
@@ -145,7 +147,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         decoration: BoxDecoration(
                           color: isSelected
                               ? const Color(0xFFE8F5E9)
-                              : kCardBg, // ✅ [Added]
+                              : kCardBg, 
                           borderRadius: BorderRadius.circular(24),
                           border: Border.all(
                             color: isSelected
@@ -162,7 +164,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                               style: GoogleFonts.tajawal(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
-                                color: Theme.of(context).colorScheme.onSurface, // ✅ [Added]
+                                color: Theme.of(context).colorScheme.onSurface, 
                               ),
                             ),
                             const SizedBox(width: 8),

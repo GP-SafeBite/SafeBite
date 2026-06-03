@@ -1,17 +1,21 @@
+// Articles Service - Provide educational food allergy articles from hardcoded SFDA and MOH sources
+
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/article_model.dart';
 
 class ArticlesService {
+  // Return the full list of available educational articles
   static Future<List<ArticleModel>> fetchAllArticles() async {
     return _hardcodedArticles;
   }
 
+  // Determine whether a URL points to a PDF document
   static bool isPdf(String url) {
     return url.toLowerCase().endsWith('.pdf');
   }
 
-  // ✅ Fixed PDF launcher
+  // Open a PDF URL in an external application, falling back to the platform default if needed
   static Future<void> openPdf(String url) async {
     final uri = Uri.parse(url);
     try {
@@ -20,7 +24,6 @@ class ArticlesService {
         mode: LaunchMode.externalApplication,
       );
       if (!launched) {
-        // Fallback: try platform default
         await launchUrl(uri, mode: LaunchMode.platformDefault);
       }
     } catch (e) {
@@ -120,29 +123,29 @@ class ArticlesService {
     ),
   ];
 
-  // ✅ Emoji for each article (by index)
+  // Maps article index to its display emoji for UI presentation
   static const List<String> articleEmojis = [
-    '🍽️', // الحساسية الغذائية
-    '📋', // دليل شامل PDF
-    '🚑', // إسعافات أولية
-    '🥜', // الفول السوداني
-    '📄', // الفول السوداني PDF
-    '🌾', // السيلياك
-    '📄', // الغلوتين PDF
-    '🥛', // اللاكتوز
-    '📄', // السيلياك PDF
+    '🍽️',
+    '📋',
+    '🚑',
+    '🥜',
+    '📄',
+    '🌾',
+    '📄',
+    '🥛',
+    '📄',
   ];
 
-  // ✅ Background color for each article card
+  // Maps article index to its card background color for UI presentation
   static const List<Color> articleColors = [
-    Color(0xFFE8F5E9), // green
-    Color(0xFFE3F2FD), // blue
-    Color(0xFFFFEBEE), // red
-    Color(0xFFFFF8E1), // yellow
-    Color(0xFFF3E5F5), // purple
-    Color(0xFFFBE9E7), // orange
-    Color(0xFFE0F7FA), // cyan
-    Color(0xFFF1F8E9), // light green
-    Color(0xFFEDE7F6), // deep purple
+    Color(0xFFE8F5E9),
+    Color(0xFFE3F2FD),
+    Color(0xFFFFEBEE),
+    Color(0xFFFFF8E1),
+    Color(0xFFF3E5F5),
+    Color(0xFFFBE9E7),
+    Color(0xFFE0F7FA),
+    Color(0xFFF1F8E9),
+    Color(0xFFEDE7F6),
   ];
 }

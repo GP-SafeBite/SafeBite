@@ -1,3 +1,5 @@
+// Auth Service - Handle user registration, OTP verification, login, logout, and profile management
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../database/local_db.dart';
 import 'dart:io';
@@ -18,14 +20,14 @@ class AuthResult {
 class AuthService {
   static final _supabase = Supabase.instance.client;
 
-  static bool _isRegistering = false;
-  static bool _isVerifying = false;
-  static bool _isLoggingIn = false;
-  static bool _isSendingOTP = false;
+  static bool _isRegistering  = false;
+  static bool _isVerifying    = false;
+  static bool _isLoggingIn    = false;
+  static bool _isSendingOTP   = false;
 
-  // ──────────────────────────────────────────────
-  // REGISTER
-  // ──────────────────────────────────────────────
+  // ── Authentication Methods ───────────────────────────────────────────────
+
+  // Register a new user with Supabase and send an OTP verification code to the provided email
   static Future<AuthResult> register({
     required String name,
     required String email,
@@ -83,9 +85,7 @@ class AuthService {
     }
   }
 
-  // ──────────────────────────────────────────────
-  // VERIFY OTP (signup)
-  // ──────────────────────────────────────────────
+  // Verify a signup OTP code and persist the authenticated user to local storage
   static Future<AuthResult> verifyOTP({
     required String email,
     required String otpCode,
@@ -159,9 +159,7 @@ class AuthService {
     }
   }
 
-  // ──────────────────────────────────────────────
-  // RESEND OTP (signup)
-  // ──────────────────────────────────────────────
+  // Resend the signup OTP verification code to the given email address
   static Future<AuthResult> resendOTP({
     required String email,
   }) async {
@@ -179,9 +177,7 @@ class AuthService {
     }
   }
 
-  // ──────────────────────────────────────────────
-  // LOGIN (email + password)
-  // ──────────────────────────────────────────────
+  // Authenticate a returning user with email and password credentials
   static Future<AuthResult> login({
     required String email,
     required String password,
@@ -274,9 +270,7 @@ class AuthService {
     }
   }
 
-  // ──────────────────────────────────────────────
-  // SEND LOGIN OTP (passwordless login)
-  // ──────────────────────────────────────────────
+  // Send a passwordless login OTP to the given email address
   static Future<AuthResult> sendLoginOTP({
     required String email,
   }) async {
@@ -315,9 +309,7 @@ class AuthService {
     }
   }
 
-  // ──────────────────────────────────────────────
-  // VERIFY LOGIN OTP (passwordless login)
-  // ──────────────────────────────────────────────
+  // Verify a passwordless login OTP and restore the user session including allergy data
   static Future<AuthResult> verifyLoginOTP({
     required String email,
     required String otpCode,
@@ -392,9 +384,7 @@ class AuthService {
     }
   }
 
-  // ──────────────────────────────────────────────
-  // LOGOUT
-  // ──────────────────────────────────────────────
+  // Sign out from Supabase and clear the local user session
   static Future<AuthResult> logout() async {
     try {
       await _supabase.auth.signOut();
@@ -406,9 +396,7 @@ class AuthService {
     }
   }
 
-  // ──────────────────────────────────────────────
-  // IS LOGGED IN
-  // ──────────────────────────────────────────────
+  // Check whether a valid session exists in Supabase or a local user record is present
   static Future<bool> isLoggedIn() async {
     final session = _supabase.auth.currentSession;
     if (session != null) return true;
@@ -416,16 +404,12 @@ class AuthService {
     return localUser != null;
   }
 
-  // ──────────────────────────────────────────────
-  // GET CURRENT USER
-  // ──────────────────────────────────────────────
+  // Retrieve the currently authenticated user from local storage
   static Future<Map<String, dynamic>?> getCurrentUser() async {
     return await LocalDB.getUser();
   }
 
-  // ──────────────────────────────────────────────
-  // UPDATE USER NAME
-  // ──────────────────────────────────────────────
+  // Update the user display name in Supabase and local SQLite simultaneously
   static Future<bool> updateUserName({required String newName}) async {
     try {
       final user = await getCurrentUser();
@@ -451,9 +435,8 @@ class AuthService {
     }
   }
 
-  // ──────────────────────────────────────────────
-  // UPLOAD PROFILE PHOTO
-  // ──────────────────────────────────────────────
+  // Upload a new profile photo to Supabase Storage and update the URL in both databases.
+  // Appends a version timestamp to the URL to invalidate the local photo cache on subsequent loads.
   static Future<String?> uploadProfilePhoto({
     required String userId,
     required String filePath,
@@ -479,28 +462,22 @@ class AuthService {
             ),
           );
 
-      // ✅ FIX: append timestamp so the URL changes on every upload.
-      // Without this, Supabase always returns the same URL for the same
-      // file path (userId/avatar.jpg), so _getCachedPhotoPath sees
-      // urlChanged=false and NEVER re-downloads the new image.
+      // Append timestamp to force URL change on every upload, ensuring the local cache detects the update
       final baseUrl = _supabase.storage.from('avatars').getPublicUrl(fileName);
       final photoUrl = '$baseUrl?v=${DateTime.now().millisecondsSinceEpoch}';
 
-      // ✅ FIX: delete the old local cache file immediately so that even
-      // if there is a race condition, the stale image is never served.
+      // Remove stale local cache file immediately to prevent serving outdated photo during race conditions
       try {
         final dir = await getApplicationDocumentsDirectory();
         final cacheFile = File('${dir.path}/profile_$userId.jpg');
         if (await cacheFile.exists()) await cacheFile.delete();
       } catch (_) {}
 
-      // Save versioned URL to Supabase User table
       await _supabase
           .from('User')
           .update({'photo_url': photoUrl})
           .eq('user_id', userId);
 
-      // Save versioned URL to SQLite
       final db = await LocalDB.getDatabase();
       await db.update(
         'current_user',
@@ -516,9 +493,8 @@ class AuthService {
     }
   }
 
-  // ──────────────────────────────────────────────
-  // DELETE PROFILE PHOTO
-  // ──────────────────────────────────────────────
+  // Remove the profile photo from Supabase Storage, clear the URL in both databases,
+  // and delete the local cache file
   static Future<bool> deleteProfilePhoto({required String userId}) async {
     try {
       await _supabase.storage
@@ -538,7 +514,6 @@ class AuthService {
         whereArgs: [userId],
       );
 
-      // ✅ Also delete the local cache file when photo is removed
       try {
         final dir = await getApplicationDocumentsDirectory();
         final cacheFile = File('${dir.path}/profile_$userId.jpg');

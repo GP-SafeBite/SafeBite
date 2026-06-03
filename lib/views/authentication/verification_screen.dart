@@ -1,3 +1,5 @@
+// Verification Screen - OTP email verification for registration and login
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -37,11 +39,14 @@ class _VerificationScreenState extends State<VerificationScreen> {
   void initState() {
     super.initState();
     _startTimer();
+    // Request focus on first OTP box after frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _nodes[0].requestFocus();
     });
   }
 
+  // ── Timer Management ──────────────────────────────────────────
+  // Start 60-second countdown for OTP resend
   void _startTimer() {
     _timer?.cancel();
     setState(() => _secondsRemaining = 60);
@@ -62,25 +67,33 @@ class _VerificationScreenState extends State<VerificationScreen> {
     super.dispose();
   }
 
+  // ── OTP Input Handling ────────────────────────────────────────
   String get _otpCode => _controllers.map((c) => c.text.trim()).join();
 
+  // Handle OTP digit input with auto-focus navigation
   void _onOtpChanged(int index, String value) {
+    // Prevent multi-digit input
     if (value.length > 1) {
       _controllers[index].text = value.substring(value.length - 1);
       _controllers[index].selection =
           TextSelection.fromPosition(const TextPosition(offset: 1));
     }
+    // Auto-focus next box on input
     if (_controllers[index].text.isNotEmpty && index < 5) {
       _nodes[index + 1].requestFocus();
     }
+    // Auto-focus previous box on backspace
     if (_controllers[index].text.isEmpty && index > 0) {
       _nodes[index - 1].requestFocus();
     }
   }
 
+  // ── Verification Methods ──────────────────────────────────────
+  // Resend OTP after 60-second cooldown
   Future<void> _resendCode() async {
     if (_secondsRemaining > 0) return;
 
+    // Call appropriate Supabase method based on mode
     final result = widget.isLoginMode
         ? await AuthService.sendLoginOTP(email: widget.email)
         : await AuthService.resendOTP(email: widget.email);
@@ -92,7 +105,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
     );
   }
 
+  // Verify OTP code with Supabase
   Future<void> _verifyCode() async {
+    // Validate OTP length
     if (_otpCode.length != 6) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('فضلاً أدخل الرمز كاملًا')),
@@ -100,12 +115,14 @@ class _VerificationScreenState extends State<VerificationScreen> {
       return;
     }
 
+    // Show loading indicator during verification
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
 
+    // Call Supabase to verify OTP based on mode
     final result = widget.isLoginMode
         ? await AuthService.verifyLoginOTP(
             email: widget.email,
@@ -119,6 +136,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
     if (mounted) Navigator.of(context).pop();
     if (!mounted) return;
 
+    // Navigate based on verification result and mode
     if (result.success) {
       if (widget.isLoginMode) {
         Get.offAll(() => const HomeScreen());
@@ -132,6 +150,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
     }
   }
 
+  // Show success dialog after email verification
   void _showSuccessDialog() {
     showDialog(
       context: context,
@@ -139,7 +158,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
       barrierColor: _overlay,
       builder: (_) {
         return Dialog(
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor, // ✅ [Added]
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor, 
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           child: Padding(
@@ -202,6 +221,8 @@ class _VerificationScreenState extends State<VerificationScreen> {
     );
   }
 
+  // ── OTP Box Builder ───────────────────────────────────────────
+  // Build individual OTP input box with locking logic
   Widget _otpBox(int index) {
     bool isLocked() {
       final firstEmpty = _controllers.indexWhere((c) => c.text.isEmpty);
@@ -210,6 +231,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
 
     return GestureDetector(
       onTap: () {
+        // Auto-focus first empty box when tapping locked box
         if (isLocked()) {
           final firstEmpty = _controllers.indexWhere((c) => c.text.isEmpty);
           _nodes[firstEmpty].requestFocus();
@@ -230,7 +252,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
             decoration: InputDecoration(
               counterText: '',
               filled: true,
-              fillColor: Theme.of(context).cardColor, // ✅ [Added]
+              fillColor: Theme.of(context).cardColor,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide.none,
@@ -243,12 +265,13 @@ class _VerificationScreenState extends State<VerificationScreen> {
     );
   }
 
+  // ── UI Build Method ───────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor, // ✅ [Added]
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),

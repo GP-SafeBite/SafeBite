@@ -1,3 +1,5 @@
+// CustomButton - Primary action button used across all screens
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -10,6 +12,12 @@ class CustomButton extends StatelessWidget {
     required this.text,
     required this.onTap,
   });
+
+  static final _textStyle = GoogleFonts.tajawal(
+    fontSize: 16,
+    fontWeight: FontWeight.w700,
+    color: Colors.white,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -27,14 +35,7 @@ class CustomButton extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
           ),
-          child: Text(
-            text,
-            style: GoogleFonts.tajawal(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,  // ✅ غيّرت من w600 لـ w700 (Bold)
-              color: Colors.white,
-            ),
-          ),
+          child: Text(text, style: _textStyle),
         ),
       ),
     );

@@ -1,3 +1,5 @@
+// Alternatives Screen - Safe product alternatives based on detected allergens
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:get/get.dart';
@@ -48,6 +50,8 @@ class _AlternativesScreenState extends State<AlternativesScreen> {
     }
   }
 
+  // ── Alternative Loading Methods ───────────────────────────────
+  // Fetch alternatives from Supabase based on allergen types
   Future<void> _loadAlternatives() async {
     try {
       final results = await AlternativesService.getAlternatives(
@@ -63,22 +67,24 @@ class _AlternativesScreenState extends State<AlternativesScreen> {
     }
   }
 
+  // ── Main UI Build Method ──────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    final Color kBackground = Theme.of(context).scaffoldBackgroundColor; // [FIXED Dark Mode]
-    final Color kCardBg = Theme.of(context).cardColor; // [FIXED Dark Mode]
+    final Color kBackground = Theme.of(context).scaffoldBackgroundColor; 
+    final Color kCardBg = Theme.of(context).cardColor; 
 
+    // Separate alternatives into database products (id != -1) and AI-generated (id == -1)
     final dbProducts = _alternatives.where((a) => a.id != -1).toList();
     final llmProducts = _alternatives.where((a) => a.id == -1).toList();
 
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: kBackground, // [FIXED Dark Mode]
+        backgroundColor: kBackground, 
         body: SafeArea(
           child: Column(
             children: [
-              // ── Header ──────────────────────────────────────────────────
+              // ── Header ────────────────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.all(20),
                 child: Row(
@@ -88,17 +94,17 @@ class _AlternativesScreenState extends State<AlternativesScreen> {
                       child: Container(
                         width: 40, height: 40,
                         decoration: BoxDecoration(
-                          color: kCardBg, // [FIXED Dark Mode]
+                          color: kCardBg,
                           shape: BoxShape.circle,
                         ),
                         child: Icon(Icons.arrow_back,
-                            color: Theme.of(context).colorScheme.onSurface, size: 20), // [FIXED Dark Mode]
+                            color: Theme.of(context).colorScheme.onSurface, size: 20),
                       ),
                     ),
                     const Spacer(),
                     Text('البدائل الآمنة',
                       style: GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w700,
-                          color: Theme.of(context).colorScheme.onSurface), // [FIXED Dark Mode]
+                          color: Theme.of(context).colorScheme.onSurface), 
                     ),
                     const Spacer(),
                     const SizedBox(width: 40),
@@ -106,7 +112,7 @@ class _AlternativesScreenState extends State<AlternativesScreen> {
                 ),
               ),
 
-              // ── Allergen banner ──────────────────────────────────────────
+              // ── Allergen Banner ───────────────────────────────────────────
               if (widget.detectedAllergens.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
@@ -125,7 +131,7 @@ class _AlternativesScreenState extends State<AlternativesScreen> {
                   ),
                 ),
 
-              // ── Body ────────────────────────────────────────────────────
+              // ── Body ──────────────────────────────────────────────────────
               Expanded(
                 child: _isLoading
                     ? const Center(child: CircularProgressIndicator())
@@ -172,6 +178,8 @@ class _AlternativesScreenState extends State<AlternativesScreen> {
     );
   }
 
+  // ── LLM Products Toggle Methods ───────────────────────────────
+  // Toggle visibility of AI-generated alternatives with count badge
   Widget _buildLlmToggleButton(int count) {
     return GestureDetector(
       onTap: () => setState(() => _llmExpanded = !_llmExpanded),
@@ -203,6 +211,7 @@ class _AlternativesScreenState extends State<AlternativesScreen> {
     );
   }
 
+  // Warning message for unverified AI-generated alternatives
   Widget _buildLlmDisclaimer() {
     return Container(
       width: double.infinity,
@@ -242,6 +251,8 @@ class _AlternativesScreenState extends State<AlternativesScreen> {
     );
   }
 
+  // ── Product Card Builder ──────────────────────────────────────
+  // Build product card with different styling for database vs AI products
   Widget _buildProductCard(AlternativeProduct product, {required bool isLlm, required Color kCardBg}) {
     final cardColor = isLlm ? kYellow : Colors.green;
     final borderColor = cardColor.withOpacity(0.3);
@@ -250,7 +261,7 @@ class _AlternativesScreenState extends State<AlternativesScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: kCardBg, // [FIXED Dark Mode]
+        color: kCardBg,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: borderColor),
       ),

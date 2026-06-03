@@ -1,3 +1,5 @@
+// Article Detail Screen - Display article content via WebView or external PDF opener
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -28,12 +30,14 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
   void initState() {
     super.initState();
 
+    // Check if article link is PDF - open in external browser instead of WebView
     if (ArticlesService.isPdf(widget.article.link)) {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await ArticlesService.openPdf(widget.article.link);
         if (mounted) Navigator.pop(context);
       });
     } else {
+      // Setup WebViewController for URL-based articles
       _webViewController = WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
         ..setNavigationDelegate(NavigationDelegate(
@@ -45,17 +49,18 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
     }
   }
 
+  // ── Main UI Build Method ──────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    final Color kBackground = Theme.of(context).scaffoldBackgroundColor; // [FIXED Dark Mode]
-    final Color kFieldBg = Theme.of(context).cardColor; // [FIXED Dark Mode]
+    final Color kBackground = Theme.of(context).scaffoldBackgroundColor; 
+    final Color kFieldBg = Theme.of(context).cardColor; 
 
     // Show loading while PDF opens in external browser
     if (ArticlesService.isPdf(widget.article.link)) {
       return Directionality(
         textDirection: TextDirection.rtl,
         child: Scaffold(
-          backgroundColor: kBackground, // [FIXED Dark Mode]
+          backgroundColor: kBackground, 
           body: Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -79,11 +84,11 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: kBackground, // [FIXED Dark Mode]
+        backgroundColor: kBackground, 
         body: SafeArea(
           child: Column(
             children: [
-              // ========== HEADER ==========
+              // ── Header ────────────────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
                 child: Row(
@@ -94,12 +99,12 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                         width: 40,
                         height: 40,
                         decoration: BoxDecoration(
-                          color: kFieldBg, // [FIXED Dark Mode]
+                          color: kFieldBg, 
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
                           Icons.arrow_back,
-                          color: Theme.of(context).colorScheme.onSurface, // [FIXED Dark Mode]
+                          color: Theme.of(context).colorScheme.onSurface, 
                           size: 20,
                         ),
                       ),
@@ -129,7 +134,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                 ),
               ),
 
-              // ========== ARTICLE TITLE ==========
+              // ── Article Title ────────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Text(
@@ -145,7 +150,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
 
               const SizedBox(height: 16),
 
-              // ========== WEBVIEW ==========
+              // ── WebView Content ──────────────────────────────────────────
               Expanded(
                 child: Stack(
                   children: [

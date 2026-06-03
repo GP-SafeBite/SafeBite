@@ -1,8 +1,10 @@
-// Product.Service.dart
+// Product Service - Retrieve product information from the Open Food Facts API by barcode
+
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ProductService {
+  // Fetch product name and ingredients from Open Food Facts using the given barcode
   Future<Map<String, dynamic>?> getProductByBarcode(String barcode) async {
     try {
       final url = Uri.parse(

@@ -1,3 +1,5 @@
+// Educational Content Screen - Browse SFDA and MOH articles with search functionality
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -21,7 +23,6 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
   static const Color kGrey900 = Color(0xFF818898);
   static const Color kGrey400 = Color(0xFFB3B3B3);
 
-  // ✅ Problem 3 Solution: Font constants
   static final _titleStyle = GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.w700);
   static final _searchTextStyle = GoogleFonts.tajawal(fontSize: 14);
   static final _searchHintStyle = GoogleFonts.tajawal(fontSize: 14, color: kGrey400);
@@ -49,6 +50,8 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
     super.dispose();
   }
 
+  // ── Article Loading Methods ───────────────────────────────────
+  // Fetch all articles from Supabase with error handling
   Future<void> _loadArticles() async {
     try {
       final articles = await ArticlesService.fetchAllArticles();
@@ -71,6 +74,8 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
     }
   }
 
+  // ── Search and Filter Methods ─────────────────────────────────
+  // Filter articles by title or description based on search query
   void _filterArticles() {
     final query = _searchController.text.trim().toLowerCase();
     setState(() {
@@ -83,6 +88,7 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
     });
   }
 
+  // ── Main UI Build Method ──────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final Color kBackground = Theme.of(context).scaffoldBackgroundColor;
