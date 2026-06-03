@@ -46,7 +46,7 @@ class SafeResultScreen extends StatelessWidget {
                   child: Row(
                     children: [
                       GestureDetector(
-                        onTap: () => Get.to(() => const HistoryScreen()),
+                        onTap: () => Get.until((route) => route.isFirst),
                         child: Container(
                           width: 40,
                           height: 40,

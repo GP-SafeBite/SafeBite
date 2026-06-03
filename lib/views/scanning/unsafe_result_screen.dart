@@ -10,7 +10,6 @@ import '../../services/alternatives_service.dart';
 import '../home/home_screen.dart';
 import '../history/history_screen.dart';
 
-
 class UnsafeResultScreen extends StatefulWidget {
   final String productName;
   final List<String> detectedAllergens;
@@ -73,13 +72,13 @@ class _UnsafeResultScreenState extends State<UnsafeResultScreen> {
           child: SingleChildScrollView(
             child: Column(
               children: [
-                // ── Header ────────────────────────────────────────────────────                
+                // ── Header ────────────────────────────────────────────────────
                 Padding(
                   padding: const EdgeInsets.all(20),
                   child: Row(
                     children: [
                       GestureDetector(
-                        onTap: () => Get.to(() => const HistoryScreen()),
+                        onTap: () => Get.until((route) => route.isFirst),
                         child: Container(
                           width: 40,
                           height: 40,
